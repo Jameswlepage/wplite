@@ -1,0 +1,38 @@
+{
+  "id": "inquiry",
+  "label": "Inquiries",
+  "type": "collection",
+  "postType": "inquiry",
+  "public": false,
+  "showUi": true,
+  "supports": [
+    "title",
+    "editor",
+    "custom-fields",
+    "revisions"
+  ],
+  "fields": {
+    "email": {
+      "type": "email",
+      "label": "Email"
+    },
+    "company": {
+      "type": "text",
+      "label": "Company"
+    },
+    "status": {
+      "type": "select",
+      "label": "Status",
+      "options": [
+        "new",
+        "in_review",
+        "replied",
+        "archived"
+      ]
+    },
+    "source": {
+      "type": "text",
+      "label": "Source"
+    }
+  }
+}

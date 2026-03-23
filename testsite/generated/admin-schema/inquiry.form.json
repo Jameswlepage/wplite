@@ -1,0 +1,73 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "inquiry"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "content",
+      "label": "Content",
+      "type": "richtext"
+    },
+    {
+      "id": "email",
+      "label": "Email",
+      "type": "email"
+    },
+    {
+      "id": "company",
+      "label": "Company",
+      "type": "text"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "type": "select",
+      "options": [
+        "new",
+        "in_review",
+        "replied",
+        "archived"
+      ]
+    },
+    {
+      "id": "source",
+      "label": "Source",
+      "type": "text"
+    }
+  ],
+  "form": {
+    "type": "card",
+    "children": [
+      {
+        "id": "section-1",
+        "label": "Section 1",
+        "children": [
+          "title",
+          "excerpt",
+          "content",
+          "email"
+        ]
+      },
+      {
+        "id": "section-2",
+        "label": "Section 2",
+        "children": [
+          "company",
+          "status",
+          "source"
+        ]
+      }
+    ]
+  }
+}

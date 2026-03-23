@@ -1,0 +1,13 @@
+{
+  "apiVersion": 3,
+  "name": "portfolio/project-filter",
+  "title": "Project Filter",
+  "category": "widgets",
+  "icon": "filter",
+  "description": "Shows project taxonomy shortcuts.",
+  "supports": {
+    "html": false
+  },
+  "viewScript": "file:./view.js",
+  "render": "file:./render.php"
+}

@@ -1,0 +1,112 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "project"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "modified",
+      "label": "Updated",
+      "type": "datetime"
+    },
+    {
+      "id": "client_name",
+      "label": "Client",
+      "type": "text"
+    },
+    {
+      "id": "client_url",
+      "label": "Client URL",
+      "type": "url"
+    },
+    {
+      "id": "year",
+      "label": "Year",
+      "type": "integer"
+    },
+    {
+      "id": "role",
+      "label": "Role",
+      "type": "text"
+    },
+    {
+      "id": "featured",
+      "label": "Featured",
+      "type": "boolean"
+    },
+    {
+      "id": "status",
+      "label": "Status",
+      "type": "select",
+      "options": [
+        "live",
+        "archived",
+        "concept"
+      ]
+    },
+    {
+      "id": "external_url",
+      "label": "Live URL",
+      "type": "url"
+    },
+    {
+      "id": "repo_url",
+      "label": "Repository URL",
+      "type": "url"
+    },
+    {
+      "id": "metrics",
+      "label": "Metrics",
+      "type": "repeater",
+      "item": {
+        "label": {
+          "type": "text"
+        },
+        "value": {
+          "type": "text"
+        }
+      }
+    },
+    {
+      "id": "project_type",
+      "label": "Project Type",
+      "type": "array"
+    },
+    {
+      "id": "technology",
+      "label": "Technology",
+      "type": "array"
+    }
+  ],
+  "view": {
+    "type": "table",
+    "columns": [
+      "title",
+      "year",
+      "featured",
+      "status",
+      "modified"
+    ],
+    "filters": [
+      "featured",
+      "status",
+      "year",
+      "project_type",
+      "technology"
+    ],
+    "sort": {
+      "field": "modified",
+      "direction": "desc"
+    }
+  }
+}

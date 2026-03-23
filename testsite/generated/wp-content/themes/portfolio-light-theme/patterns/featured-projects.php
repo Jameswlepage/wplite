@@ -1,0 +1,29 @@
+<?php
+/**
+ * Title: Featured Projects
+ * Slug: portfolio-light-theme/featured-projects
+ * Categories: portfolio-light-theme
+ * Inserter: yes
+ */
+?>
+<!-- wp:group {"layout":{"type":"constrained"}} -->
+<div class="wp-block-group">
+	<!-- wp:heading {"level":2} -->
+	<h2>Featured Projects</h2>
+	<!-- /wp:heading -->
+
+	<!-- wp:query {"query":{"perPage":3,"postType":"project","metaQuery":[{"key":"featured","value":"1"}]}} -->
+	<div class="wp-block-query">
+		<!-- wp:post-template {"layout":{"type":"grid","columnCount":3}} -->
+			<!-- wp:group {"style":{"spacing":{"padding":{"top":"20px","right":"20px","bottom":"20px","left":"20px"}},"border":{"width":"1px","color":"#e5e7eb"}}} -->
+			<div class="wp-block-group has-border-color" style="border-color:#e5e7eb;border-width:1px;padding-top:20px;padding-right:20px;padding-bottom:20px;padding-left:20px">
+				<!-- wp:post-title {"isLink":true} /-->
+				<!-- wp:post-excerpt /-->
+			</div>
+			<!-- /wp:group -->
+		<!-- /wp:post-template -->
+	</div>
+	<!-- /wp:query -->
+</div>
+<!-- /wp:group -->
+

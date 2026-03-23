@@ -1,0 +1,55 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "post"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "content",
+      "label": "Content",
+      "type": "richtext"
+    },
+    {
+      "id": "category",
+      "label": "Category",
+      "type": "array"
+    },
+    {
+      "id": "post_tag",
+      "label": "Post Tag",
+      "type": "array"
+    }
+  ],
+  "form": {
+    "type": "card",
+    "children": [
+      {
+        "id": "section-1",
+        "label": "Section 1",
+        "children": [
+          "title",
+          "excerpt",
+          "content",
+          "category"
+        ]
+      },
+      {
+        "id": "section-2",
+        "label": "Section 2",
+        "children": [
+          "post_tag"
+        ]
+      }
+    ]
+  }
+}

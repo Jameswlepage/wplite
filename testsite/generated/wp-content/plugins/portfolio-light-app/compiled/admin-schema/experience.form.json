@@ -1,0 +1,73 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "experience"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "content",
+      "label": "Content",
+      "type": "richtext"
+    },
+    {
+      "id": "company",
+      "label": "Company",
+      "type": "text"
+    },
+    {
+      "id": "location",
+      "label": "Location",
+      "type": "text"
+    },
+    {
+      "id": "start_year",
+      "label": "Start Year",
+      "type": "integer"
+    },
+    {
+      "id": "end_year",
+      "label": "End Year",
+      "type": "integer"
+    },
+    {
+      "id": "current",
+      "label": "Current",
+      "type": "boolean"
+    }
+  ],
+  "form": {
+    "type": "card",
+    "children": [
+      {
+        "id": "section-1",
+        "label": "Section 1",
+        "children": [
+          "title",
+          "excerpt",
+          "content",
+          "company"
+        ]
+      },
+      {
+        "id": "section-2",
+        "label": "Section 2",
+        "children": [
+          "location",
+          "start_year",
+          "end_year",
+          "current"
+        ]
+      }
+    ]
+  }
+}

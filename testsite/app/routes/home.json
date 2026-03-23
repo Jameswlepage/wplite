@@ -1,0 +1,11 @@
+{
+  "id": "home",
+  "type": "page",
+  "slug": "",
+  "title": "Home",
+  "template": "front-page",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish"
+  }
+}

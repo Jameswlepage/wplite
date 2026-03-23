@@ -1,0 +1,39 @@
+{
+  "id": "portfolio-site",
+  "title": "Jane Doe",
+  "tagline": "Designer, developer, and AI builder",
+  "mode": "light",
+  "content": {
+    "mode": "files",
+    "format": "markdown",
+    "pull": true,
+    "push": true,
+    "databaseFirst": false,
+    "collections": {
+      "project": {
+        "sync": true
+      },
+      "testimonial": {
+        "sync": true
+      },
+      "experience": {
+        "sync": true
+      },
+      "post": {
+        "sync": true
+      },
+      "page": {
+        "sync": false
+      }
+    }
+  },
+  "frontPage": "home",
+  "postsPage": "writing",
+  "theme": {
+    "slug": "portfolio-light-theme",
+    "sourceDir": "theme"
+  },
+  "plugin": {
+    "slug": "portfolio-light-app"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "post"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "modified",
+      "label": "Updated",
+      "type": "datetime"
+    },
+    {
+      "id": "category",
+      "label": "Category",
+      "type": "array"
+    },
+    {
+      "id": "post_tag",
+      "label": "Post Tag",
+      "type": "array"
+    }
+  ],
+  "view": {
+    "type": "table",
+    "columns": [
+      "title",
+      "excerpt",
+      "modified",
+      "category",
+      "post_tag"
+    ],
+    "filters": [
+      "category",
+      "post_tag"
+    ],
+    "sort": {
+      "field": "modified",
+      "direction": "desc"
+    }
+  }
+}

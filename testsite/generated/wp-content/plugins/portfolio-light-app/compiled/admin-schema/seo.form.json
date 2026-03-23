@@ -1,0 +1,37 @@
+{
+  "entity": {
+    "kind": "singleton",
+    "name": "seo"
+  },
+  "fields": [
+    {
+      "id": "default_title",
+      "label": "Default Title",
+      "type": "text"
+    },
+    {
+      "id": "meta_description",
+      "label": "Meta Description",
+      "type": "richtext"
+    },
+    {
+      "id": "og_image",
+      "label": "Open Graph Image",
+      "type": "image"
+    }
+  ],
+  "form": {
+    "type": "card",
+    "children": [
+      {
+        "id": "section-1",
+        "label": "Section 1",
+        "children": [
+          "default_title",
+          "meta_description",
+          "og_image"
+        ]
+      }
+    ]
+  }
+}

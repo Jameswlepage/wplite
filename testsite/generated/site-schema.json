@@ -1,0 +1,718 @@
+{
+  "site": {
+    "id": "portfolio-site",
+    "title": "Jane Doe",
+    "tagline": "Designer, developer, and AI builder",
+    "mode": "light",
+    "content": {
+      "mode": "files",
+      "format": "markdown",
+      "pull": true,
+      "push": true,
+      "databaseFirst": false,
+      "collections": {
+        "project": {
+          "sync": true
+        },
+        "testimonial": {
+          "sync": true
+        },
+        "experience": {
+          "sync": true
+        },
+        "post": {
+          "sync": true
+        },
+        "page": {
+          "sync": false
+        }
+      }
+    },
+    "frontPage": "home",
+    "postsPage": "writing",
+    "theme": {
+      "slug": "portfolio-light-theme",
+      "sourceDir": "theme"
+    },
+    "plugin": {
+      "slug": "portfolio-light-app"
+    }
+  },
+  "models": [
+    {
+      "singularLabel": "Experience",
+      "adminPath": "experiences",
+      "id": "experience",
+      "label": "Experience",
+      "type": "collection",
+      "postType": "experience",
+      "public": true,
+      "supports": [
+        "title",
+        "editor",
+        "thumbnail",
+        "revisions"
+      ],
+      "fields": {
+        "company": {
+          "type": "text",
+          "label": "Company"
+        },
+        "location": {
+          "type": "text",
+          "label": "Location"
+        },
+        "start_year": {
+          "type": "integer",
+          "label": "Start Year"
+        },
+        "end_year": {
+          "type": "integer",
+          "label": "End Year"
+        },
+        "current": {
+          "type": "boolean",
+          "label": "Current"
+        }
+      }
+    },
+    {
+      "singularLabel": "Inquiry",
+      "adminPath": "inquiries",
+      "id": "inquiry",
+      "label": "Inquiries",
+      "type": "collection",
+      "postType": "inquiry",
+      "public": false,
+      "showUi": true,
+      "supports": [
+        "title",
+        "editor",
+        "custom-fields",
+        "revisions"
+      ],
+      "fields": {
+        "email": {
+          "type": "email",
+          "label": "Email"
+        },
+        "company": {
+          "type": "text",
+          "label": "Company"
+        },
+        "status": {
+          "type": "select",
+          "label": "Status",
+          "options": [
+            "new",
+            "in_review",
+            "replied",
+            "archived"
+          ]
+        },
+        "source": {
+          "type": "text",
+          "label": "Source"
+        }
+      }
+    },
+    {
+      "singularLabel": "Project",
+      "adminPath": "projects",
+      "id": "project",
+      "label": "Projects",
+      "type": "collection",
+      "postType": "project",
+      "archiveSlug": "work",
+      "public": true,
+      "supports": [
+        "title",
+        "editor",
+        "excerpt",
+        "thumbnail",
+        "revisions"
+      ],
+      "taxonomies": [
+        "project_type",
+        "technology"
+      ],
+      "fields": {
+        "client_name": {
+          "type": "text",
+          "label": "Client"
+        },
+        "client_url": {
+          "type": "url",
+          "label": "Client URL"
+        },
+        "year": {
+          "type": "integer",
+          "label": "Year"
+        },
+        "role": {
+          "type": "text",
+          "label": "Role"
+        },
+        "featured": {
+          "type": "boolean",
+          "label": "Featured"
+        },
+        "status": {
+          "type": "select",
+          "label": "Status",
+          "options": [
+            "live",
+            "archived",
+            "concept"
+          ]
+        },
+        "external_url": {
+          "type": "url",
+          "label": "Live URL"
+        },
+        "repo_url": {
+          "type": "url",
+          "label": "Repository URL"
+        },
+        "metrics": {
+          "type": "repeater",
+          "label": "Metrics",
+          "item": {
+            "label": {
+              "type": "text"
+            },
+            "value": {
+              "type": "text"
+            }
+          }
+        }
+      },
+      "editorTemplate": [
+        [
+          "core/paragraph",
+          {
+            "placeholder": "One-line summary"
+          }
+        ],
+        [
+          "core/image",
+          {}
+        ],
+        [
+          "core/heading",
+          {
+            "content": "Challenge",
+            "level": 2
+          }
+        ],
+        [
+          "core/paragraph",
+          {
+            "placeholder": "Describe the problem"
+          }
+        ],
+        [
+          "core/heading",
+          {
+            "content": "Approach",
+            "level": 2
+          }
+        ],
+        [
+          "core/paragraph",
+          {
+            "placeholder": "Describe the solution"
+          }
+        ],
+        [
+          "core/heading",
+          {
+            "content": "Outcome",
+            "level": 2
+          }
+        ],
+        [
+          "core/list",
+          {}
+        ]
+      ],
+      "templateLock": "insert"
+    },
+    {
+      "singularLabel": "Testimonial",
+      "adminPath": "testimonials",
+      "id": "testimonial",
+      "label": "Testimonials",
+      "type": "collection",
+      "postType": "testimonial",
+      "public": true,
+      "supports": [
+        "title",
+        "editor",
+        "thumbnail",
+        "revisions"
+      ],
+      "fields": {
+        "author_role": {
+          "type": "text",
+          "label": "Author Role"
+        },
+        "company": {
+          "type": "text",
+          "label": "Company"
+        },
+        "company_url": {
+          "type": "url",
+          "label": "Company URL"
+        },
+        "featured": {
+          "type": "boolean",
+          "label": "Featured"
+        },
+        "related_project_id": {
+          "type": "relation",
+          "target": "project",
+          "label": "Related Project"
+        }
+      }
+    }
+  ],
+  "singletons": [
+    {
+      "id": "contact",
+      "label": "Contact",
+      "type": "singleton",
+      "storage": "option",
+      "fields": {
+        "email": {
+          "type": "email",
+          "label": "Email"
+        },
+        "phone": {
+          "type": "text",
+          "label": "Phone"
+        },
+        "calendar_url": {
+          "type": "url",
+          "label": "Calendar URL"
+        }
+      }
+    },
+    {
+      "id": "profile",
+      "label": "Profile",
+      "type": "singleton",
+      "storage": "option",
+      "fields": {
+        "full_name": {
+          "type": "text",
+          "label": "Full Name"
+        },
+        "role_line": {
+          "type": "text",
+          "label": "Role Line"
+        },
+        "short_bio": {
+          "type": "richtext",
+          "label": "Short Bio"
+        },
+        "location": {
+          "type": "text",
+          "label": "Location"
+        },
+        "availability": {
+          "type": "select",
+          "label": "Availability",
+          "options": [
+            "open",
+            "limited",
+            "closed"
+          ]
+        },
+        "resume_url": {
+          "type": "url",
+          "label": "Resume URL"
+        },
+        "avatar": {
+          "type": "image",
+          "label": "Avatar"
+        }
+      }
+    },
+    {
+      "id": "seo",
+      "label": "SEO",
+      "type": "singleton",
+      "storage": "option",
+      "fields": {
+        "default_title": {
+          "type": "text",
+          "label": "Default Title"
+        },
+        "meta_description": {
+          "type": "richtext",
+          "label": "Meta Description"
+        },
+        "og_image": {
+          "type": "image",
+          "label": "Open Graph Image"
+        }
+      }
+    }
+  ],
+  "routes": [
+    {
+      "id": "about",
+      "type": "page",
+      "slug": "about",
+      "title": "About",
+      "template": "about",
+      "seed": {
+        "createPageShell": true,
+        "status": "publish"
+      }
+    },
+    {
+      "id": "contact",
+      "type": "page",
+      "slug": "contact",
+      "title": "Contact",
+      "template": "contact",
+      "seed": {
+        "createPageShell": true,
+        "status": "publish"
+      }
+    },
+    {
+      "id": "home",
+      "type": "page",
+      "slug": "",
+      "title": "Home",
+      "template": "front-page",
+      "seed": {
+        "createPageShell": true,
+        "status": "publish"
+      }
+    },
+    {
+      "id": "writing",
+      "type": "page",
+      "slug": "writing",
+      "title": "Writing",
+      "template": "page",
+      "seed": {
+        "createPageShell": true,
+        "status": "publish"
+      }
+    }
+  ],
+  "menus": {
+    "footer": [
+      {
+        "label": "GitHub",
+        "type": "custom",
+        "url": "https://github.com/example"
+      },
+      {
+        "label": "LinkedIn",
+        "type": "custom",
+        "url": "https://linkedin.com/in/example"
+      },
+      {
+        "label": "Contact",
+        "type": "page",
+        "object": "contact"
+      }
+    ],
+    "primary": [
+      {
+        "label": "Work",
+        "type": "archive",
+        "object": "project"
+      },
+      {
+        "label": "About",
+        "type": "page",
+        "object": "about"
+      },
+      {
+        "label": "Writing",
+        "type": "page",
+        "object": "writing"
+      },
+      {
+        "label": "Contact",
+        "type": "page",
+        "object": "contact"
+      }
+    ]
+  },
+  "content": {
+    "collections": {
+      "experience": [
+        {
+          "model": "experience",
+          "sourceId": "experience.automattic",
+          "slug": "automattic",
+          "title": "Product Engineer",
+          "status": "publish",
+          "fields": {
+            "company": "Automattic",
+            "location": "Remote",
+            "start_year": "2022",
+            "end_year": "2026",
+            "current": false
+          },
+          "markdown": "I worked on editorial tooling, design systems, and AI-assisted experiences across a broad WordPress product surface.",
+          "body": "<p>I worked on editorial tooling, design systems, and AI-assisted experiences across a broad WordPress product surface.</p>\n",
+          "sourceFile": "automattic.md"
+        }
+      ],
+      "inquiry": [
+        {
+          "model": "inquiry",
+          "sourceId": "inquiry.cli-test",
+          "slug": "cli-test",
+          "title": "CLI Test",
+          "status": "publish",
+          "fields": {
+            "email": "test@example.com",
+            "company": "Example Co",
+            "status": "new",
+            "source": "contact_form"
+          },
+          "markdown": "Testing inquiry creation.",
+          "body": "<p>Testing inquiry creation.</p>\n",
+          "sourceFile": "cli-test.md"
+        }
+      ],
+      "project": [
+        {
+          "model": "project",
+          "sourceId": "project.acme-rebrand",
+          "slug": "acme-rebrand",
+          "title": "Acme Rebrand Platform",
+          "excerpt": "A modular marketing platform and design system for a global rebrand launch.",
+          "status": "publish",
+          "fields": {
+            "client_name": "Acme",
+            "client_url": "https://example.com",
+            "year": "2026",
+            "role": "Lead Product Engineer",
+            "featured": true,
+            "status": "live",
+            "external_url": "https://example.com/work/acme",
+            "repo_url": "https://github.com/example/acme",
+            "metrics": [
+              {
+                "label": "Launch speed",
+                "value": "3x faster"
+              },
+              {
+                "label": "Design reuse",
+                "value": "80% shared components"
+              }
+            ]
+          },
+          "markdown": "Acme needed a modern publishing and campaign system that could support a global rebrand across multiple teams.\n\n## Challenge\n\nThe existing stack was fragmented, slow to update, and difficult for non-technical teams to use consistently.\n\n## Approach\n\nI designed a block-based editorial system, a shared design language, and a deployment workflow optimized for repeatable campaign launches.\n\n## Outcome\n\n-   Faster campaign creation\n-   Lower maintenance cost\n-   More consistent brand output",
+          "body": "<p>Acme needed a modern publishing and campaign system that could support a global rebrand across multiple teams.</p>\n<h2>Challenge</h2>\n<p>The existing stack was fragmented, slow to update, and difficult for non-technical teams to use consistently.</p>\n<h2>Approach</h2>\n<p>I designed a block-based editorial system, a shared design language, and a deployment workflow optimized for repeatable campaign launches.</p>\n<h2>Outcome</h2>\n<ul>\n<li>Faster campaign creation</li>\n<li>Lower maintenance cost</li>\n<li>More consistent brand output</li>\n</ul>\n",
+          "sourceFile": "acme-rebrand.md"
+        }
+      ],
+      "testimonial": [
+        {
+          "model": "testimonial",
+          "sourceId": "testimonial.acme-ceo",
+          "slug": "acme-ceo",
+          "title": "A system our whole team could actually use",
+          "status": "publish",
+          "fields": {
+            "author_role": "CEO",
+            "company": "Acme",
+            "company_url": "https://example.com",
+            "featured": true,
+            "related_project_id": "project.acme-rebrand"
+          },
+          "markdown": "Jane gave us a publishing system that balanced editorial freedom with brand consistency. Our team moved faster within the first week.",
+          "body": "<p>Jane gave us a publishing system that balanced editorial freedom with brand consistency. Our team moved faster within the first week.</p>\n",
+          "sourceFile": "acme-ceo.md"
+        }
+      ],
+      "post": [
+        {
+          "model": "post",
+          "sourceId": "post.hello-world",
+          "slug": "hello-world",
+          "title": "Hello world!",
+          "status": "publish",
+          "terms": {
+            "category": [
+              "Uncategorized"
+            ]
+          },
+          "markdown": "Welcome to WordPress. This is your first post. Edit or delete it, then start writing!",
+          "body": "<p>Welcome to WordPress. This is your first post. Edit or delete it, then start writing!</p>\n",
+          "sourceFile": "hello-world.md"
+        },
+        {
+          "model": "post",
+          "sourceId": "post.welcome",
+          "slug": "welcome",
+          "title": "Welcome",
+          "excerpt": "A note about the portfolio and what is being built here.",
+          "status": "publish",
+          "terms": {
+            "category": [
+              "Uncategorized"
+            ]
+          },
+          "markdown": "This portfolio is built as a schema-driven WordPress site. The authored source lives in a light layer and compiles into WordPress outputs.",
+          "body": "<p>This portfolio is built as a schema-driven WordPress site. The authored source lives in a light layer and compiles into WordPress outputs.</p>\n",
+          "sourceFile": "welcome.md"
+        }
+      ]
+    },
+    "singletons": {
+      "contact": {
+        "singleton": "contact",
+        "data": {
+          "email": "hello@example.com",
+          "phone": "+1 (212) 555-0144",
+          "calendar_url": "https://example.com/book"
+        }
+      },
+      "profile": {
+        "singleton": "profile",
+        "data": {
+          "full_name": "Jane Doe",
+          "role_line": "Designer, developer, and AI builder",
+          "short_bio": "<p>I build digital products, creative systems, and AI-powered workflows.</p>",
+          "location": "New York, NY",
+          "availability": "open",
+          "resume_url": "https://example.com/resume.pdf",
+          "avatar": 0
+        }
+      },
+      "seo": {
+        "singleton": "seo",
+        "data": {
+          "default_title": "Jane Doe",
+          "meta_description": "<p>Designer, developer, and AI builder focused on systems, storytelling, and thoughtful interfaces.</p>",
+          "og_image": 0
+        }
+      }
+    }
+  },
+  "admin": {
+    "project.form": {
+      "layout": {
+        "type": "card",
+        "children": [
+          {
+            "id": "basics",
+            "label": "Basics",
+            "children": [
+              "title",
+              "excerpt",
+              "year",
+              "role",
+              "featured",
+              "status"
+            ]
+          },
+          {
+            "id": "links",
+            "label": "Links",
+            "children": [
+              "client_name",
+              "client_url",
+              "external_url",
+              "repo_url"
+            ]
+          },
+          {
+            "id": "taxonomy",
+            "label": "Categorization",
+            "children": [
+              "project_type",
+              "technology"
+            ]
+          },
+          {
+            "id": "metrics",
+            "label": "Metrics",
+            "children": [
+              "metrics"
+            ]
+          }
+        ]
+      }
+    },
+    "project.view": {
+      "columns": [
+        "title",
+        "year",
+        "featured",
+        "status",
+        "modified"
+      ],
+      "filters": [
+        "featured",
+        "status",
+        "year",
+        "project_type",
+        "technology"
+      ],
+      "defaultSort": {
+        "field": "modified",
+        "direction": "desc"
+      },
+      "defaultLayout": "table"
+    },
+    "settings-profile.form": {
+      "layout": {
+        "type": "card",
+        "children": [
+          {
+            "id": "identity",
+            "label": "Identity",
+            "children": [
+              "full_name",
+              "role_line",
+              "short_bio",
+              "location"
+            ]
+          },
+          {
+            "id": "presence",
+            "label": "Presence",
+            "children": [
+              "availability",
+              "resume_url",
+              "avatar"
+            ]
+          }
+        ]
+      }
+    },
+    "testimonial.view": {
+      "columns": [
+        "title",
+        "company",
+        "author_role",
+        "featured",
+        "modified"
+      ],
+      "filters": [
+        "featured",
+        "company"
+      ],
+      "defaultSort": {
+        "field": "modified",
+        "direction": "desc"
+      },
+      "defaultLayout": "table"
+    }
+  },
+  "generatedAt": "2026-03-23T19:21:55.577Z"
+}

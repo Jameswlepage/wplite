@@ -1,0 +1,12 @@
+{
+  "singleton": "profile",
+  "data": {
+    "full_name": "Jane Doe",
+    "role_line": "Designer, developer, and AI builder",
+    "short_bio": "<p>I build digital products, creative systems, and AI-powered workflows.</p>",
+    "location": "New York, NY",
+    "availability": "open",
+    "resume_url": "https://example.com/resume.pdf",
+    "avatar": 0
+  }
+}

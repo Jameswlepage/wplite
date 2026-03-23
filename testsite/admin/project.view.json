@@ -1,0 +1,21 @@
+{
+  "columns": [
+    "title",
+    "year",
+    "featured",
+    "status",
+    "modified"
+  ],
+  "filters": [
+    "featured",
+    "status",
+    "year",
+    "project_type",
+    "technology"
+  ],
+  "defaultSort": {
+    "field": "modified",
+    "direction": "desc"
+  },
+  "defaultLayout": "table"
+}

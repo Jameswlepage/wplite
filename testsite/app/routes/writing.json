@@ -1,0 +1,11 @@
+{
+  "id": "writing",
+  "type": "page",
+  "slug": "writing",
+  "title": "Writing",
+  "template": "page",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish"
+  }
+}

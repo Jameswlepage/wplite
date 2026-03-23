@@ -1,0 +1,18 @@
+{
+  "columns": [
+    "title",
+    "company",
+    "author_role",
+    "featured",
+    "modified"
+  ],
+  "filters": [
+    "featured",
+    "company"
+  ],
+  "defaultSort": {
+    "field": "modified",
+    "direction": "desc"
+  },
+  "defaultLayout": "table"
+}

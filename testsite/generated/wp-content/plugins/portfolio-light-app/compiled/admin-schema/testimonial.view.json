@@ -1,0 +1,67 @@
+{
+  "entity": {
+    "kind": "postType",
+    "name": "testimonial"
+  },
+  "fields": [
+    {
+      "id": "title",
+      "label": "Title",
+      "type": "text"
+    },
+    {
+      "id": "excerpt",
+      "label": "Excerpt",
+      "type": "text"
+    },
+    {
+      "id": "modified",
+      "label": "Updated",
+      "type": "datetime"
+    },
+    {
+      "id": "author_role",
+      "label": "Author Role",
+      "type": "text"
+    },
+    {
+      "id": "company",
+      "label": "Company",
+      "type": "text"
+    },
+    {
+      "id": "company_url",
+      "label": "Company URL",
+      "type": "url"
+    },
+    {
+      "id": "featured",
+      "label": "Featured",
+      "type": "boolean"
+    },
+    {
+      "id": "related_project_id",
+      "label": "Related Project",
+      "type": "relation",
+      "target": "project"
+    }
+  ],
+  "view": {
+    "type": "table",
+    "columns": [
+      "title",
+      "company",
+      "author_role",
+      "featured",
+      "modified"
+    ],
+    "filters": [
+      "featured",
+      "company"
+    ],
+    "sort": {
+      "field": "modified",
+      "direction": "desc"
+    }
+  }
+}

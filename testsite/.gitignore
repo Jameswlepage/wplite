@@ -1,0 +1,7 @@
+node_modules/
+.DS_Store
+.wp-env/
+.wp-light.ejected
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/app",
+  "steps": [
+    {
+      "step": "runPHP",
+      "code": "<?php\nrequire_once '/wordpress/wp-load.php';\nrequire_once ABSPATH . 'wp-admin/includes/plugin.php';\nactivate_plugin( 'portfolio-light-app/portfolio-light-app.php' );\nswitch_theme( 'portfolio-light-theme' );\nupdate_option( 'permalink_structure', '/%postname%/' );\nportfolio_light_seed_site();\n"
+    }
+  ]
+}

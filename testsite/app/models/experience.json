@@ -1,0 +1,35 @@
+{
+  "id": "experience",
+  "label": "Experience",
+  "type": "collection",
+  "postType": "experience",
+  "public": true,
+  "supports": [
+    "title",
+    "editor",
+    "thumbnail",
+    "revisions"
+  ],
+  "fields": {
+    "company": {
+      "type": "text",
+      "label": "Company"
+    },
+    "location": {
+      "type": "text",
+      "label": "Location"
+    },
+    "start_year": {
+      "type": "integer",
+      "label": "Start Year"
+    },
+    "end_year": {
+      "type": "integer",
+      "label": "End Year"
+    },
+    "current": {
+      "type": "boolean",
+      "label": "Current"
+    }
+  }
+}
