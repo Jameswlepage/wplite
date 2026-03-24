@@ -1,0 +1,14 @@
+{
+  "id": "testimonial",
+  "label": "Testimonials",
+  "icon": "Quote",
+  "type": "collection",
+  "postType": "testimonial",
+  "public": false,
+  "supports": ["title", "editor"],
+  "fields": {
+    "client_name": { "type": "text", "label": "Client Name" },
+    "project_name": { "type": "text", "label": "Project" },
+    "featured": { "type": "boolean", "label": "Featured" }
+  }
+}

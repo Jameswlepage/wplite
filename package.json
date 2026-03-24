@@ -1,0 +1,5 @@
+{
+  "name": "wplite",
+  "private": true,
+  "workspaces": ["packages/*", "sites/*"]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "profile",
+  "label": "Studio Profile",
+  "icon": "UserAvatar",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "studio_name": { "type": "text", "label": "Studio Name" },
+    "founder_name": { "type": "text", "label": "Founder" },
+    "founder_role": { "type": "text", "label": "Founder Role" },
+    "philosophy": { "type": "richtext", "label": "Philosophy" },
+    "short_bio": { "type": "richtext", "label": "Short Bio" },
+    "location": { "type": "text", "label": "Location" },
+    "founded_year": { "type": "integer", "label": "Founded" },
+    "avatar": { "type": "image", "label": "Founder Photo" }
+  }
+}

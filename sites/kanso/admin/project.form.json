@@ -1,0 +1,22 @@
+{
+  "layout": {
+    "type": "card",
+    "children": [
+      {
+        "id": "basics",
+        "label": "Basics",
+        "children": ["title", "excerpt", "service_type", "status", "featured"]
+      },
+      {
+        "id": "details",
+        "label": "Details",
+        "children": ["location", "year", "area_sqm"]
+      },
+      {
+        "id": "taxonomy",
+        "label": "Categorization",
+        "children": ["project_type"]
+      }
+    ]
+  }
+}

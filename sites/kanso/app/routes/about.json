@@ -1,0 +1,12 @@
+{
+  "id": "about",
+  "type": "page",
+  "slug": "about",
+  "title": "About",
+  "template": "about",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": "<!-- wp:heading {\"level\":1,\"style\":{\"typography\":{\"fontWeight\":\"200\"}}} -->\n<h1 class=\"wp-block-heading\" style=\"font-weight:200\">We design stillness into built space.</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph {\"style\":{\"color\":{\"text\":\"#8c7e6f\"},\"typography\":{\"fontSize\":\"1.0625rem\"}}} -->\n<p class=\"has-text-color\" style=\"color:#8c7e6f;font-size:1.0625rem\">Kanso Studio was founded on the belief that the spaces we inhabit shape how we think, feel, and relate. We practice a hybrid discipline — drawing equally from the Japanese reverence for natural imperfection and the Scandinavian commitment to democratic comfort.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Our Philosophy</h2>\n<!-- /wp:heading -->\n\n<!-- wp:columns -->\n<div class=\"wp-block-columns\"><!-- wp:column -->\n<div class=\"wp-block-column\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Kanso — Simplicity</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Eliminate what does not serve. Every element should earn its presence in the room.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:column -->\n\n<!-- wp:column -->\n<div class=\"wp-block-column\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Shizen — Naturalness</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Materials should be honest. Wood should feel like wood. Stone should carry weight.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:column -->\n\n<!-- wp:column -->\n<div class=\"wp-block-column\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Ma — Negative Space</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>The space between objects matters as much as the objects themselves. We design the emptiness.</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:column --></div>\n<!-- /wp:columns -->"
+  }
+}

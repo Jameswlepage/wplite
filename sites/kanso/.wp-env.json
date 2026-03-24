@@ -1,0 +1,12 @@
+{
+  "plugins": [
+    "./generated/wp-content/plugins/kanso-app"
+  ],
+  "themes": [
+    "./generated/wp-content/themes/kanso-theme"
+  ],
+  "config": {
+    "WP_DEBUG": true,
+    "SCRIPT_DEBUG": true
+  }
+}

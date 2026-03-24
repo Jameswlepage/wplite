@@ -1,0 +1,33 @@
+{
+  "layout": {
+    "type": "card",
+    "children": [
+      {
+        "id": "identity",
+        "label": "Identity",
+        "children": [
+          "full_name",
+          "role_line",
+          "short_bio",
+          "location"
+        ]
+      },
+      {
+        "id": "presence",
+        "label": "Presence",
+        "children": [
+          "availability",
+          "resume_url",
+          "avatar"
+        ]
+      },
+      {
+        "id": "appearance",
+        "label": "Appearance",
+        "children": [
+          "color_scheme"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "project",
+  "label": "Projects",
+  "icon": "Portfolio",
+  "type": "collection",
+  "postType": "project",
+  "archiveSlug": "work",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
+  "taxonomies": ["project_type"],
+  "fields": {
+    "location": { "type": "text", "label": "Location" },
+    "year": { "type": "integer", "label": "Year" },
+    "area_sqm": { "type": "integer", "label": "Area (sqm)" },
+    "service_type": {
+      "type": "select",
+      "label": "Service",
+      "options": ["residential", "workspace", "sourcing"]
+    },
+    "featured": { "type": "boolean", "label": "Featured" },
+    "status": {
+      "type": "select",
+      "label": "Status",
+      "options": ["completed", "in-progress", "concept"]
+    }
+  },
+  "editorTemplate": [
+    ["core/paragraph", { "placeholder": "A single sentence describing the essence of this project." }],
+    ["core/image", {}],
+    ["core/heading", { "content": "Brief", "level": 2 }],
+    ["core/paragraph", { "placeholder": "What the client needed." }],
+    ["core/heading", { "content": "Approach", "level": 2 }],
+    ["core/paragraph", { "placeholder": "How we responded." }],
+    ["core/heading", { "content": "Result", "level": 2 }],
+    ["core/paragraph", { "placeholder": "The outcome." }]
+  ],
+  "templateLock": "insert"
+}

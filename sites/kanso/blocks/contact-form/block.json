@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/contact-form",
+  "title": "Contact Form",
+  "category": "widgets",
+  "icon": "email",
+  "description": "A minimal contact form for inquiries.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

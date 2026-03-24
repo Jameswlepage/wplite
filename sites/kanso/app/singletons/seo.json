@@ -1,0 +1,12 @@
+{
+  "id": "seo",
+  "label": "SEO",
+  "icon": "Search",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "default_title": { "type": "text", "label": "Default Title" },
+    "meta_description": { "type": "text", "label": "Meta Description" },
+    "og_image": { "type": "image", "label": "OG Image" }
+  }
+}

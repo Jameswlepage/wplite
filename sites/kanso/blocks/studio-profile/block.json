@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/studio-profile",
+  "title": "Studio Profile",
+  "category": "widgets",
+  "icon": "admin-users",
+  "description": "Displays the studio founder profile from the profile singleton.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

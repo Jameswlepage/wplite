@@ -1,0 +1,25 @@
+{
+  "landingPage": "/",
+  "steps": [
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; activate_plugin( 'kanso-app/kanso-app.php' ); ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; switch_theme( 'kanso-theme' ); ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; update_option( 'permalink_structure', '/%postname%/' ); flush_rewrite_rules(); ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; if ( function_exists( 'portfolio_light_seed_site' ) ) { portfolio_light_seed_site(); } ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php\nrequire '/wordpress/wp-load.php';\nrequire_once ABSPATH . 'wp-admin/includes/media.php';\nrequire_once ABSPATH . 'wp-admin/includes/file.php';\nrequire_once ABSPATH . 'wp-admin/includes/image.php';\n\n$placeholders = [\n  'muji-residence' => ['bg' => 'e8e0d6', 'fg' => '8c7e6f', 'text' => 'Muji+Residence'],\n  'nordic-studio'  => ['bg' => 'd4c5b3', 'fg' => '2c2825', 'text' => 'Nordic+Studio'],\n  'hinoki-retreat'  => ['bg' => 'c4a882', 'fg' => 'f5f0eb', 'text' => 'Hinoki+Retreat'],\n];\n\nforeach ( $placeholders as $slug => $opts ) {\n  $posts = get_posts(['post_type' => 'project', 'name' => $slug, 'posts_per_page' => 1]);\n  if ( empty($posts) ) continue;\n  $post = $posts[0];\n  if ( get_post_thumbnail_id($post->ID) ) continue;\n  $url = 'https://placehold.co/1200x900/' . $opts['bg'] . '/' . $opts['fg'] . '/png?text=' . $opts['text'];\n  $id = media_sideload_image($url, $post->ID, $opts['text'], 'id');\n  if ( !is_wp_error($id) ) set_post_thumbnail($post->ID, $id);\n}\n?>"
+    }
+  ]
+}

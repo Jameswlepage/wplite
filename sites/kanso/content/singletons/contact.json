@@ -1,0 +1,9 @@
+{
+  "singleton": "contact",
+  "data": {
+    "email": "hello@kansostudio.com",
+    "phone": "+1 (212) 555-0147",
+    "address": "47 Crosby Street, Floor 3, New York, NY 10012",
+    "booking_url": "https://cal.com/kansostudio"
+  }
+}

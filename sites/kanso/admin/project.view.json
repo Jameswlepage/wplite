@@ -1,0 +1,9 @@
+{
+  "columns": ["title", "service_type", "location", "year", "featured", "modified"],
+  "filters": ["service_type", "featured", "status", "project_type"],
+  "defaultSort": {
+    "field": "modified",
+    "direction": "desc"
+  },
+  "defaultLayout": "table"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "contact",
+  "type": "page",
+  "slug": "contact",
+  "title": "Contact",
+  "template": "contact",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": "<!-- wp:heading {\"level\":1,\"style\":{\"typography\":{\"fontWeight\":\"200\"}}} -->\n<h1 class=\"wp-block-heading\" style=\"font-weight:200\">Every project begins with a conversation.</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph {\"style\":{\"color\":{\"text\":\"#8c7e6f\"},\"typography\":{\"fontSize\":\"1.0625rem\"}}} -->\n<p class=\"has-text-color\" style=\"color:#8c7e6f;font-size:1.0625rem\">We take on a limited number of projects each year to ensure the attention each one deserves. Tell us about your space and what you're looking for.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:columns -->\n<div class=\"wp-block-columns\"><!-- wp:column {\"width\":\"58%\"} -->\n<div class=\"wp-block-column\" style=\"flex-basis:58%\"><!-- wp:kanso/contact-form /--></div>\n<!-- /wp:column -->\n\n<!-- wp:column {\"width\":\"42%\"} -->\n<div class=\"wp-block-column\" style=\"flex-basis:42%\"><!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Studio</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>47 Crosby Street, Floor 3<br>New York, NY 10012</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Email</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>hello@kansostudio.com</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Hours</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Monday — Friday, 9am — 6pm<br>Consultations by appointment</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:column --></div>\n<!-- /wp:columns -->"
+  }
+}

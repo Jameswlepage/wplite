@@ -1,4 +1,7 @@
 node_modules/
+sites/*/generated/
 .env
 *.key
 .DS_Store
+.wp-env/
+npm-debug.log*

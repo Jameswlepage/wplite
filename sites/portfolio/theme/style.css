@@ -1,0 +1,471 @@
+body {
+  background: var(--wp--preset--color--paper);
+}
+
+.wp-site-blocks {
+  padding-inline: clamp(20px, 4vw, 48px);
+}
+
+.museum-main {
+  padding-block: clamp(32px, 5vw, 88px);
+}
+
+.museum-kicker,
+.museum-card__eyebrow,
+.wp-block-post-terms.museum-card__eyebrow,
+.museum-header .wp-block-site-tagline,
+.museum-footer__copyright {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--red);
+}
+
+.museum-header {
+  padding-block: 24px 20px;
+  border-bottom: 1px solid var(--wp--preset--color--ink);
+}
+
+.museum-header__grid {
+  margin: 0;
+  gap: 16px;
+}
+
+.museum-header__identity > * {
+  margin-block: 0;
+}
+
+.museum-site-title {
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 0.9;
+  text-transform: uppercase;
+}
+
+.museum-site-title a {
+  color: var(--wp--preset--color--ink);
+}
+
+.museum-header .wp-block-navigation,
+.museum-footer .wp-block-navigation {
+  gap: 14px;
+}
+
+.museum-header .wp-block-navigation-item__content,
+.museum-footer .wp-block-navigation-item__content {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--wp--preset--color--ink);
+}
+
+.museum-footer {
+  margin-top: clamp(32px, 6vw, 72px);
+  padding-block: 28px 42px;
+  border-top: 1px solid var(--wp--preset--color--ink);
+}
+
+.museum-footer__grid {
+  margin: 0;
+  gap: 24px;
+}
+
+.museum-footer__note {
+  max-width: 32ch;
+  color: var(--wp--preset--color--charcoal);
+}
+
+.museum-site-title--footer {
+  font-size: clamp(1.5rem, 2.8vw, 2.4rem);
+}
+
+.museum-hero {
+  padding-top: clamp(12px, 2vw, 18px);
+}
+
+.portfolio-profile-hero {
+  display: grid;
+  gap: clamp(24px, 4vw, 44px);
+  padding-bottom: clamp(28px, 4vw, 52px);
+  border-bottom: 1px solid var(--wp--preset--color--ink);
+}
+
+.portfolio-profile-hero__intro h1 {
+  margin: 0;
+  font-size: clamp(4rem, 10vw, 9rem);
+  text-transform: uppercase;
+}
+
+.portfolio-profile-hero__role {
+  max-width: 14ch;
+  margin: 8px 0 0;
+  font-size: clamp(1.15rem, 2vw, 1.75rem);
+  color: var(--wp--preset--color--charcoal);
+}
+
+.portfolio-profile-hero__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.portfolio-profile-hero__bio {
+  max-width: 42rem;
+  font-size: clamp(1.1rem, 1.9vw, 1.45rem);
+  line-height: 1.6;
+}
+
+.portfolio-profile-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.portfolio-profile-hero__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--wp--preset--color--ink);
+  color: var(--wp--preset--color--surface);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portfolio-profile-hero__action.is-secondary {
+  background: transparent;
+  color: var(--wp--preset--color--ink);
+  border: 1px solid var(--wp--preset--color--ink);
+}
+
+.portfolio-profile-hero__aside {
+  display: grid;
+  gap: 18px;
+}
+
+.portfolio-profile-hero__avatar {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--wp--preset--color--fog);
+}
+
+.portfolio-profile-hero__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.portfolio-profile-hero__meta {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--wp--preset--color--ink);
+}
+
+.portfolio-profile-hero__meta dt {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--red);
+}
+
+.portfolio-profile-hero__meta dd {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.museum-page-content--home:empty {
+  display: none;
+}
+
+.museum-featured,
+.museum-testimonials,
+.museum-contact-cta,
+.museum-page-shell,
+.museum-archive-hero,
+.museum-post-shell,
+.museum-empty-shell {
+  margin-top: clamp(40px, 6vw, 88px);
+}
+
+.museum-featured h2,
+.museum-testimonials h2,
+.museum-about-columns h2,
+.museum-contact-cta h2,
+.museum-archive-hero h1,
+.museum-page-shell__title,
+.museum-post-shell h1,
+.museum-empty-shell h1 {
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+.museum-project-card,
+.museum-post-card,
+.museum-list-card,
+.museum-quote-card,
+.museum-contact-card {
+  padding: 22px;
+  border: 1px solid var(--wp--preset--color--ink);
+  background: var(--wp--preset--color--surface);
+}
+
+.museum-project-card__image {
+  margin-bottom: 18px;
+}
+
+.museum-project-card .wp-block-post-featured-image img {
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.museum-project-card h2,
+.museum-project-card h3,
+.museum-post-card h2,
+.museum-list-card h3,
+.museum-quote-card h3 {
+  margin-top: 0;
+}
+
+.museum-quote-card {
+  padding: clamp(24px, 4vw, 40px);
+  background: linear-gradient(180deg, var(--wp--preset--color--surface), #f7f5ef);
+}
+
+.museum-quote-card p:first-of-type {
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  line-height: 1.5;
+}
+
+.museum-quote-card__author {
+  margin-top: 18px;
+  font-size: 1rem;
+}
+
+.museum-contact-cta {
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--wp--preset--color--ink);
+  background: var(--wp--preset--color--surface);
+}
+
+.museum-contact-layout {
+  gap: 28px;
+}
+
+.museum-contact-card {
+  padding: clamp(22px, 3vw, 30px);
+}
+
+.portfolio-contact-form {
+  display: grid;
+  gap: 16px;
+}
+
+.portfolio-contact-form__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.portfolio-contact-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portfolio-contact-form input,
+.portfolio-contact-form textarea {
+  width: 100%;
+  border: 1px solid var(--wp--preset--color--ink);
+  border-radius: 0;
+  padding: 14px 16px;
+  background: #fff;
+  font: inherit;
+}
+
+.portfolio-contact-form textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
+.portfolio-contact-form__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.portfolio-contact-form button {
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wp--preset--color--red);
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.portfolio-contact-form [data-form-status] {
+  font-size: 0.9rem;
+  color: var(--wp--preset--color--charcoal);
+}
+
+.portfolio-project-filter {
+  display: grid;
+  gap: 14px;
+  margin: 24px 0 32px;
+}
+
+.portfolio-project-filter__group {
+  display: grid;
+  gap: 8px;
+}
+
+.portfolio-project-filter__group strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--red);
+}
+
+.portfolio-project-filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.portfolio-project-filter__chips a {
+  display: inline-flex;
+  padding: 8px 14px;
+  border: 1px solid var(--wp--preset--color--ink);
+  border-radius: 999px;
+  color: var(--wp--preset--color--ink);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.portfolio-project-metrics {
+  margin-top: 36px;
+}
+
+.portfolio-project-metrics__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+}
+
+.portfolio-project-metrics__grid li {
+  padding: 18px;
+  border: 1px solid var(--wp--preset--color--ink);
+  background: var(--wp--preset--color--surface);
+}
+
+.portfolio-project-metrics__grid span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--red);
+}
+
+.portfolio-project-metrics__grid strong {
+  font-size: 1.2rem;
+}
+
+.museum-project-layout,
+.museum-about-columns,
+.museum-contact-cta__grid {
+  gap: 28px;
+}
+
+.museum-project-meta {
+  padding: 20px;
+  border: 1px solid var(--wp--preset--color--ink);
+  background: var(--wp--preset--color--surface);
+}
+
+.museum-project-meta h6 {
+  margin: 0 0 6px;
+}
+
+.museum-project-meta p {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.museum-project-hero-image {
+  margin-top: 24px;
+  margin-bottom: 28px;
+}
+
+.museum-project-hero-image img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: cover;
+}
+
+.museum-empty-shell,
+.museum-page-shell,
+.museum-post-shell {
+  max-width: 900px;
+}
+
+.museum-page-shell__content,
+.museum-post-shell,
+.museum-project-layout .wp-block-post-content {
+  font-size: 1.05rem;
+}
+
+.museum-post-card + .museum-post-card,
+.museum-list-card + .museum-list-card,
+.museum-quote-card--stacked + .museum-quote-card--stacked {
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .museum-header__grid,
+  .museum-project-layout,
+  .museum-about-columns,
+  .museum-contact-layout,
+  .museum-contact-cta__grid,
+  .museum-footer__grid,
+  .portfolio-profile-hero__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-contact-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .museum-header .wp-block-navigation {
+    justify-content: flex-start;
+  }
+
+  .museum-footer .has-text-align-right {
+    text-align: left !important;
+  }
+}

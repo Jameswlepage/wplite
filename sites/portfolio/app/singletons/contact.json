@@ -1,0 +1,21 @@
+{
+  "id": "contact",
+  "label": "Contact",
+  "icon": "Email",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "email": {
+      "type": "email",
+      "label": "Email"
+    },
+    "phone": {
+      "type": "text",
+      "label": "Phone"
+    },
+    "calendar_url": {
+      "type": "url",
+      "label": "Calendar URL"
+    }
+  }
+}

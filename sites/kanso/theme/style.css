@@ -1,0 +1,372 @@
+/* Kanso Studio — Japandi Theme */
+
+/* ── Global ── */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--wp--preset--color--accent);
+  color: var(--wp--preset--color--surface);
+}
+
+img {
+  border-radius: 0;
+}
+
+/* ── Placeholder images ── */
+.wp-block-post-featured-image {
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(145deg, var(--wp--preset--color--linen) 0%, var(--wp--preset--color--fog) 100%);
+  overflow: hidden;
+}
+
+.wp-block-post-featured-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wp-block-post-featured-image:empty::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(145deg, var(--wp--preset--color--linen) 0%, #d9cfc3 40%, var(--wp--preset--color--fog) 100%);
+}
+
+/* ── Kicker / Label ── */
+.kicker {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--accent);
+  margin-bottom: 12px;
+}
+
+/* ── Hero ── */
+.kanso-hero {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 120px;
+}
+
+.kanso-hero h1 {
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 200;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  max-width: 18ch;
+}
+
+.kanso-hero p {
+  max-width: 42ch;
+  color: var(--wp--preset--color--muted);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  margin-top: 24px;
+}
+
+/* ── Section spacing ── */
+.kanso-section {
+  padding-top: 120px;
+  padding-bottom: 120px;
+}
+
+.kanso-section--linen {
+  background: var(--wp--preset--color--linen);
+}
+
+.kanso-section--ink {
+  background: var(--wp--preset--color--base);
+  color: var(--wp--preset--color--surface);
+}
+
+.kanso-section--ink .kicker {
+  color: var(--wp--preset--color--fog);
+}
+
+.kanso-section--ink h2,
+.kanso-section--ink h3 {
+  color: var(--wp--preset--color--surface);
+}
+
+.kanso-section--ink p {
+  color: var(--wp--preset--color--fog);
+}
+
+/* ── Project cards ── */
+.kanso-project-card {
+  display: grid;
+  gap: 16px;
+}
+
+.kanso-project-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--wp--preset--color--linen);
+}
+
+.kanso-project-card h3 {
+  font-size: 1.125rem;
+  font-weight: 400;
+  margin: 0;
+}
+
+.kanso-project-card .meta {
+  font-size: 0.8125rem;
+  color: var(--wp--preset--color--muted);
+  letter-spacing: 0.02em;
+}
+
+/* ── Service cards ── */
+.kanso-service {
+  padding: 48px 40px;
+  background: var(--wp--preset--color--surface);
+  border: 1px solid var(--wp--preset--color--linen);
+  display: grid;
+  gap: 20px;
+  align-content: start;
+}
+
+.kanso-service .number {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--wp--preset--color--accent);
+}
+
+.kanso-service h3 {
+  font-size: 1.25rem;
+  font-weight: 300;
+  margin: 0;
+}
+
+.kanso-service p {
+  color: var(--wp--preset--color--muted);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ── Testimonial ── */
+.kanso-testimonial {
+  max-width: 640px;
+}
+
+.kanso-testimonial blockquote {
+  font-size: 1.375rem;
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--wp--preset--color--base);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.kanso-testimonial cite {
+  display: block;
+  margin-top: 24px;
+  font-size: 0.8125rem;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  color: var(--wp--preset--color--muted);
+}
+
+/* ── Contact form ── */
+.kanso-form {
+  display: grid;
+  gap: 28px;
+  max-width: 560px;
+}
+
+.kanso-form label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--muted);
+  margin-bottom: 8px;
+}
+
+.kanso-form input,
+.kanso-form textarea {
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid var(--wp--preset--color--linen);
+  background: transparent;
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--wp--preset--color--base);
+  outline: none;
+  transition: border-color 200ms ease;
+}
+
+.kanso-form input:focus,
+.kanso-form textarea:focus {
+  border-bottom-color: var(--wp--preset--color--accent);
+}
+
+.kanso-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.kanso-form button[type="submit"] {
+  justify-self: start;
+  padding: 14px 40px;
+  background: var(--wp--preset--color--base);
+  color: var(--wp--preset--color--surface);
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.kanso-form button[type="submit"]:hover {
+  background: var(--wp--preset--color--accent);
+  color: var(--wp--preset--color--base);
+}
+
+/* ── Studio profile ── */
+.kanso-profile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: start;
+}
+
+.kanso-profile img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  background: var(--wp--preset--color--linen);
+}
+
+.kanso-profile__text {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  padding-top: 40px;
+}
+
+.kanso-profile__text h2 {
+  font-weight: 300;
+}
+
+.kanso-profile__text .role {
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  color: var(--wp--preset--color--muted);
+  text-transform: uppercase;
+}
+
+/* ── Values grid ── */
+.kanso-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+
+.kanso-value h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.kanso-value p {
+  font-size: 0.9375rem;
+  color: var(--wp--preset--color--muted);
+  line-height: 1.75;
+  margin: 0;
+}
+
+/* ── Process steps ── */
+.kanso-process {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 40px;
+  counter-reset: step;
+}
+
+.kanso-step {
+  counter-increment: step;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.kanso-step::before {
+  content: counter(step, decimal-leading-zero);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--wp--preset--color--accent);
+}
+
+.kanso-step h4 {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.kanso-step p {
+  font-size: 0.875rem;
+  color: var(--wp--preset--color--muted);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ── Contact info ── */
+.kanso-contact-info {
+  display: grid;
+  gap: 32px;
+}
+
+.kanso-contact-info dt {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wp--preset--color--muted);
+}
+
+.kanso-contact-info dd {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  color: var(--wp--preset--color--base);
+}
+
+/* ── Footer ── */
+.kanso-footer {
+  border-top: 1px solid var(--wp--preset--color--linen);
+  padding: 48px 0;
+  font-size: 0.8125rem;
+  color: var(--wp--preset--color--muted);
+}
+
+/* ── Responsive ── */
+@media (max-width: 780px) {
+  .kanso-hero { min-height: 60vh; padding-bottom: 80px; }
+  .kanso-section { padding-top: 80px; padding-bottom: 80px; }
+  .kanso-profile { grid-template-columns: 1fr; gap: 48px; }
+  .kanso-values { grid-template-columns: 1fr; gap: 32px; }
+  .kanso-process { grid-template-columns: 1fr 1fr; }
+  .kanso-service { padding: 32px 24px; }
+}
+
+@media (max-width: 480px) {
+  .kanso-process { grid-template-columns: 1fr; }
+}

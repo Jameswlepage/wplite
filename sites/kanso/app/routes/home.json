@@ -1,0 +1,12 @@
+{
+  "id": "home",
+  "type": "page",
+  "slug": "",
+  "title": "Home",
+  "template": "front-page",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": "<!-- wp:heading {\"level\":1,\"style\":{\"typography\":{\"fontWeight\":\"200\",\"fontSize\":\"clamp(2.25rem, 5vw, 3.75rem)\",\"letterSpacing\":\"-0.02em\",\"lineHeight\":\"1.1\"}}} -->\n<h1 class=\"wp-block-heading\" style=\"font-size:clamp(2.25rem, 5vw, 3.75rem);font-weight:200;letter-spacing:-0.02em;line-height:1.1\">Spaces shaped by stillness and purpose.</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph {\"style\":{\"color\":{\"text\":\"#8c7e6f\"},\"typography\":{\"fontSize\":\"1.0625rem\"}}} -->\n<p class=\"has-text-color\" style=\"color:#8c7e6f;font-size:1.0625rem\">We design residential and working environments where Japanese minimalism meets Scandinavian warmth — serene, functional, and built to endure.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:buttons -->\n<div class=\"wp-block-buttons\"><!-- wp:button -->\n<div class=\"wp-block-button\"><a class=\"wp-block-button__link wp-element-button\" href=\"/work\">View projects</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->"
+  }
+}

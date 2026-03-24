@@ -1,0 +1,22 @@
+<!-- wp:group {"className":"museum-featured","layout":{"type":"constrained"}} -->
+<div class="wp-block-group museum-featured">
+	<!-- wp:heading {"level":2} -->
+	<h2>Featured Projects</h2>
+	<!-- /wp:heading -->
+
+	<!-- wp:query {"query":{"perPage":3,"postType":"project","metaQuery":[{"key":"featured","value":"1"}]}} -->
+	<div class="wp-block-query">
+		<!-- wp:post-template {"layout":{"type":"grid","columnCount":3}} -->
+			<!-- wp:group {"className":"museum-project-card museum-project-card--featured","layout":{"type":"constrained"}} -->
+			<div class="wp-block-group museum-project-card museum-project-card--featured">
+				<!-- wp:post-featured-image {"isLink":true,"className":"museum-project-card__image"} /-->
+				<!-- wp:post-terms {"term":"project_type","className":"museum-card__eyebrow"} /-->
+				<!-- wp:post-title {"isLink":true,"level":3} /-->
+				<!-- wp:post-excerpt /-->
+			</div>
+			<!-- /wp:group -->
+		<!-- /wp:post-template -->
+	</div>
+	<!-- /wp:query -->
+</div>
+<!-- /wp:group -->
