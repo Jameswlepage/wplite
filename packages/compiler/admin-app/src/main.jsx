@@ -84,7 +84,7 @@ function App() {
 
   return (
     <SlotFillProvider>
-      <BrowserRouter basename={appBasePath}>
+      <BrowserRouter basename={appBasePath} unstable_useTransitions={false}>
         <SpaNavBridge />
         <AppShell
           bootstrap={bootstrap}

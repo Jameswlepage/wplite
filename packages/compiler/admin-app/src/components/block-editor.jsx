@@ -131,6 +131,9 @@ export function NativeBlockEditorFrame({
   titlePlaceholder,
   onChangeTitle,
   showTitleInput = true,
+  showBackButton = true,
+  showPrimaryAction = true,
+  showMoreActions = true,
   blocks,
   onChangeBlocks,
   backLabel,
@@ -251,14 +254,18 @@ export function NativeBlockEditorFrame({
         <BlockEditorKeyboardShortcuts />
         <header className="native-editor__topbar">
           <div className="native-editor__topbar-leading">
-            <Button
-              className="native-editor__back"
-              icon={BackIcon}
-              label={backLabel || 'Back'}
-              showTooltip
-              onClick={onBack}
-            />
-            <div className="native-editor__topbar-divider" aria-hidden="true" />
+            {showBackButton ? (
+              <Button
+                className="native-editor__back"
+                icon={BackIcon}
+                label={backLabel || 'Back'}
+                showTooltip
+                onClick={onBack}
+              />
+            ) : null}
+            {showBackButton ? (
+              <div className="native-editor__topbar-divider" aria-hidden="true" />
+            ) : null}
             <Button
               className="native-editor__inserter-toggle"
               icon={AddIcon}
@@ -280,14 +287,16 @@ export function NativeBlockEditorFrame({
           </div>
 
           <div className="native-editor__topbar-actions">
-            <Button
-              variant="primary"
-              className="native-editor__save"
-              isBusy={isPrimaryBusy}
-              onClick={onPrimaryAction}
-            >
-              {primaryActionLabel}
-            </Button>
+            {showPrimaryAction ? (
+              <Button
+                variant="primary"
+                className="native-editor__save"
+                isBusy={isPrimaryBusy}
+                onClick={onPrimaryAction}
+              >
+                {primaryActionLabel}
+              </Button>
+            ) : null}
             <Button
               className="native-editor__sidebar-toggle"
               isPressed={sidebarOpen}
@@ -296,7 +305,7 @@ export function NativeBlockEditorFrame({
               showTooltip
               icon={sidebarOpen ? SidebarCloseIcon : SidebarOpenIcon}
             />
-            {moreActionsControls.length > 0 ? (
+            {showMoreActions && moreActionsControls.length > 0 ? (
               <DropdownMenu
                 className="native-editor__more-actions"
                 icon={OverflowIcon}

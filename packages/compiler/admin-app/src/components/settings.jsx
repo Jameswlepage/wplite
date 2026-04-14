@@ -19,6 +19,7 @@ import {
 } from '../lib/helpers.js';
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { SettingsFormSkeleton } from './skeletons.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
 
 /* ── Site Settings Page ── */
 export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
@@ -105,6 +106,9 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           title: payload.title ?? current.site.title,
           tagline: payload.description ?? current.site.tagline,
           commentsEnabled: (payload.default_comment_status ?? draft.default_comment_status) === 'open',
+          showOnFront: payload.show_on_front ?? draft.show_on_front,
+          pageOnFront: payload.page_on_front ?? draft.page_on_front,
+          pageForPosts: payload.page_for_posts ?? draft.page_for_posts,
         },
       }));
       pushNotice({ status: 'success', message: 'Site settings saved.' });
@@ -114,6 +118,23 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
       setIsSaving(false);
     }
   }
+
+  useRegisterWorkspaceSurface(useMemo(() => ({
+    entityId: 'settings:site',
+    entityLabel: 'Settings',
+    title: 'Site Settings',
+    saveLabel: 'Save',
+    canSave: Boolean(draft),
+    canPublish: false,
+    isSaving,
+    save: handleSave,
+    moreActions: [
+      {
+        title: 'Open Classic Admin',
+        onClick: () => window.open(`${window.location.origin}/wp-admin/?classic-admin=1`, '_blank', 'noopener,noreferrer'),
+      },
+    ],
+  }), [draft, handleSave, isSaving]));
 
   if (loading || !draft) {
     return <SettingsFormSkeleton />;
@@ -343,6 +364,17 @@ export function SingletonEditorPage({ bootstrap, singletonData, setSingletonData
       setIsSaving(false);
     }
   }
+
+  useRegisterWorkspaceSurface(useMemo(() => ({
+    entityId: singleton ? `settings:${singleton.id}` : 'settings',
+    entityLabel: 'Settings',
+    title: singleton?.label || 'Settings',
+    saveLabel: 'Save',
+    canSave: true,
+    canPublish: false,
+    isSaving,
+    save: handleSave,
+  }), [handleSave, isSaving, singleton]));
 
   return (
     <div className="screen">

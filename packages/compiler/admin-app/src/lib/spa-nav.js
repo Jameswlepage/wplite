@@ -13,6 +13,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { normalizeAppPath } from './config.js';
 
 export function SpaNavBridge() {
   useSpaNavBridge(useNavigate());
@@ -25,7 +26,9 @@ export function useSpaNavBridge(navigate) {
 
     window.wpliteNavigate = (to, options) => {
       if (typeof to !== 'string' || !to) return;
-      navigate(to, options);
+      const nextOptions = { ...(options ?? {}) };
+      delete nextOptions.soft;
+      navigate(normalizeAppPath(to), nextOptions);
     };
 
     function onClick(event) {
@@ -36,7 +39,7 @@ export function useSpaNavBridge(navigate) {
       const href = anchor.getAttribute('href') || '';
       if (!href || href.startsWith('http') || href.startsWith('//') || href.startsWith('#')) return;
       event.preventDefault();
-      navigate(href);
+      navigate(normalizeAppPath(href));
     }
 
     document.addEventListener('click', onClick);

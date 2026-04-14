@@ -1,393 +1,368 @@
-import React, { Fragment, useMemo, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Button, DropdownMenu } from '@wordpress/components';
 import {
-  NavLink,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom';
+  CarbonIcon,
+  getNavIcon,
+} from '../lib/icons.jsx';
+import { normalizeAppPath } from '../lib/config.js';
 import {
-  Button,
-  Card,
-  CardBody,
-  DropdownMenu,
-} from '@wordpress/components';
-import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
-import { collectionPathForModel, editorRouteForModel, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
+  collectionPathForModel,
+  editorRouteForModel,
+  normalizeAdminColor,
+} from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
 import { CommandBar } from './command-bar.jsx';
-import { NotificationBell, SidekickPanel, useNotificationArchive } from './notifications.jsx';
+import { AssistantChat } from './assistant-chat.jsx';
+import { NotificationBell, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
 import { CommentsPage, CommentEditorPage } from './comments.jsx';
-import { MediaPage, MediaEditorPage } from './media.jsx';
+import { MediaEditorPage } from './media.jsx';
 import { UsersPage, UserEditorPage } from './users.jsx';
 import { CollectionListPage, CollectionEditorPage } from './collections.jsx';
 import { SiteSettingsPage, SingletonEditorPage } from './settings.jsx';
 import { DomainsPage, IntegrationsPage, ApiPage, LogsPage, PlaceholderPage } from './workspace.jsx';
 import { DocsPage } from '../docs.jsx';
+import {
+  ContentPopover,
+  MediaPopover,
+  NotificationsPopover,
+  SettingsPopover,
+  WordPressMenuPopover,
+} from './workspace-popovers.jsx';
+import { WorkspaceSurfaceProvider, useWorkspaceSurface } from './workspace-context.jsx';
 
-/* ── Not Found ── */
 function NotFoundScreen() {
   return (
     <div className="screen">
-      <Card className="surface-card">
-        <CardBody>
-          <h1 style={{ margin: 0, fontSize: '16px' }}>Not Found</h1>
-          <p className="field-hint">This admin route does not exist.</p>
-        </CardBody>
-      </Card>
+      <div className="workspace-empty-panel workspace-empty-panel--compact">
+        <strong>Not Found</strong>
+        <p>This admin route does not exist.</p>
+      </div>
     </div>
   );
 }
 
-/* ── Navigation Group ── */
-export function NavigationGroup({ id, title, items, state, onToggle }) {
-  if (!items.length) return null;
-  const isOpen = state[id] ?? true;
+function WordPressMark({ size = 16 }) {
   return (
-    <section className="navigation-group">
-      <button className="navigation-group__toggle" onClick={() => onToggle(id)} type="button">
-        <span>{title}</span>
-        <span className={isOpen ? 'navigation-group__chevron is-open' : 'navigation-group__chevron'}>▾</span>
-      </button>
-      {isOpen ? (
-        <ul>
-          {items.map((item) => (
-            <li key={item.id}>
-              <NavLink
-                to={item.path}
-                end={item.path === '/'}
-                className={({ isActive }) => (isActive ? 'nav-link is-active' : 'nav-link')}
-              >
-                <span className="nav-link__icon">{getNavIcon(item)}</span>
-                <span>{item.label}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
+    <svg viewBox="0 0 122.52 122.523" width={size} height={size} aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        d="M8.708 61.26c0 20.802 12.089 38.779 29.619 47.298L13.258 39.872a52.32 52.32 0 0 0-4.55 21.388zm90.061-2.713c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.434c-2.83-.166-5.511-.5-5.511-.5-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.988zM64.087 65.796l-15.768 45.819c4.708 1.384 9.687 2.141 14.851 2.141 6.125 0 11.999-1.058 17.465-2.979-.141-.225-.269-.464-.374-.724l-16.174-44.257zm45.304-29.877c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.413c15.624-9.111 26.133-26.038 26.133-45.426.002-9.137-2.333-17.729-6.438-25.215zM61.262 0C27.484 0 0 27.482 0 61.26c0 33.783 27.484 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263C122.526 27.482 95.039 0 61.262 0zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"
+      />
+    </svg>
   );
 }
 
-/* ── Sidebar User Menu ── */
-function SidebarUserMenu({ currentUser, sidebarCollapsed, navigate }) {
-  const [open, setOpen] = useState(false);
-  const ref = React.useRef(null);
-  const triggerRef = React.useRef(null);
-  const [popoverStyle, setPopoverStyle] = useState(null);
-  const displayName = currentUser?.name || currentUser?.displayName || currentUser?.username || 'User';
-  const username = currentUser?.username ? `@${currentUser.username}` : '';
-  const primaryRole = currentUser?.roles?.[0] ? toTitleCase(currentUser.roles[0]) : 'User';
-  const avatarUrl = currentUser?.avatarUrl || currentUser?.avatarUrls?.['96'] || currentUser?.avatar_urls?.['96'] || '';
+function resolveDefaultCanvasPath(bootstrap, recordsByModel) {
+  const pages = bootstrap?.pages ?? [];
+  const frontPageId = Number(bootstrap?.site?.pageOnFront || 0);
 
-  const updatePopoverPosition = React.useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-
-    const rect = trigger.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const gutter = 12;
-    const desiredWidth = sidebarCollapsed
-      ? 280
-      : Math.max(240, Math.min(320, rect.width + 24));
-    const width = Math.min(desiredWidth, viewportWidth - (gutter * 2));
-    const left = Math.min(
-      Math.max(gutter, rect.left),
-      viewportWidth - width - gutter
-    );
-    const bottom = Math.max(gutter, viewportHeight - rect.top + 10);
-
-    setPopoverStyle({
-      left: `${left}px`,
-      bottom: `${bottom}px`,
-      width: `${width}px`,
-      maxWidth: `calc(100vw - ${gutter * 2}px)`,
-    });
-  }, [sidebarCollapsed]);
-
-  React.useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+  if (frontPageId) {
+    const frontPage = pages.find((page) => Number(page.id) === frontPageId);
+    if (frontPage) {
+      return `/pages/${frontPage.id}`;
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
+  }
 
-  React.useEffect(() => {
-    if (!open) return undefined;
+  const homeManifest = Object.values(bootstrap?.routeManifest ?? {}).find((entry) => entry?.path === '/' && entry?.page?.id);
+  if (homeManifest?.page?.id) {
+    return `/pages/${homeManifest.page.id}`;
+  }
 
-    updatePopoverPosition();
+  if (pages[0]?.id) {
+    return `/pages/${pages[0].id}`;
+  }
 
-    function handleViewportChange() {
-      updatePopoverPosition();
-    }
+  const postModel = (bootstrap?.models ?? []).find((item) => item?.id === 'post');
+  if (postModel && recordsByModel?.post?.[0]?.id) {
+    return editorRouteForModel(postModel, recordsByModel.post[0].id);
+  }
 
-    window.addEventListener('resize', handleViewportChange);
-    window.addEventListener('scroll', handleViewportChange, true);
-    return () => {
-      window.removeEventListener('resize', handleViewportChange);
-      window.removeEventListener('scroll', handleViewportChange, true);
-    };
-  }, [open, updatePopoverPosition]);
+  const editorModel = (bootstrap?.models ?? []).find((model) => model?.supports?.includes('editor') && (recordsByModel?.[model.id] ?? []).length > 0);
+  if (editorModel) {
+    return editorRouteForModel(editorModel, recordsByModel[editorModel.id][0].id);
+  }
 
-  return (
-    <div className="sidebar__footer" ref={ref}>
-      <button
-        ref={triggerRef}
-        className="sidebar__user-profile"
-        onClick={() => setOpen((v) => !v)}
-        title={sidebarCollapsed ? displayName : undefined}
-        type="button"
-      >
-        <div className="sidebar__user-avatar">
-          {avatarUrl ? <img src={avatarUrl} alt="" /> : <CarbonIcon name="UserAvatar" size={20} />}
-        </div>
-        {!sidebarCollapsed && (
-          <div className="sidebar__user-info">
-            <span className="sidebar__user-name">{displayName}</span>
-            <span className="sidebar__user-role">{primaryRole}</span>
-          </div>
-        )}
-      </button>
-      {open && (
-        <div
-          className={`sidebar-popover${sidebarCollapsed ? ' is-floating' : ''}`}
-          style={popoverStyle ?? undefined}
-        >
-          <div className="sidebar-popover__header">
-            <div className="sidebar__user-avatar" style={{ width: 36, height: 36 }}>
-              {avatarUrl ? <img src={avatarUrl} alt="" /> : <CarbonIcon name="UserAvatar" size={22} />}
-            </div>
-            <div>
-              <strong>{displayName}</strong>
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--wp-admin-text-muted)' }}>
-                {username || primaryRole}
-              </span>
-            </div>
-          </div>
-          <div className="sidebar-popover__items">
-            <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/users/me'); }}>
-              Edit Profile
-            </button>
-            <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/docs'); }}>
-              Docs
-            </button>
-            <a className="sidebar-popover__item" href={window.location.origin} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-              View Site
-            </a>
-            <a className="sidebar-popover__item" href={`${window.location.origin}/wp-admin/?classic-admin=1`} onClick={() => setOpen(false)}>
-              Classic WP Admin
-            </a>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return '/dashboard';
 }
 
-/* ── App Shell ── */
-export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsByModel, singletonData, setSingletonData }) {
+function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecordsByModel, singletonData, setSingletonData }) {
+  const { surface } = useWorkspaceSurface();
   const [notices, setNotices] = useState([]);
-  const [dashWidgetConfig, setDashWidgetConfig] = useState(null);
   const [commandBarOpen, setCommandBarOpen] = useState(false);
   const {
     notifications,
     archiveNotification,
     markAllRead,
-    markNonErrorsRead,
     clearAll: clearAllNotifications,
   } = useNotificationArchive();
   const location = useLocation();
   const navigate = useNavigate();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return window.localStorage.getItem('portfolio-light-sidebar-collapsed') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const [groupState, setGroupState] = useState(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem('portfolio-light-nav-groups') || '{}');
-    } catch {
-      return {};
-    }
-  });
+  const [openPopover, setOpenPopover] = useState(null);
+  const [contentSection, setContentSection] = useState('pages');
+  const [settingsSection, setSettingsSection] = useState('site');
+  const [menuPath, setMenuPath] = useState([]);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const wpMenuRef = useRef(null);
+  const notificationsRef = useRef(null);
 
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [sidekickOpen, setSidekickOpen] = useState(() => {
-    try {
-      return window.localStorage.getItem('wplite-sidekick-open') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const [sidekickTab, setSidekickTab] = useState(() => {
-    try {
-      return window.localStorage.getItem('wplite-sidekick-tab') || 'notifications';
-    } catch {
-      return 'notifications';
-    }
-  });
+  const defaultCanvasPath = useMemo(
+    () => resolveDefaultCanvasPath(bootstrap, recordsByModel),
+    [bootstrap, recordsByModel]
+  );
 
-  function toggleSidekick() {
-    setSidekickOpen((prev) => {
-      const next = !prev;
-      try { window.localStorage.setItem('wplite-sidekick-open', next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }
+  const adminColorScheme = normalizeAdminColor(
+    bootstrap.currentUser?.preferences?.adminColor ?? singletonData.profile?.color_scheme
+  );
 
-  function closeSidekick() {
-    setSidekickOpen(false);
-    try { window.localStorage.setItem('wplite-sidekick-open', '0'); } catch {}
-  }
+  const dismissNotice = useCallback((id) => {
+    setNotices((current) => current.filter((notice) => notice.id !== id));
+  }, []);
 
-  function handleSidekickTabChange(name) {
-    setSidekickTab(name);
-    try { window.localStorage.setItem('wplite-sidekick-tab', name); } catch {}
-  }
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  function toggleSidebar() {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try { window.localStorage.setItem('portfolio-light-sidebar-collapsed', next ? '1' : '0'); } catch {}
-      return next;
-    });
-  }
-
-  function closeMobileSidebar() {
-    setMobileOpen(false);
-  }
-
-  function dismissNotice(id) {
-    setNotices((current) => current.filter((n) => n.id !== id));
-  }
-
-  function pushNotice(notice) {
+  const pushNotice = useCallback((notice) => {
     const id = Date.now() + Math.random();
     setNotices((current) => [...current, { id, ...notice }]);
-    // Mirror to the persistent notification archive so users have a
-    // "what happened recently" surface alongside the transient Snackbar.
     archiveNotification({
       id,
       status: notice?.status,
       message: notice?.message,
       timestamp: Date.now(),
     });
+
     if (notice?.status !== 'error') {
       setTimeout(() => {
         dismissNotice(id);
       }, 4000);
     }
-  }
+  }, [archiveNotification, dismissNotice]);
 
-  function toggleGroup(id) {
-    setGroupState((current) => {
-      const next = { ...current, [id]: !(current[id] ?? true) };
-      window.localStorage.setItem('portfolio-light-nav-groups', JSON.stringify(next));
-      return next;
-    });
-  }
-
-  const groupedNavigation = useMemo(() => {
-    const commentsEnabled = bootstrap.site?.commentsEnabled === true;
-    const hasPosts = Boolean((bootstrap.models || []).find((model) => model?.id === 'post'));
-
-    // Top-level items (not collapsible)
-    const topLevel = [
-      { id: 'dashboard', label: 'Dashboard', path: '/', kind: 'dashboard' },
-      { id: 'domains', label: 'Domains', path: '/domains', kind: 'service' },
-      { id: 'integrations', label: 'Integrations', path: '/integrations', kind: 'service' },
-    ];
-
-    const core = [
-      { id: 'pages', label: 'Pages', path: '/pages', kind: 'core' },
-      ...(hasPosts ? [{ id: 'post', label: 'Posts', path: '/posts', kind: 'core' }] : []),
-      ...(commentsEnabled ? [{ id: 'comments', label: 'Comments', path: '/comments', kind: 'core' }] : []),
-      { id: 'media', label: 'Media', path: '/media', kind: 'core' },
-    ];
-
-    const coreIds = new Set(core.map((c) => c.id));
-    const collections = bootstrap.navigation
-      .filter((item) => item.kind === 'collection' && !coreIds.has(item.id))
-      .map((item) => ({ ...item }));
-
-    const settings = [
-      { id: 'site', label: 'Site', path: '/settings/site', kind: 'setting' },
-      { id: 'users', label: 'Users', path: '/users', kind: 'setting' },
-      ...bootstrap.navigation
-      .filter((item) => item.kind === 'singleton')
-      .map((item) => ({ ...item })),
-      { id: 'logs', label: 'Logs', path: '/settings/logs', kind: 'setting' },
-      { id: 'api', label: 'API', path: '/settings/api', kind: 'setting' },
-    ];
-
-    return { topLevel, core, collections, settings };
-  }, [bootstrap.models, bootstrap.navigation, bootstrap.site?.commentsEnabled]);
-
-  const breadcrumbSegments = useMemo(() => {
-    if (location.pathname === '/') return [{ label: 'Dashboard', path: '/' }];
-    const parts = location.pathname.split('/').filter(Boolean);
-    return parts.map((seg, i) => ({
-      label: toTitleCase(seg),
-      path: '/' + parts.slice(0, i + 1).join('/'),
-    }));
-  }, [location.pathname]);
-  const isEditorRoute = useMemo(() => {
-    const editorPaths = [
-      '/pages',
-      ...bootstrap.models
-        .filter((model) => model?.supports?.includes('editor'))
-        .map((model) => collectionPathForModel(model)),
-    ];
-
-    return editorPaths.some((path) => {
-      const rest = location.pathname.slice(path.length).replace(/\/+$/, '');
-      return location.pathname.startsWith(path) && rest.length > 1 && rest.startsWith('/');
-    });
-  }, [bootstrap.models, location.pathname]);
-
-  // Build the "+ New ..." quick-create menu: collections first (sorted by label),
-  // then page/post core types. Each control navigates to the model's editor at
-  // the "new" slot.
-  const createMenuControls = useMemo(() => {
-    const hasPosts = Boolean((bootstrap.models || []).find((model) => model?.id === 'post'));
-
-    const collectionControls = (bootstrap.models || [])
-      .filter((model) => model?.public !== false && model?.id !== 'page' && model?.id !== 'post')
-      .slice()
-      .sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id)))
-      .map((model) => ({
-        title: `New ${model.label || toTitleCase(model.id)}`,
-        icon: null,
-        onClick: () => navigate(editorRouteForModel(model, 'new')),
-      }));
-
-    const coreControls = [
+  const contentSections = useMemo(() => {
+    const sections = [
       {
-        title: 'New Page',
-        icon: null,
-        onClick: () => navigate('/pages/new'),
+        id: 'pages',
+        label: 'Pages',
+        listPath: '/pages',
       },
     ];
-    if (hasPosts) {
-      coreControls.push({
-        title: 'New Post',
-        icon: null,
-        onClick: () => navigate('/posts/new'),
+
+    const postModel = (bootstrap.models ?? []).find((item) => item?.id === 'post');
+    if (postModel) {
+      sections.push({
+        id: 'post',
+        label: postModel.label || 'Posts',
+        listPath: '/posts',
       });
     }
 
-    return [...collectionControls, ...coreControls];
-  }, [bootstrap.models, navigate]);
+    for (const model of bootstrap.models ?? []) {
+      if (!model || model.public === false || model.id === 'page' || model.id === 'post') continue;
+      sections.push({
+        id: model.id,
+        label: model.label,
+        listPath: collectionPathForModel(model),
+      });
+    }
+
+    return sections;
+  }, [bootstrap.models]);
+
+  const routeSettingsSections = useMemo(() => {
+    return [
+      { id: 'site', path: '/settings/site' },
+      ...(bootstrap.singletons ?? []).map((singleton) => ({ id: singleton.id, path: `/settings/${singleton.id}` })),
+      { id: 'api', path: '/settings/api' },
+      { id: 'logs', path: '/settings/logs' },
+    ];
+  }, [bootstrap.singletons]);
+
+  useEffect(() => {
+    const path = location.pathname.replace(/\/+$/, '') || '/';
+
+    if (path === '/') {
+      navigate(defaultCanvasPath, { replace: true });
+      return;
+    }
+
+    const contentMatch = contentSections.find((section) => section.listPath === path);
+    if (contentMatch) {
+      setContentSection(contentMatch.id);
+      setOpenPopover('content');
+      navigate(defaultCanvasPath, { replace: true });
+      return;
+    }
+
+    if (path === '/media') {
+      setOpenPopover('media');
+      navigate(defaultCanvasPath, { replace: true });
+      return;
+    }
+
+    const settingsMatch = routeSettingsSections.find((section) => section.path === path);
+    if (settingsMatch) {
+      setSettingsSection(settingsMatch.id);
+      setOpenPopover('settings');
+      navigate(defaultCanvasPath, { replace: true });
+      return;
+    }
+  }, [contentSections, defaultCanvasPath, location.pathname, navigate, routeSettingsSections]);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.startsWith('/pages/')) {
+      setContentSection('pages');
+      return;
+    }
+    if (path.startsWith('/posts/')) {
+      setContentSection('post');
+      return;
+    }
+    for (const model of bootstrap.models ?? []) {
+      if (!model || model.id === 'page' || model.id === 'post') continue;
+      const modelPath = `${collectionPathForModel(model)}/`;
+      if (path.startsWith(modelPath)) {
+        setContentSection(model.id);
+        return;
+      }
+    }
+  }, [bootstrap.models, location.pathname]);
+
+  function togglePopover(name) {
+    setOpenPopover((current) => (current === name ? null : name));
+  }
+
+  async function handleShare() {
+    try {
+      if (typeof surface.share === 'function') {
+        await surface.share();
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        pushNotice({ status: 'success', message: 'Link copied.' });
+      }
+    } catch (error) {
+      pushNotice({ status: 'error', message: error?.message || 'Failed to share.' });
+    }
+  }
+
+  async function handleSave() {
+    if (typeof surface.save !== 'function' || surface.isSaving) return;
+    await surface.save();
+  }
+
+  async function handlePublish() {
+    if (typeof surface.publish !== 'function' || surface.isSaving) return;
+    await surface.publish();
+  }
+
+  function handleOpenCanvasPath(path) {
+    setOpenPopover(null);
+    navigate(normalizeAppPath(path));
+  }
+
+  function handleCommandAction(item) {
+    if (!item?.action) return false;
+
+    if (item.action === 'open-overlay') {
+      if (item.section) {
+        if (item.overlay === 'content') setContentSection(item.section);
+        if (item.overlay === 'settings') setSettingsSection(item.section);
+      }
+      setOpenPopover(item.overlay);
+      return true;
+    }
+
+    return false;
+  }
+
+  const menuTree = useMemo(() => ([
+    {
+      id: 'content',
+      label: 'Content',
+      children: contentSections.map((section) => ({
+        id: section.id,
+        label: section.label,
+        onSelect: () => {
+          setContentSection(section.id);
+          setOpenPopover('content');
+        },
+      })),
+    },
+    {
+      id: 'media',
+      label: 'Media',
+      onSelect: () => setOpenPopover('media'),
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      children: [
+        {
+          id: 'general',
+          label: 'General',
+          onSelect: () => {
+            setSettingsSection('site');
+            setOpenPopover('settings');
+          },
+        },
+        {
+          id: 'singletons',
+          label: 'Singletons',
+          children: (bootstrap.singletons ?? []).map((singleton) => ({
+            id: singleton.id,
+            label: singleton.label,
+            onSelect: () => {
+              setSettingsSection(singleton.id);
+              setOpenPopover('settings');
+            },
+          })),
+        },
+        {
+          id: 'account',
+          label: 'Account',
+          onSelect: () => {
+            setSettingsSection('account');
+            setOpenPopover('settings');
+          },
+        },
+      ],
+    },
+    {
+      id: 'view-site',
+      label: 'View Site',
+      onSelect: () => {
+        window.open(window.location.origin, '_blank', 'noopener,noreferrer');
+        setOpenPopover(null);
+      },
+    },
+    {
+      id: 'classic-admin',
+      label: 'Classic WP Admin',
+      onSelect: () => {
+        window.open(`${window.location.origin}/wp-admin/?classic-admin=1`, '_blank', 'noopener,noreferrer');
+        setOpenPopover(null);
+      },
+    },
+  ]), [bootstrap.singletons, contentSections]);
+
+  useEffect(() => {
+    if (openPopover === 'wp-menu') {
+      setMenuPath([menuTree[0]?.id]);
+    }
+  }, [menuTree, openPopover]);
+
+  const contextControls = useMemo(() => {
+    const controls = [...(surface.moreActions ?? [])];
+    if (!controls.length) return [];
+    return controls.map((item, index) => ({
+      title: item.title,
+      icon: item.icon || null,
+      onClick: item.onClick,
+      isDisabled: item.isDisabled,
+      key: item.key || `${item.title}-${index}`,
+    }));
+  }, [surface.moreActions]);
+
   const commandShortcut = useMemo(() => {
     try {
       return /Mac|iPhone|iPad|iPod/.test(window.navigator.platform) ? '⌘K' : 'Ctrl K';
@@ -396,255 +371,193 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     }
   }, []);
 
-  const adminColorScheme = normalizeAdminColor(
-    bootstrap.currentUser?.preferences?.adminColor ?? singletonData.profile?.color_scheme
-  );
-
   return (
-    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${sidekickOpen ? ' sidekick-open' : ''} color-scheme-${adminColorScheme}`}>
-      <div className="sidebar-overlay" onClick={closeMobileSidebar} />
-      <aside className="sidebar">
-        <div className="sidebar__brand">
-          <div className="sidebar__brand-row">
-            <button
-              className={`sidebar__site-icon${!sidebarCollapsed && !bootstrap.site.icon_url ? ' sidebar__site-icon--placeholder' : ''}`}
-              type="button"
-              onClick={toggleSidebar}
-              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {sidebarCollapsed ? (
-                <OpenPanelLeft size={18} />
-              ) : bootstrap.site.icon_url ? (
-                <img src={bootstrap.site.icon_url} alt="" />
-              ) : (
-                (bootstrap.site.title || 'S')[0].toUpperCase()
-              )}
+    <div className={`app-shell app-shell--workspace color-scheme-${adminColorScheme}${mobileChatOpen ? ' chat-mobile-open' : ''}`}>
+      <div className="workspace-layout">
+        <aside className="workspace-rail">
+          <div className="workspace-rail__header">
+            <button type="button" className="workspace-rail__logo" onClick={() => navigate(normalizeAppPath(defaultCanvasPath))}>
+              <WordPressMark size={18} />
             </button>
-            {!sidebarCollapsed && (
-              <div className="sidebar__brand-text">
-                <h1>{bootstrap.site.title}</h1>
-                <p>{bootstrap.site.tagline}</p>
-              </div>
-            )}
-          </div>
-          <button
-            className="sidebar__collapse-btn"
-            onClick={toggleSidebar}
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            type="button"
-          >
-            {sidebarCollapsed ? <OpenPanelLeft size={16} /> : <ChevronLeft size={16} />}
-          </button>
-        </div>
-
-        <nav className="sidebar__nav" onClick={closeMobileSidebar}>
-          <ul className="navigation-group">
-            {groupedNavigation.topLevel.map((item) => (
-              <li key={item.id}>
-                <NavLink
-                  to={item.path}
-                  end={item.path === '/'}
-                  className={({ isActive }) => (isActive ? 'nav-link is-active' : 'nav-link')}
-                  title={sidebarCollapsed ? item.label : undefined}
-                >
-                  <span className="nav-link__icon">{getNavIcon(item)}</span>
-                  {!sidebarCollapsed && <span>{item.label}</span>}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-          {!sidebarCollapsed ? (
-            <Fragment>
-              <NavigationGroup id="core" title="Core" items={groupedNavigation.core} state={groupState} onToggle={toggleGroup} />
-              <NavigationGroup id="collections" title="Collections" items={groupedNavigation.collections} state={groupState} onToggle={toggleGroup} />
-              <NavigationGroup id="settings" title="Settings" items={groupedNavigation.settings} state={groupState} onToggle={toggleGroup} />
-            </Fragment>
-          ) : (
-            <Fragment>
-              {[...groupedNavigation.core, ...groupedNavigation.collections, ...groupedNavigation.settings].map((item) => (
-                <NavLink
-                  key={item.id}
-                  to={item.path}
-                  end={item.path === '/'}
-                  className={({ isActive }) => (isActive ? 'nav-link is-active' : 'nav-link')}
-                  title={item.label}
-                >
-                  <span className="nav-link__icon">{getNavIcon(item)}</span>
-                </NavLink>
-              ))}
-            </Fragment>
-          )}
-        </nav>
-
-        <SidebarUserMenu
-          currentUser={bootstrap.currentUser}
-          sidebarCollapsed={sidebarCollapsed}
-          navigate={navigate}
-        />
-      </aside>
-
-      <div className="canvas-frame">
-        <main className="main-panel">
-          <div className="main-panel__topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} type="button" title="Open menu">
-                <Menu size={20} />
-              </button>
-              <nav className="breadcrumbs" aria-label="Breadcrumb">
-                {breadcrumbSegments.map((seg, i) => (
-                  <Fragment key={seg.path}>
-                    {i > 0 && <span className="breadcrumbs__sep">/</span>}
-                    {i < breadcrumbSegments.length - 1 ? (
-                      <NavLink to={seg.path} className="breadcrumbs__link">{seg.label}</NavLink>
-                    ) : (
-                      <span className="breadcrumbs__current">{seg.label}</span>
-                    )}
-                  </Fragment>
-                ))}
-              </nav>
+            <div>
+              <p>Workspace</p>
+              <strong>{bootstrap.site.title}</strong>
             </div>
-            <div className="main-panel__topbar-actions">
+          </div>
+          <AssistantChat />
+        </aside>
+
+        <div className="workspace-main">
+          <header className="workspace-topbar">
+            <div className="workspace-topbar__left">
               <button
-                className="command-bar-trigger"
                 type="button"
+                className="workspace-topbar__mobile-chat"
+                onClick={() => setMobileChatOpen((current) => !current)}
+                aria-label="Toggle AI sidebar"
+              >
+                <CarbonIcon name="Chat" size={16} />
+              </button>
+              <button
+                ref={wpMenuRef}
+                type="button"
+                className={`workspace-topbar__wp-button${openPopover === 'wp-menu' ? ' is-active' : ''}`}
+                onClick={() => togglePopover('wp-menu')}
+                aria-label="Open WordPress menu"
+              >
+                <WordPressMark size={16} />
+              </button>
+              <div className="workspace-topbar__site">
+                <strong>{bootstrap.site.title}</strong>
+              </div>
+              <button
+                type="button"
+                className="workspace-topbar__search"
                 onClick={() => setCommandBarOpen(true)}
-                aria-label={`Search or run a command (${commandShortcut})`}
+                aria-label={`Search content or run a command (${commandShortcut})`}
               >
                 <CarbonIcon name="Search" size={16} />
-                <span className="command-bar-trigger__label">Search or run a command</span>
-                <span className="command-bar-trigger__shortcut">{commandShortcut}</span>
+                <span>{surface.title ? `Search or jump from ${surface.title}` : 'Search pages, posts, media, settings'}</span>
+                <kbd>{commandShortcut}</kbd>
               </button>
-              {createMenuControls.length > 0 && (
-                <DropdownMenu
-                  icon={<CarbonIcon name="Add" size={20} />}
-                  label="Create new"
-                  controls={createMenuControls}
-                  toggleProps={{
-                    className: 'wplite-topbar-create',
-                    showTooltip: true,
-                  }}
-                  popoverProps={{ placement: 'bottom-end' }}
-                />
-              )}
-              <NotificationBell
-                unreadCount={unreadCount}
-                isOpen={sidekickOpen}
-                onClick={toggleSidekick}
-              />
+            </div>
+
+            <div className="workspace-topbar__right">
+              <div className="workspace-topbar__toggles">
+                <Button className={`workspace-topbar__toggle${openPopover === 'content' ? ' is-active' : ''}`} onClick={() => togglePopover('content')}>
+                  Content
+                </Button>
+                <Button className={`workspace-topbar__toggle${openPopover === 'media' ? ' is-active' : ''}`} onClick={() => togglePopover('media')}>
+                  Media
+                </Button>
+                <Button className={`workspace-topbar__toggle${openPopover === 'settings' ? ' is-active' : ''}`} onClick={() => togglePopover('settings')}>
+                  Settings
+                </Button>
+                <div ref={notificationsRef}>
+                  <NotificationBell
+                    unreadCount={notifications.filter((item) => !item.read).length}
+                    isOpen={openPopover === 'notifications'}
+                    onClick={() => togglePopover('notifications')}
+                  />
+                </div>
+              </div>
+
+              <div className="workspace-topbar__actions">
+                <Button variant="secondary" onClick={handleShare}>Share</Button>
+                <Button variant="secondary" onClick={handleSave} disabled={!surface.canSave} isBusy={surface.isSaving}>
+                  {surface.saveLabel || 'Save'}
+                </Button>
+                <Button variant="primary" onClick={handlePublish} disabled={!surface.canPublish} isBusy={surface.isSaving}>
+                  {surface.publishLabel || 'Publish'}
+                </Button>
+                {contextControls.length > 0 ? (
+                  <DropdownMenu
+                    icon={<CarbonIcon name="OverflowMenuVertical" size={18} />}
+                    label="Context actions"
+                    controls={contextControls}
+                    toggleProps={{ className: 'workspace-topbar__context' }}
+                    popoverProps={{ placement: 'bottom-end' }}
+                  />
+                ) : (
+                  <Button className="workspace-topbar__context" disabled>
+                    <CarbonIcon name="OverflowMenuVertical" size={18} />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </header>
+
+          <div className="workspace-canvas">
+            <div className="workspace-canvas__inner">
+              <Routes>
+                <Route path="/" element={<Navigate to={defaultCanvasPath} replace />} />
+                <Route path="/dashboard" element={<DashboardPage bootstrap={bootstrap} recordsByModel={recordsByModel} singletonData={singletonData} pushNotice={pushNotice} />} />
+                <Route path="/docs" element={<DocsPage bootstrap={bootstrap} />} />
+                <Route path="/domains" element={<DomainsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+                <Route path="/integrations" element={<IntegrationsPage pushNotice={pushNotice} />} />
+                <Route path="/automations" element={<PlaceholderPage eyebrow="Workspace" title="Automations" lede="Triggers, actions, and background workflows will attach to content once the service layer lands." summary="Site-wide configuration and preferences." />} />
+                <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
+                <Route path="/pages/:pageId" element={<PageEditorPage key={`page-editor:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+                <Route path="/comments/:commentId" element={<CommentEditorPage key={`comment-editor:${location.pathname}`} bootstrap={bootstrap} pushNotice={pushNotice} />} />
+                <Route path="/media/:mediaId" element={<MediaEditorPage key={`media-editor:${location.pathname}`} pushNotice={pushNotice} />} />
+                <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+                <Route path="/users/:userId" element={<UserEditorPage key={`user-editor:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route path="/:collectionPath" element={<CollectionListPage bootstrap={bootstrap} recordsByModel={recordsByModel} />} />
+                <Route path="/:collectionPath/:itemId" element={<CollectionEditorPage key={`collection-editor:${location.pathname}`} bootstrap={bootstrap} recordsByModel={recordsByModel} setRecordsByModel={setRecordsByModel} pushNotice={pushNotice} />} />
+                <Route path="/settings/site" element={<SiteSettingsPage key={`site-settings:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route path="/settings/:singletonId" element={<SingletonEditorPage key={`singleton-settings:${location.pathname}`} bootstrap={bootstrap} singletonData={singletonData} setSingletonData={setSingletonData} pushNotice={pushNotice} />} />
+                <Route path="/settings/logs" element={<LogsPage />} />
+                <Route path="/settings/api" element={<ApiPage bootstrap={bootstrap} />} />
+                <Route path="*" element={<NotFoundScreen />} />
+              </Routes>
             </div>
           </div>
-          <div className="main-panel__content">
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <DashboardPage
-                    bootstrap={bootstrap}
-                    recordsByModel={recordsByModel}
-                    singletonData={singletonData}
-                    pushNotice={pushNotice}
-                  />
-                }
-              />
-              <Route
-                path="/docs"
-                element={<DocsPage bootstrap={bootstrap} />}
-              />
-              <Route
-                path="/domains"
-                element={<DomainsPage bootstrap={bootstrap} pushNotice={pushNotice} />}
-              />
-              <Route
-                path="/integrations"
-                element={<IntegrationsPage pushNotice={pushNotice} />}
-              />
-              <Route
-                path="/automations"
-                element={
-                  <PlaceholderPage
-                    eyebrow="Workspace"
-                    title="Automations"
-                    lede="Triggers, actions, and background workflows will attach to content once the service layer lands."
-                    summary="Site-wide configuration and preferences."
-                  />
-                }
-              />
-              <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
-              <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
-              <Route path="/comments/:commentId" element={<CommentEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
-              <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
-              <Route path="/media/:mediaId" element={<MediaEditorPage pushNotice={pushNotice} />} />
-              <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
-              <Route path="/users/:userId" element={<UserEditorPage bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
-              <Route
-                path="/:collectionPath"
-                element={<CollectionListPage bootstrap={bootstrap} recordsByModel={recordsByModel} />}
-              />
-              <Route
-                path="/:collectionPath/:itemId"
-                element={
-                  <CollectionEditorPage
-                    bootstrap={bootstrap}
-                    recordsByModel={recordsByModel}
-                    setRecordsByModel={setRecordsByModel}
-                    pushNotice={pushNotice}
-                  />
-                }
-              />
-              <Route
-                path="/settings/site"
-                element={
-                  <SiteSettingsPage
-                    bootstrap={bootstrap}
-                    setBootstrap={setBootstrap}
-                    pushNotice={pushNotice}
-                  />
-                }
-              />
-              <Route
-                path="/settings/:singletonId"
-                element={
-                  <SingletonEditorPage
-                    bootstrap={bootstrap}
-                    singletonData={singletonData}
-                    setSingletonData={setSingletonData}
-                    pushNotice={pushNotice}
-                  />
-                }
-              />
-              <Route
-                path="/settings/logs"
-                element={<LogsPage />}
-              />
-              <Route
-                path="/settings/api"
-                element={<ApiPage bootstrap={bootstrap} />}
-              />
-              <Route path="*" element={<NotFoundScreen />} />
-            </Routes>
-          </div>
-        </main>
+        </div>
       </div>
-      <SidekickPanel
-        open={sidekickOpen}
-        onClose={closeSidekick}
-        activeTab={sidekickTab}
-        onTabChange={handleSidekickTabChange}
+
+      <ContentPopover
+        open={openPopover === 'content'}
+        bootstrap={bootstrap}
+        recordsByModel={recordsByModel}
+        currentPath={location.pathname}
+        currentSection={contentSection}
+        onChangeSection={setContentSection}
+        onOpenItem={handleOpenCanvasPath}
+        onClose={() => setOpenPopover(null)}
+      />
+      <MediaPopover
+        open={openPopover === 'media'}
+        onClose={() => setOpenPopover(null)}
+        onOpenItem={handleOpenCanvasPath}
+        pushNotice={pushNotice}
+      />
+      <SettingsPopover
+        open={openPopover === 'settings'}
+        bootstrap={bootstrap}
+        setBootstrap={setBootstrap}
+        singletonData={singletonData}
+        setSingletonData={setSingletonData}
+        currentSection={settingsSection}
+        onChangeSection={setSettingsSection}
+        onClose={() => setOpenPopover(null)}
+        pushNotice={pushNotice}
+        onNavigate={handleOpenCanvasPath}
+      />
+      <NotificationsPopover
+        open={openPopover === 'notifications'}
+        anchorRef={notificationsRef}
         notifications={notifications}
+        onClose={() => setOpenPopover(null)}
         onMarkAllRead={markAllRead}
         onClearAll={clearAllNotifications}
-        onOpen={markNonErrorsRead}
       />
+      <WordPressMenuPopover
+        open={openPopover === 'wp-menu'}
+        anchorRef={wpMenuRef}
+        menuTree={menuTree}
+        menuPath={menuPath}
+        onChangePath={setMenuPath}
+        onClose={() => setOpenPopover(null)}
+      />
+
       <CommandBar
         bootstrap={bootstrap}
         recordsByModel={recordsByModel}
         isOpen={commandBarOpen}
         onOpen={() => setCommandBarOpen(true)}
         onClose={() => setCommandBarOpen(false)}
-        closeMobileSidebar={closeMobileSidebar}
+        onExecuteAction={handleCommandAction}
       />
       <NoticeStack notices={notices} onDismiss={dismissNotice} />
     </div>
+  );
+}
+
+export function AppShell(props) {
+  return (
+    <WorkspaceSurfaceProvider>
+      <WorkspaceShellFrame {...props} />
+    </WorkspaceSurfaceProvider>
   );
 }

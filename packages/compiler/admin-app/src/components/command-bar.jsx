@@ -16,6 +16,7 @@ import {
   normalizeUserRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
+import { buildAppUrl, normalizeAppPath } from '../lib/config.js';
 import { CarbonIcon } from '../lib/icons.jsx';
 
 function isEditableTarget(target) {
@@ -162,10 +163,10 @@ export function CommandBar({
   isOpen,
   onOpen,
   onClose,
-  closeMobileSidebar,
+  onExecuteAction,
 }) {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
   const inputRef = useRef(null);
   const cacheRef = useRef(new Map());
   const [query, setQuery] = useState('');
@@ -340,10 +341,20 @@ export function CommandBar({
     }
 
     onClose();
-    closeMobileSidebar?.();
+
+    if (item.action && typeof onExecuteAction === 'function') {
+      const handled = onExecuteAction(item);
+      if (handled) {
+        return;
+      }
+    }
 
     if (item.path) {
-      navigate(item.path);
+      if (item.openInNewTab) {
+        window.open(buildAppUrl(item.path), '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(normalizeAppPath(item.path));
+      }
       return;
     }
 

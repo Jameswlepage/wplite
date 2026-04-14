@@ -26,6 +26,7 @@ import {
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
 
 /* ── Collection List Page ── */
 export function CollectionListPage({ bootstrap, recordsByModel }) {
@@ -170,21 +171,20 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     const fieldIds = (editorManaged ? metaFields : fields).map((field) => field.id);
     return buildFormConfig(schema, fieldIds);
   }, [editorManaged, fields, metaFields, schema]);
-  const documentLabel = model.singularLabel
-    || (model.label?.endsWith('s') ? model.label.slice(0, -1) : model.label)
+  const documentLabel = model?.singularLabel
+    || (model?.label?.endsWith('s') ? model.label.slice(0, -1) : model?.label)
     || 'Entry';
 
-  if (!model || !schema || !form) return <Navigate to="/" replace />;
-
-  async function handleSave() {
+  async function handleSave(overrides = {}) {
     setIsSaving(true);
     try {
       const isNew = !itemId || itemId === 'new';
       const endpoint = isNew ? `collection/${model.id}` : `collection/${model.id}/${itemId}`;
+      const nextDraft = { ...draft, ...overrides };
       const payload = await apiFetch(endpoint, {
         method: 'POST',
         body: {
-          ...draft,
+          ...nextDraft,
           ...(editorManaged
             ? {
               content: serialize(blocks),
@@ -212,6 +212,19 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       pushNotice({ status: 'error', message: error.message });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handlePublish() {
+    await handleSave({ postStatus: 'publish' });
+  }
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(existing?.link || window.location.href);
+      pushNotice({ status: 'success', message: `${documentLabel} link copied.` });
+    } catch {
+      pushNotice({ status: 'error', message: `Failed to copy ${documentLabel.toLowerCase()} link.` });
     }
   }
 
@@ -244,6 +257,54 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  const workspaceSurface = useMemo(() => ({
+    entityId: itemId ? `${model?.id || 'collection'}:${itemId}` : `${model?.id || 'collection'}:new`,
+    entityLabel: documentLabel,
+    title: draft?.title || `Untitled ${documentLabel}`,
+    status: draft?.postStatus || 'draft',
+    saveLabel: 'Save',
+    publishLabel: draft?.postStatus === 'publish' ? 'Update' : 'Publish',
+    canSave: Boolean(model && schema && form),
+    canPublish: Boolean(model && schema && form && editorManaged),
+    isSaving,
+    save: model && schema && form ? handleSave : null,
+    publish: model && schema && form && editorManaged ? handlePublish : null,
+    share: model && schema && form ? handleShare : null,
+    moreActions: [
+      existing?.link ? {
+        title: 'View on site',
+        onClick: () => window.open(existing.link, '_blank', 'noopener,noreferrer'),
+      } : null,
+      existing?.id ? {
+        title: 'Open in wp-admin',
+        onClick: () => window.open(`/wp-admin/post.php?post=${existing.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      existing ? {
+        title: `Delete ${documentLabel}`,
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [
+    documentLabel,
+    draft.postStatus,
+    draft.title,
+    editorManaged,
+    existing,
+    handleDelete,
+    handlePublish,
+    handleSave,
+    handleShare,
+    isSaving,
+    itemId,
+    form,
+    model?.id,
+    schema,
+  ]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
+  if (!model || !schema || !form) return <Navigate to="/" replace />;
+
   if (editorManaged) {
     function handleBlocksChange(nextBlocks) {
       setBlocks(nextBlocks);
@@ -258,6 +319,9 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
           setDraft((current) => ({ ...current, title: value }));
         }}
         showTitleInput={true}
+        showBackButton={false}
+        showPrimaryAction={false}
+        showMoreActions={false}
         blocks={blocks}
         onChangeBlocks={handleBlocksChange}
         backLabel={`Back to ${model.label}`}

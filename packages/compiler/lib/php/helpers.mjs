@@ -54,6 +54,9 @@ function portfolio_light_get_site_config() {
 \t\t'adminEmail'  => get_option( 'admin_email' ),
 \t\t'timezone'    => wp_timezone_string(),
 \t\t'commentsEnabled' => 'open' === get_option( 'default_comment_status', 'closed' ),
+\t\t'showOnFront' => get_option( 'show_on_front', 'posts' ),
+\t\t'pageOnFront' => (int) get_option( 'page_on_front', 0 ),
+\t\t'pageForPosts' => (int) get_option( 'page_for_posts', 0 ),
 \t];
 \treturn array_merge( $base, array_filter( $canonical, fn( $v ) => $v !== null && $v !== '' ) );
 }

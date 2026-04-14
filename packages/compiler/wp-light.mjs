@@ -306,6 +306,10 @@ function loadSiteConfigSync() {
   }
 }
 
+async function loadWpEnvConfig() {
+  return JSON.parse(await readFile(path.join(ROOT, '.wp-env.json'), 'utf8'));
+}
+
 function resolveDevStatePathFromSite(site = {}) {
   const pluginSlug = site?.plugin?.slug ?? 'wp-light-app';
 
@@ -1179,8 +1183,10 @@ async function syncRunningSite({ useDocker } = {}) {
 
   if (useDocker ?? (await canUseDocker())) {
     await run('npx', ['wp-env', 'start']);
-    await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
-    return { siteUrl: null, mode: 'docker' };
+    const wpEnv = await loadWpEnvConfig();
+    const siteUrl = `http://localhost:${wpEnv.port ?? 8888}`;
+    await runLocalSeed(siteUrl);
+    return { siteUrl, mode: 'docker' };
   }
 
   const siteUrl = await startPlaygroundServer(site);
@@ -1204,10 +1210,12 @@ async function applyCommand() {
 async function seedCommand() {
   if (await canUseDocker()) {
     await run('npx', ['wp-env', 'start']);
-    await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
+    const wpEnv = await loadWpEnvConfig();
+    const siteUrl = `http://localhost:${wpEnv.port ?? 8888}`;
+    await runLocalSeed(siteUrl);
     return {
-      summary: 'Seeded content via Docker wp-env.',
-      data: { mode: 'docker', siteUrl: null },
+      summary: `Seeded content at ${siteUrl}`,
+      data: { mode: 'docker', siteUrl },
     };
   }
 

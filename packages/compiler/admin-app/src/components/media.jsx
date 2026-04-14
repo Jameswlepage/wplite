@@ -26,6 +26,7 @@ import {
 } from '../lib/helpers.js';
 import { CarbonIcon } from '../lib/icons.jsx';
 import { SkeletonBox } from './skeletons.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
 
 /* ── Mime helpers (Carbon icons, no emoji) ── */
 function getMimeIconComponent(mimeType) {
@@ -359,6 +360,30 @@ export function MediaEditorPage({ pushNotice }) {
       setTimeout(() => setCopySuccess(false), 2000);
     } catch {}
   }
+
+  const workspaceSurface = useMemo(() => ({
+    entityId: draft?.id ? `media:${draft.id}` : 'media',
+    entityLabel: 'Media',
+    title: draft?.title || '(untitled)',
+    saveLabel: 'Save',
+    canSave: Boolean(draft?.id),
+    canPublish: false,
+    isSaving,
+    save: handleSave,
+    share: copyUrl,
+    moreActions: [
+      draft?.sourceUrl ? {
+        title: 'Open original',
+        onClick: () => window.open(draft.sourceUrl, '_blank', 'noopener,noreferrer'),
+      } : null,
+      draft?.id ? {
+        title: 'Delete File',
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [draft?.id, draft?.sourceUrl, draft?.title, handleDelete, handleSave, isSaving]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
 
   if (loading || !item || !draft) {
     return (

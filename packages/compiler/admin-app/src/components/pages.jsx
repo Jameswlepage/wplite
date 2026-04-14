@@ -21,6 +21,7 @@ import {
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
 
 const PAGE_TEMPLATE_SLOT_CLASS = 'wplite-page-template-slot';
 
@@ -373,28 +374,29 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     };
   }, [bootstrap, isNew, pageId]);
 
-  async function handleSave() {
+  async function handleSave(overrides = {}) {
     setIsSaving(true);
     try {
       const endpoint = isNew ? 'wp/v2/pages' : `wp/v2/pages/${pageId}`;
+      const nextDraft = { ...draft, ...overrides };
       const templateSplit = templateRecord
         ? splitTemplateEditorBlocks(blocks)
         : { templateBlocks: [], pageContentBlocks: blocks };
       const pageContentBlocks = templateRecord?.slotFound
         ? templateSplit.pageContentBlocks
-        : blocksFromContent(draft.content);
+        : blocksFromContent(nextDraft.content);
 
       const pageSavePromise = wpApiFetch(endpoint, {
         method: 'POST',
         body: {
-          title: draft.title,
-          slug: draft.slug,
-          status: draft.postStatus,
-          comment_status: draft.commentStatus === 'open' ? 'open' : 'closed',
+          title: nextDraft.title,
+          slug: nextDraft.slug,
+          status: nextDraft.postStatus,
+          comment_status: nextDraft.commentStatus === 'open' ? 'open' : 'closed',
           content: serialize(pageContentBlocks),
-          parent: Number(draft.parent || 0),
-          template: draft.template || '',
-          menu_order: Number(draft.menuOrder || 0),
+          parent: Number(nextDraft.parent || 0),
+          template: nextDraft.template || '',
+          menu_order: Number(nextDraft.menuOrder || 0),
         },
       });
 
@@ -463,6 +465,19 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     }
   }
 
+  async function handlePublish() {
+    await handleSave({ postStatus: 'publish' });
+  }
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(draft.link || window.location.href);
+      pushNotice({ status: 'success', message: 'Page link copied.' });
+    } catch {
+      pushNotice({ status: 'error', message: 'Failed to copy page link.' });
+    }
+  }
+
   async function handleDelete() {
     if (isNew || !window.confirm(`Delete ${draft.title || 'this page'}?`)) return;
     setIsDeleting(true);
@@ -494,6 +509,57 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  const routeManifest = getRouteManifestForPage(bootstrap, draft);
+  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
+
+  const workspaceSurface = useMemo(() => ({
+    entityId: draft.id ? `page:${draft.id}` : 'page:new',
+    entityLabel: 'Page',
+    title: draft.title || 'Untitled Page',
+    status: draft.postStatus || 'draft',
+    saveLabel: 'Save',
+    publishLabel: draft.postStatus === 'publish' ? 'Update' : 'Publish',
+    canSave: !loading,
+    canPublish: !loading,
+    isSaving,
+    save: handleSave,
+    publish: handlePublish,
+    share: handleShare,
+    moreActions: [
+      draft.link ? {
+        title: 'View on site',
+        onClick: () => window.open(draft.link, '_blank', 'noopener,noreferrer'),
+      } : null,
+      !isNew ? {
+        title: 'Open in wp-admin',
+        onClick: () => window.open(`/wp-admin/post.php?post=${draft.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      templateRecord ? {
+        title: 'Edit template in wp-admin',
+        onClick: () => window.open(`/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      !isNew ? {
+        title: 'Delete Page',
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [
+    draft.id,
+    draft.link,
+    draft.postStatus,
+    draft.title,
+    handleDelete,
+    handlePublish,
+    handleSave,
+    handleShare,
+    isNew,
+    isSaving,
+    loading,
+    templateRecord,
+  ]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
   if (loading) {
     return <EditorSkeleton />;
   }
@@ -511,8 +577,6 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       label: template.title,
     }))),
   ];
-  const routeManifest = getRouteManifestForPage(bootstrap, draft);
-  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
 
   function handleBlocksChange(nextBlocks) {
     setBlocks(nextBlocks);
@@ -526,8 +590,11 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       onChangeTitle={(value) => {
         setDraft((current) => ({ ...current, title: value }));
       }}
-      showTitleInput={true}
-      blocks={blocks}
+        showTitleInput={true}
+        showBackButton={false}
+        showPrimaryAction={false}
+        showMoreActions={false}
+        blocks={blocks}
       onChangeBlocks={handleBlocksChange}
       backLabel="Back to Pages"
       onBack={() => navigate('/pages')}
