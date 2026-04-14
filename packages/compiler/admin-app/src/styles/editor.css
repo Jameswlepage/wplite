@@ -7,6 +7,8 @@
 }
 
 .native-editor {
+  --native-editor-topbar-height: 60px;
+  --native-editor-secondary-bar-height: 52px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -22,8 +24,8 @@
   padding: 0 12px;
   border-bottom: 1px solid var(--wp-admin-border);
   background: #ffffff;
-  height: 61px;
-  min-height: 61px;
+  height: var(--native-editor-topbar-height);
+  min-height: var(--native-editor-topbar-height);
   flex-shrink: 0;
 }
 
@@ -270,16 +272,21 @@
   background: #ffffff;
   border-top: 0;
   border-bottom: 1px solid var(--wp-admin-border);
-  min-height: 48px;
+  min-height: var(--native-editor-secondary-bar-height);
+  height: var(--native-editor-secondary-bar-height);
   display: flex;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .native-editor__block-toolbar .block-editor-block-toolbar {
   width: 100%;
+  min-height: 100%;
   border: 0;
   border-top: 0;
   box-shadow: none;
+  display: flex;
+  align-items: center;
 }
 
 .native-editor__block-tools,
@@ -405,15 +412,18 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0;
   margin: 0;
-  padding: 0 12px;
+  padding: 0;
   border-bottom: 1px solid var(--wp-admin-border);
   background: #ffffff;
   flex-shrink: 0;
+  min-height: var(--native-editor-secondary-bar-height);
+  height: var(--native-editor-secondary-bar-height);
+  box-sizing: border-box;
 }
 
 .native-editor__inspector-tabs .components-tab-panel__tabs-item {
   justify-content: center;
-  min-height: 48px;
+  min-height: calc(var(--native-editor-secondary-bar-height) - 1px);
   padding: 0 16px;
   border-radius: 0;
   border: 0;
@@ -457,6 +467,7 @@
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+  border-top: 0;
 }
 
 .native-editor__document-sidebar,
@@ -557,4 +568,3 @@
   color: var(--wp-admin-text-muted);
   font-size: 12px;
 }
-

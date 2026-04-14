@@ -510,6 +510,30 @@ export function normalizePageRecord(page) {
   };
 }
 
+export function getRouteManifestEntry(bootstrap, routeId) {
+  if (!routeId) return null;
+  const manifest = bootstrap?.routeManifest ?? {};
+  return manifest?.[routeId] ?? null;
+}
+
+export function getRouteManifestForPage(bootstrap, page) {
+  const manifest = bootstrap?.routeManifest ?? {};
+  if (!manifest || typeof manifest !== 'object') {
+    return null;
+  }
+
+  if (page?.routeId && manifest[page.routeId]) {
+    return manifest[page.routeId];
+  }
+
+  const slug = String(page?.slug ?? '');
+  if (!slug) {
+    return null;
+  }
+
+  return Object.values(manifest).find((entry) => String(entry?.slug ?? '') === slug) ?? null;
+}
+
 export function normalizeMediaRecord(item) {
   return {
     id: item.id,

@@ -14,6 +14,7 @@ import {
   formatDate,
   formatDateTime,
   getStatusBadgeClass,
+  getRouteManifestForPage,
   normalizePageRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
@@ -102,9 +103,9 @@ function splitTemplateEditorBlocks(editorBlocks) {
 }
 
 function resolvePageTemplateSlug(page, bootstrap) {
-  const route = (bootstrap?.routes ?? []).find((item) => item?.id === page?.routeId);
-  if (route?.template) {
-    return route.template;
+  const routeManifest = getRouteManifestForPage(bootstrap, page);
+  if (routeManifest?.editor?.template) {
+    return routeManifest.editor.template;
   }
 
   if (page?.template && !['default', ''].includes(page.template)) {
@@ -314,14 +315,27 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
         const page = await wpApiFetch(`wp/v2/pages/${pageId}?context=edit`);
         if (cancelled) return;
         const normalized = normalizePageRecord(page);
+        const routeManifest = getRouteManifestForPage(bootstrap, normalized);
         const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
+        const previewMarkup = String(routeManifest?.editor?.previewMarkup ?? '');
 
         setDraft(normalized);
 
-        if (templateSlug) {
-          const template = await wpApiFetch(
-            `wp/v2/templates/lookup?slug=${encodeURIComponent(templateSlug)}&context=edit`
-          );
+        if (templateSlug && previewMarkup) {
+          const pageBlocks = blocksFromContent(normalized.content);
+          const templateBlocks = blocksFromContent(previewMarkup);
+          const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
+
+          setTemplateRecord({
+            id: routeManifest?.editor?.templateEntityId || '',
+            slug: templateSlug,
+            title: routeManifest?.title ?? normalized.title ?? templateSlug,
+            slotFound: composed.slotFound,
+            source: 'route-manifest',
+          });
+          setBlocks(composed.blocks);
+        } else if (templateSlug) {
+          const template = await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(templateSlug)}`);
           if (cancelled) return;
 
           const pageBlocks = blocksFromContent(normalized.content);
@@ -333,6 +347,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
             slug: template.slug,
             title: template.title?.raw ?? template.title?.rendered ?? templateSlug,
             slotFound: composed.slotFound,
+            source: 'template-rest',
           });
           setBlocks(composed.blocks);
         } else {
@@ -379,7 +394,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
       });
 
       const templateSavePromise = templateRecord
-        ? wpApiFetch(`wp/v2/templates/${encodeURIComponent(templateRecord.id)}`, {
+        ? wpApiFetch(`portfolio/v1/template/${encodeURIComponent(templateRecord.slug)}`, {
           method: 'POST',
           body: {
             content: serialize(templateSplit.templateBlocks),
@@ -467,7 +482,8 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
       label: template.title,
     }))),
   ];
-  const route = (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
+  const routeManifest = getRouteManifestForPage(bootstrap, draft);
+  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
 
   function handleBlocksChange(nextBlocks) {
     setBlocks(nextBlocks);
@@ -553,7 +569,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
               </div>
               {templateRecord ? (
                 <p className="field-hint">
-                  This route is editing the <strong>{templateRecord.title}</strong> template inside the page editor so the canvas matches the frontend shell.
+                  This route is using the shared route manifest for <strong>{templateRecord.title}</strong>, so the editor canvas follows the same template shell the router uses on the frontend.
                 </p>
               ) : null}
               {route?.postsPage ? (

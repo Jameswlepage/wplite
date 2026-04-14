@@ -210,6 +210,93 @@ function portfolio_light_get_editor_templates() {
 \treturn $compiled['editorTemplates'] ?? [];
 }
 
+function portfolio_light_route_path( $route ) {
+\t$slug = trim( (string) ( $route['slug'] ?? '' ), '/' );
+\treturn '' === $slug ? '/' : '/' . $slug . '/';
+}
+
+function portfolio_light_get_route_manifest( $pages = null ) {
+\t$routes            = portfolio_light_get_routes();
+\t$editor_templates  = portfolio_light_get_editor_templates();
+\t$stylesheet        = function_exists( 'get_stylesheet' ) ? (string) get_stylesheet() : '';
+\t$pages_by_route_id = [];
+\t$pages_by_slug     = [];
+
+\tif ( null === $pages ) {
+\t\t$page_posts = get_posts(
+\t\t\t[
+\t\t\t\t'post_type'      => 'page',
+\t\t\t\t'post_status'    => 'any',
+\t\t\t\t'posts_per_page' => -1,
+\t\t\t\t'orderby'        => 'modified',
+\t\t\t\t'order'          => 'DESC',
+\t\t\t]
+\t\t);
+\t\t$pages = array_map( 'portfolio_light_prepare_page_record', $page_posts );
+\t}
+
+\tforeach ( $pages as $page ) {
+\t\tif ( ! is_array( $page ) ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$route_id = (string) ( $page['routeId'] ?? '' );
+\t\t$slug     = (string) ( $page['slug'] ?? '' );
+
+\t\tif ( '' !== $route_id ) {
+\t\t\t$pages_by_route_id[ $route_id ] = $page;
+\t\t}
+\t\tif ( '' !== $slug ) {
+\t\t\t$pages_by_slug[ $slug ] = $page;
+\t\t}
+\t}
+
+\t$manifest = [];
+\tforeach ( $routes as $route ) {
+\t\tif ( ( $route['type'] ?? '' ) !== 'page' ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$route_id = (string) ( $route['id'] ?? '' );
+\t\tif ( '' === $route_id ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$route_slug      = (string) ( $route['slug'] ?? '' );
+\t\t$matched_page    = $pages_by_route_id[ $route_id ] ?? ( '' !== $route_slug ? ( $pages_by_slug[ $route_slug ] ?? null ) : null );
+\t\t$template_slug   = (string) ( $route['template'] ?? ( $matched_page['template'] ?? 'page' ) );
+\t\t$route_template  = $editor_templates['routes'][ $route_id ] ?? null;
+\t\t$post_type_shell = $editor_templates['postTypes']['page'] ?? null;
+\t\t$preview_markup  = (string) ( $route_template['markup'] ?? ( $post_type_shell['markup'] ?? '' ) );
+
+\t\t$manifest[ $route_id ] = [
+\t\t\t'id'        => $route_id,
+\t\t\t'title'     => (string) ( $route['title'] ?? ( $matched_page['title'] ?? '' ) ),
+\t\t\t'slug'      => $route_slug,
+\t\t\t'path'      => portfolio_light_route_path( $route ),
+\t\t\t'template'  => $template_slug,
+\t\t\t'postsPage' => ! empty( $route['postsPage'] ),
+\t\t\t'route'     => $route,
+\t\t\t'page'      => $matched_page,
+\t\t\t'editor'    => [
+\t\t\t\t'mode'             => 'template-page',
+\t\t\t\t'template'         => $template_slug,
+\t\t\t\t'templateEntityId' => $template_slug && $stylesheet ? $stylesheet . '//' . $template_slug : '',
+\t\t\t\t'previewMarkup'    => $preview_markup,
+\t\t\t\t'bindings'         => [
+\t\t\t\t\t[
+\t\t\t\t\t\t'slot'      => 'page.content',
+\t\t\t\t\t\t'blockName' => 'core/post-content',
+\t\t\t\t\t\t'source'    => 'page.content',
+\t\t\t\t\t],
+\t\t\t\t],
+\t\t\t],
+\t\t];
+\t}
+
+\treturn $manifest;
+}
+
 function portfolio_light_get_content_collections() {
 \t$compiled = portfolio_light_get_compiled_site();
 \treturn $compiled['content']['collections'] ?? [];

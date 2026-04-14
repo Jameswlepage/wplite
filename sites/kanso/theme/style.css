@@ -1018,7 +1018,8 @@ a.k-header__status:hover { color: var(--k-vermillion); }
 /* Homepage hero — more dramatic image reveal */
 .home .k-hero,
 body.home .k-hero,
-.wp-site-blocks > .k-hero:first-of-type {
+.wp-site-blocks > .k-hero:first-of-type,
+body.editor-styles-wrapper > .k-hero:first-of-type {
   min-height: 92vh;
   padding-top: clamp(60px, 12vw, 180px);
   padding-bottom: clamp(32px, 6vw, 96px);
@@ -1200,15 +1201,20 @@ form.kanso-form button:hover { background: var(--k-vermillion); }
    ═══════════════════════════════════════════════════════════════ */
 
 /* Kill the root block-gap that shows as a line between header and hero */
-.wp-site-blocks > * + * { margin-block-start: 0 !important; }
-.wp-site-blocks { padding-top: 0 !important; padding-bottom: 0 !important; }
-.wp-site-blocks > header.wp-block-template-part { margin-bottom: 0 !important; }
-.wp-site-blocks > .k-hero { margin-top: 0 !important; }
+.wp-site-blocks > * + *,
+body.editor-styles-wrapper > * + * { margin-block-start: 0 !important; }
+.wp-site-blocks,
+body.editor-styles-wrapper { padding-top: 0 !important; padding-bottom: 0 !important; }
+.wp-site-blocks > header.wp-block-template-part,
+body.editor-styles-wrapper > header.wp-block-template-part { margin-bottom: 0 !important; }
+.wp-site-blocks > .k-hero,
+body.editor-styles-wrapper > .k-hero { margin-top: 0 !important; }
 
 /* Home hero — ensure the background image is visible even where child padding
    would normally collapse. Reduce aggressive top padding so the hero hugs the header. */
 .home .k-hero,
-body.home .wp-site-blocks > .k-hero {
+body.home .wp-site-blocks > .k-hero,
+body.home.editor-styles-wrapper > .k-hero {
   padding-top: clamp(32px, 5vw, 80px);
   min-height: clamp(600px, 88vh, 900px);
 }
@@ -1400,5 +1406,4 @@ html, body { overflow-x: clip; }
 @media (max-width: 520px) {
   .k-team__grid, .k-team__grid.wp-block-query { grid-template-columns: 1fr; }
 }
-
 

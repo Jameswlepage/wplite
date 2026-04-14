@@ -72,6 +72,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t]
 \t\t\t\t);
 \t\t\t\t$pages = array_map( 'portfolio_light_prepare_page_record', $page_posts );
+\t\t\t\t$route_manifest = portfolio_light_get_route_manifest( $pages );
 
 \t\t\t\treturn new WP_REST_Response(
 \t\t\t\t\t[
@@ -82,6 +83,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'models'        => $models,
 \t\t\t\t\t\t'singletons'    => $singletons,
 \t\t\t\t\t\t'routes'        => portfolio_light_get_routes(),
+\t\t\t\t\t\t'routeManifest' => $route_manifest,
 \t\t\t\t\t\t'menus'         => portfolio_light_get_menus(),
 \t\t\t\t\t\t'editorTemplates' => portfolio_light_get_editor_templates(),
 \t\t\t\t\t\t'adminSchema'   => $admin_schema,
@@ -96,6 +98,64 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t200
 \t\t\t\t);
 \t\t\t},
+\t\t]
+\t);
+
+\tregister_rest_route(
+\t\t'portfolio/v1',
+\t\t'/template/(?P<slug>[a-z0-9_-]+)',
+\t\t[
+\t\t\t[
+\t\t\t\t'methods'             => 'GET',
+\t\t\t\t'permission_callback' => 'portfolio_light_rest_can_edit',
+\t\t\t\t'callback'            => function( WP_REST_Request $request ) {
+\t\t\t\t\t$core_request = new WP_REST_Request( 'GET', '/wp/v2/templates/lookup' );
+\t\t\t\t\t$core_request->set_query_params(
+\t\t\t\t\t\t[
+\t\t\t\t\t\t\t'slug'    => (string) $request['slug'],
+\t\t\t\t\t\t\t'context' => 'edit',
+\t\t\t\t\t\t]
+\t\t\t\t\t);
+
+\t\t\t\t\t$response = rest_do_request( $core_request );
+\t\t\t\t\treturn new WP_REST_Response( $response->get_data(), $response->get_status() );
+\t\t\t\t},
+\t\t\t],
+\t\t\t[
+\t\t\t\t'methods'             => 'POST',
+\t\t\t\t'permission_callback' => 'portfolio_light_rest_can_edit',
+\t\t\t\t'callback'            => function( WP_REST_Request $request ) {
+\t\t\t\t\t$lookup_request = new WP_REST_Request( 'GET', '/wp/v2/templates/lookup' );
+\t\t\t\t\t$lookup_request->set_query_params(
+\t\t\t\t\t\t[
+\t\t\t\t\t\t\t'slug'    => (string) $request['slug'],
+\t\t\t\t\t\t\t'context' => 'edit',
+\t\t\t\t\t\t]
+\t\t\t\t\t);
+
+\t\t\t\t\t$lookup_response = rest_do_request( $lookup_request );
+\t\t\t\t\tif ( $lookup_response->get_status() >= 400 ) {
+\t\t\t\t\t\treturn new WP_REST_Response( $lookup_response->get_data(), $lookup_response->get_status() );
+\t\t\t\t\t}
+
+\t\t\t\t\t$template = $lookup_response->get_data();
+\t\t\t\t\t$template_id = (string) ( $template['id'] ?? '' );
+\t\t\t\t\tif ( '' === $template_id ) {
+\t\t\t\t\t\t$template_id = get_stylesheet() . '//' . (string) $request['slug'];
+\t\t\t\t\t}
+
+\t\t\t\t\t$update_request = new WP_REST_Request( 'POST', '/wp/v2/templates/' . $template_id );
+\t\t\t\t\t$update_request->set_query_params( [ 'context' => 'edit' ] );
+\t\t\t\t\t$update_request->set_body_params(
+\t\t\t\t\t\t[
+\t\t\t\t\t\t\t'content' => (string) ( $request->get_param( 'content' ) ?? '' ),
+\t\t\t\t\t\t]
+\t\t\t\t\t);
+
+\t\t\t\t\t$response = rest_do_request( $update_request );
+\t\t\t\t\treturn new WP_REST_Response( $response->get_data(), $response->get_status() );
+\t\t\t\t},
+\t\t\t],
 \t\t]
 \t);
 
@@ -434,4 +494,3 @@ add_action( 'rest_api_init', function() {
 } );
 `;
 }
-
