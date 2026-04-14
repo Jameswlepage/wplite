@@ -1,9 +1,10 @@
 {
-  "id": "contact",
+  "id": "journal",
   "type": "page",
-  "slug": "contact",
-  "title": "Contact",
-  "template": "contact",
+  "slug": "journal",
+  "title": "Journal",
+  "template": "index",
+  "postsPage": true,
   "seed": {
     "createPageShell": true,
     "status": "publish",

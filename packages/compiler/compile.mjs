@@ -2086,12 +2086,29 @@ function phpRegisterLoginStyleFile() {
   return `<?php
 defined( 'ABSPATH' ) || exit;
 
+function wplite_login_logo_url() {
+\t$logo_id = get_theme_mod( 'custom_logo' );
+\tif ( $logo_id ) {
+\t\t$src = wp_get_attachment_image_src( $logo_id, 'full' );
+\t\tif ( $src ) {
+\t\t\treturn $src[0];
+\t\t}
+\t}
+\t$icon = get_site_icon_url( 256 );
+\treturn $icon ?: '';
+}
+
 add_action(
 \t'login_enqueue_scripts',
 \tfunction() {
 \t\t$plugin_file = glob( dirname( __DIR__ ) . '/*.php' )[0] ?? __FILE__;
 \t\t$style_url   = plugins_url( 'assets/login.css', $plugin_file );
 \t\twp_enqueue_style( 'wplite-login', $style_url, [], null );
+
+\t\t$logo_url = wplite_login_logo_url();
+\t\tif ( $logo_url ) {
+\t\t\techo '<style id="wplite-login-logo">body.login.wplite-login-with-logo h1 a{background-image:url(' . esc_url( $logo_url ) . ') !important;}</style>';
+\t\t}
 \t}
 );
 
@@ -2113,7 +2130,24 @@ add_filter(
 \t'login_body_class',
 \tfunction( $classes ) {
 \t\t$classes[] = 'wplite-login';
+\t\tif ( wplite_login_logo_url() ) {
+\t\t\t$classes[] = 'wplite-login-with-logo';
+\t\t}
 \t\treturn $classes;
+\t}
+);
+
+add_action(
+\t'login_footer',
+\tfunction() {
+\t\t?>
+\t\t<div class="wplite-login-footer" aria-hidden="false">
+\t\t\t<span class="wplite-login-footer__left">Built on wplite</span>
+\t\t\t<span class="wplite-login-footer__right" role="img" aria-label="WordPress">
+\t\t\t\t<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10 .5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19Zm0 1.2a8.3 8.3 0 1 1 0 16.6 8.3 8.3 0 0 1 0-16.6ZM5 6.6h1.6L8 11.2l1.1-3.1-.5-1.5H10l1.9 5.2 1.3-4.5a2.7 2.7 0 0 0-.1-1l1.3-.1-.2 1L12 14.2h-.3l-2-5-1.9 5H7.5L5 6.6Z"/></svg>
+\t\t\t</span>
+\t\t</div>
+\t\t<?php
 \t}
 );
 `;
@@ -2178,6 +2212,49 @@ body.login h1 a {
 body.login h1 a:hover,
 body.login h1 a:focus {
   color: var(--wplite-accent);
+}
+
+body.login.wplite-login-with-logo h1 {
+  margin-bottom: 20px;
+}
+
+body.login.wplite-login-with-logo h1 a {
+  width: 64px;
+  height: 64px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  font-size: 0;
+  color: transparent;
+  text-indent: -9999px;
+  overflow: hidden;
+}
+
+.wplite-login-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  font-family: var(--wplite-font);
+  font-size: 11px;
+  color: var(--wplite-text-muted);
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+.wplite-login-footer > * {
+  pointer-events: auto;
+}
+
+.wplite-login-footer__right svg {
+  display: block;
+  fill: var(--wplite-text-muted);
+  opacity: 0.7;
 }
 
 body.login form {
