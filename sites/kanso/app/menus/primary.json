@@ -1,5 +1,6 @@
 [
   { "label": "Work",    "type": "archive", "object": "project" },
+  { "label": "Team",    "type": "archive", "object": "team" },
   { "label": "Services","type": "page",    "object": "services" },
   { "label": "About",   "type": "page",    "object": "about" },
   { "label": "Journal", "type": "page",    "object": "journal" },

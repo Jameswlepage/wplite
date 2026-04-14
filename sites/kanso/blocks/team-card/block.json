@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/team-card",
+  "title": "Team Card",
+  "category": "widgets",
+  "icon": "admin-users",
+  "description": "Person card with portrait, name, role, pronouns. Reads from current team post meta.",
+  "supports": { "html": false, "inserter": false },
+  "usesContext": ["postId"],
+  "render": "file:./render.php"
+}

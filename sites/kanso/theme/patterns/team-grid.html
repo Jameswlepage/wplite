@@ -1,0 +1,28 @@
+<!--
+Title: Team Grid
+Slug: kanso-theme/team-grid
+Inserter: no
+-->
+<!-- wp:group {"className":"k-team","layout":{"type":"default"}} -->
+<div class="wp-block-group k-team">
+
+<!-- wp:html -->
+<div class="k-team__head">
+  <h2 class="k-team__title">The<br><em style="font-style:italic;color:#d94e2e;font-weight:400;">Studio.</em></h2>
+  <div class="k-meta" style="text-align:right; justify-content:flex-end;">
+    <span>— 005 / People</span>
+    <span>NY · Tokyo · Copenhagen</span>
+  </div>
+</div>
+<!-- /wp:html -->
+
+<!-- wp:query {"queryId":30,"query":{"perPage":24,"postType":"team","order":"asc","orderBy":"menu_order"},"className":"k-team__grid"} -->
+<div class="wp-block-query k-team__grid">
+<!-- wp:post-template -->
+<!-- wp:kanso/team-card /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->

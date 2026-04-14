@@ -134,8 +134,11 @@ a { transition: color 180ms ease; }
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--k-stone);
-  display: flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none;
+  transition: color 180ms ease;
 }
+a.k-header__status:hover { color: var(--k-vermillion); }
 .k-header__status::before {
   content: ""; width: 6px; height: 6px; border-radius: 50%;
   background: var(--k-vermillion);
@@ -149,11 +152,22 @@ a { transition: color 180ms ease; }
 
 .k-hero {
   position: relative;
-  padding: clamp(40px, 8vw, 96px) clamp(20px, 3vw, 40px) clamp(32px, 5vw, 72px);
+  padding: clamp(32px, 5vw, 72px) clamp(20px, 3vw, 40px) clamp(28px, 4vw, 56px);
   border-bottom: 1px solid var(--k-ink);
   background: var(--k-paper);
   overflow: hidden;
 }
+/* Compact subpage hero — tight top padding, smaller title, no min-height */
+.k-hero--compact {
+  padding: clamp(28px, 4vw, 56px) clamp(20px, 3vw, 40px) clamp(24px, 3.5vw, 44px);
+  min-height: 0;
+}
+.k-hero--compact .k-hero__title {
+  font-size: clamp(2.5rem, 9vw, 7rem);
+  line-height: 0.9;
+}
+.k-hero--compact .k-hero__eyebrow { margin-bottom: clamp(16px, 2.5vw, 32px); }
+.k-hero--compact .k-hero__grid { margin-top: clamp(24px, 3.5vw, 48px); padding-top: 20px; }
 .k-hero__eyebrow {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -881,10 +895,10 @@ a { transition: color 180ms ease; }
 }
 .k-footer__wordmark {
   font-family: var(--wp--preset--font-family--display);
-  font-size: clamp(4rem, 20vw, 22rem);
+  font-size: clamp(2.5rem, 8vw, 6.5rem);
   font-weight: 700;
-  line-height: 0.8;
-  letter-spacing: -0.04em;
+  line-height: 0.9;
+  letter-spacing: -0.025em;
   color: var(--k-ink);
   margin: 0 0 32px;
   text-transform: uppercase;
@@ -1272,5 +1286,119 @@ body.home .wp-site-blocks > .k-hero {
 
 /* Site-wide: prevent horizontal scroll from any overflowing child */
 html, body { overflow-x: clip; }
+
+/* Collapse empty template wrappers (when post-content is empty, the outer
+   .k-section.k-wrap group renders as an empty div and creates a void). */
+.k-section.k-wrap:empty,
+.k-section.k-wrap > :only-child:empty { display: none !important; }
+.k-section.k-wrap > .wp-block-post-content:empty { display: none !important; }
+/* Belt + suspenders: shrink wrappers that ended up with only empty children */
+.k-section.k-wrap:not(:has(*:not(:empty))) { display: none !important; padding: 0 !important; }
+
+/* k-sector em — was painted with --k-ink on vermillion which blended too dark.
+   Use ink but add a subtle drop shadow for contrast, then an underline. */
+.k-sector__title em { color: var(--k-ink); font-style: italic; font-weight: 400; }
+
+/* k-philosophy on pages without .k-wrap — add horizontal padding so content
+   doesn't touch the viewport edge. */
+.k-philosophy:not(.k-wrap) { padding-left: clamp(20px, 3vw, 40px); padding-right: clamp(20px, 3vw, 40px); }
+
+/* k-studio needs the same horizontal gutter as other sections */
+.k-studio { padding-left: 0; padding-right: 0; }
+.k-studio__img { border-left: 0; }
+
+/* k-sector list — asymmetric padding created a void. Unified gutter. */
+.k-sector__list { column-gap: 48px; }
+.k-sector__list > div { padding-left: 0 !important; padding-right: 0 !important; }
+.k-sector__list > div:nth-child(even) { border-left: 0 !important; }
+
+/* Single-project hero — full-bleed breakout (was width-constrained by parent layout) */
+.k-project-hero {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TEAM — grid of people with portraits + role
+   ═══════════════════════════════════════════════════════════════ */
+
+.k-team {
+  padding: clamp(60px, 9vw, 140px) clamp(20px, 3vw, 40px);
+  background: var(--k-paper);
+  border-bottom: 1px solid var(--k-ink);
+}
+.k-team__head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: end;
+  border-bottom: 1px solid var(--k-ink);
+  padding-bottom: 24px;
+  margin-bottom: clamp(32px, 5vw, 64px);
+}
+.k-team__title {
+  font-family: var(--wp--preset--font-family--display);
+  font-size: clamp(2.5rem, 7vw, 6rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.025em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.k-team__title em { font-style: italic; font-weight: 400; color: var(--k-vermillion); }
+.k-team__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 48px 24px;
+}
+.k-team__grid.wp-block-query { display: grid; grid-template-columns: repeat(4, 1fr); gap: 48px 24px; }
+.k-team__grid .wp-block-post-template { display: contents; list-style: none; margin: 0; padding: 0; }
+.k-team__grid li.wp-block-post,
+.k-team__grid .k-person { display: grid; gap: 14px; align-content: start; }
+.k-person__frame {
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--k-bone);
+  transition: transform 400ms cubic-bezier(.2,.7,.1,1);
+}
+.k-person__frame img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 800ms cubic-bezier(.2,.7,.1,1); transform: scale(1.01); }
+.k-person:hover .k-person__frame img { transform: scale(1.06); }
+.k-person__name {
+  font-family: var(--wp--preset--font-family--display);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.k-person__role {
+  font-family: var(--wp--preset--font-family--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--k-stone);
+}
+.k-person__bio {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--k-ink);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .k-team__grid, .k-team__grid.wp-block-query { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 800px) {
+  .k-team__grid, .k-team__grid.wp-block-query { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 520px) {
+  .k-team__grid, .k-team__grid.wp-block-query { grid-template-columns: 1fr; }
+}
 
 

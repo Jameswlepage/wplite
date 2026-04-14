@@ -110,6 +110,7 @@
 }
 
 .native-editor__topbar .components-button.has-icon {
+  width: 36px;
   min-width: 36px;
   height: 36px;
   padding: 6px;
@@ -123,6 +124,11 @@
 
 .native-editor__topbar .components-button.is-pressed {
   background: var(--wp-admin-text);
+  color: #ffffff;
+}
+
+.native-editor__topbar .components-button.is-pressed:hover:not(:disabled) {
+  background: #2d2d2d;
   color: #ffffff;
 }
 

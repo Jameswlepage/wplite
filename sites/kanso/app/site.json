@@ -11,6 +11,7 @@
     "databaseFirst": false,
     "collections": {
       "project": { "sync": true },
+      "team": { "sync": true },
       "testimonial": { "sync": true },
       "post": { "sync": true },
       "page": { "sync": false }
