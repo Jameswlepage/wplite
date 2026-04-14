@@ -24,6 +24,7 @@ import { serializeBlock, tokenToBlockMarkup, markdownToBlockMarkup } from './lib
 import { getBuiltinPostModel, getBuiltinPageModel, fieldTypeForAdmin, normalizeFieldDescriptor, buildModelAdminFields, buildCollectionViewSchema, buildCollectionFormSchema, buildSingletonFormSchema } from './lib/models.mjs';
 import { buildMenuLinkUrl, compileNavigationMarkup, compileNavigationTemplate } from './lib/navigation.mjs';
 import { resolvePatternName, expandTemplateReferences, resolveSingleTemplateName } from './lib/patterns.mjs';
+import { normalizeSiteConfig, siteHasCapability } from './lib/site-config.mjs';
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, 'utf8'));
@@ -413,6 +414,7 @@ function compilerSelfHash() {
     new URL('./lib/patterns.mjs', import.meta.url),
     new URL('./lib/markdown-blocks.mjs', import.meta.url),
     new URL('./lib/models.mjs', import.meta.url),
+    new URL('./lib/site-config.mjs', import.meta.url),
     new URL('./lib/php/icons.mjs', import.meta.url),
     new URL('./lib/php/plugin-main.mjs', import.meta.url),
     new URL('./lib/php/register-head.mjs', import.meta.url),
@@ -509,7 +511,7 @@ async function pathExists(p) {
 }
 
 async function computeBuildArtifacts(root) {
-  const site = await readJson(path.join(root, 'app', 'site.json'));
+  const site = normalizeSiteConfig(await readJson(path.join(root, 'app', 'site.json')));
   const paths = resolvePaths(root, site);
 
   const models = Object.values(await readJsonDirectory(path.join(root, 'app', 'models'))).map(
@@ -567,9 +569,11 @@ async function computeBuildArtifacts(root) {
       adminOverrides[`settings-${singleton.id}.form`] ?? adminOverrides[`${singleton.id}.form`]
     );
   }
-  const builtinPostModel = getBuiltinPostModel();
-  adminSchemas['post.view.json'] = buildCollectionViewSchema(builtinPostModel, adminOverrides['post.view']);
-  adminSchemas['post.form.json'] = buildCollectionFormSchema(builtinPostModel, adminOverrides['post.form']);
+  if (siteHasCapability(site, 'posts')) {
+    const builtinPostModel = getBuiltinPostModel();
+    adminSchemas['post.view.json'] = buildCollectionViewSchema(builtinPostModel, adminOverrides['post.view']);
+    adminSchemas['post.form.json'] = buildCollectionFormSchema(builtinPostModel, adminOverrides['post.form']);
+  }
 
   return { site, paths, siteSchema, adminSchemas };
 }
@@ -657,7 +661,7 @@ async function runFullBuild(root, site, paths, hashes) {
 
 async function build(root) {
   root = root || resolveRoot();
-  const site = await readJson(path.join(root, 'app', 'site.json'));
+  const site = normalizeSiteConfig(await readJson(path.join(root, 'app', 'site.json')));
   const paths = resolvePaths(root, site);
 
   const hashes = await computeInputHashes(root);

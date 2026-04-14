@@ -77,6 +77,16 @@ export function normalizeAdminColor(value) {
   return allowed.has(normalized) ? normalized : 'modern';
 }
 
+export function getCoreCapabilities(site = {}) {
+  const caps = site?.capabilities ?? site?.coreCapabilities ?? {};
+
+  return {
+    pages: caps.pages !== false,
+    posts: caps.posts !== false,
+    media: caps.media !== false,
+  };
+}
+
 export function normalizeUserPreferences(preferences = {}) {
   return {
     adminColor: normalizeAdminColor(preferences?.adminColor),

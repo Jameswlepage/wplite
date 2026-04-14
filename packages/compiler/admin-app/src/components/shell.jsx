@@ -13,7 +13,7 @@ import {
   CardBody,
 } from '@wordpress/components';
 import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
-import { collectionPathForModel, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
+import { collectionPathForModel, getCoreCapabilities, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
 import { NotificationBell, SidekickPanel, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
@@ -296,6 +296,9 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
 
   const groupedNavigation = useMemo(() => {
     const commentsEnabled = bootstrap.site?.commentsEnabled === true;
+    const capabilities = getCoreCapabilities(bootstrap.site);
+    const navigationItems = Array.isArray(bootstrap.navigation) ? bootstrap.navigation : [];
+    const navigationById = new Map(navigationItems.map((item) => [item.id, item]));
 
     // Top-level items (not collapsible)
     const topLevel = [
@@ -305,14 +308,14 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     ];
 
     const core = [
-      { id: 'pages', label: 'Pages', path: '/pages', kind: 'core' },
-      { id: 'post', label: 'Posts', path: '/posts', kind: 'core' },
+      capabilities.pages ? (navigationById.get('pages') ?? { id: 'pages', label: 'Pages', path: '/pages', kind: 'core' }) : null,
+      capabilities.posts ? (navigationById.get('post') ?? { id: 'post', label: 'Posts', path: '/posts', kind: 'core' }) : null,
       ...(commentsEnabled ? [{ id: 'comments', label: 'Comments', path: '/comments', kind: 'core' }] : []),
-      { id: 'media', label: 'Media', path: '/media', kind: 'core' },
-    ];
+      capabilities.media ? (navigationById.get('media') ?? { id: 'media', label: 'Media', path: '/media', kind: 'core' }) : null,
+    ].filter(Boolean);
 
     const coreIds = new Set(core.map((c) => c.id));
-    const collections = bootstrap.navigation
+    const collections = navigationItems
       .filter((item) => item.kind === 'collection' && !coreIds.has(item.id))
       .map((item) => ({ ...item }));
 
@@ -327,7 +330,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     ];
 
     return { topLevel, core, collections, settings };
-  }, [bootstrap.navigation, bootstrap.site?.commentsEnabled]);
+  }, [bootstrap.navigation, bootstrap.site]);
 
   const breadcrumbSegments = useMemo(() => {
     if (location.pathname === '/') return [{ label: 'Dashboard', path: '/' }];
@@ -338,8 +341,9 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     }));
   }, [location.pathname]);
   const isEditorRoute = useMemo(() => {
+    const capabilities = getCoreCapabilities(bootstrap.site);
     const editorPaths = [
-      '/pages',
+      ...(capabilities.pages ? ['/pages'] : []),
       ...bootstrap.models
         .filter((model) => model?.supports?.includes('editor'))
         .map((model) => collectionPathForModel(model)),
@@ -349,10 +353,11 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
       const rest = location.pathname.slice(path.length).replace(/\/+$/, '');
       return location.pathname.startsWith(path) && rest.length > 1 && rest.startsWith('/');
     });
-  }, [bootstrap.models, location.pathname]);
+  }, [bootstrap.models, bootstrap.site, location.pathname]);
   const adminColorScheme = normalizeAdminColor(
     bootstrap.currentUser?.preferences?.adminColor ?? singletonData.profile?.color_scheme
   );
+  const coreCapabilities = getCoreCapabilities(bootstrap.site);
 
   return (
     <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${sidekickOpen ? ' sidekick-open' : ''} color-scheme-${adminColorScheme}`}>
@@ -501,12 +506,20 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
                   />
                 }
               />
-              <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              {coreCapabilities.pages ? (
+                <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
+              ) : null}
+              {coreCapabilities.pages ? (
+                <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              ) : null}
               <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/comments/:commentId" element={<CommentEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
-              <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
-              <Route path="/media/:mediaId" element={<MediaEditorPage pushNotice={pushNotice} />} />
+              {coreCapabilities.media ? (
+                <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
+              ) : null}
+              {coreCapabilities.media ? (
+                <Route path="/media/:mediaId" element={<MediaEditorPage pushNotice={pushNotice} />} />
+              ) : null}
               <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/users/:userId" element={<UserEditorPage bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
               <Route
