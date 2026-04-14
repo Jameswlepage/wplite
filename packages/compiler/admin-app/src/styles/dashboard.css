@@ -633,6 +633,7 @@
   border-radius: 4px;
   overflow: hidden;
   background: var(--wp-admin-canvas-bg);
+  margin-top: 4px;
 }
 
 .dataviews-shell .dataviews-filters__container {
@@ -748,11 +749,11 @@
   align-items: center;
   gap: 20px;
   padding: 24px 28px;
-  border: 1px solid var(--wp-admin-border);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 12px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--wp-admin-accent) 6%, transparent), transparent 60%),
-    var(--wp-admin-canvas-bg);
+    linear-gradient(135deg, color-mix(in srgb, var(--wp-admin-accent) 10%, #ffffff), transparent 60%),
+    linear-gradient(180deg, #ffffff, color-mix(in srgb, var(--wp-admin-surface) 78%, #ffffff));
 }
 
 .welcome-hero__text { min-width: 0; }
@@ -954,12 +955,15 @@
 .traffic-chart-wrap {
   position: relative;
   width: 100%;
+  min-width: 0;
 }
 
 .traffic-chart {
   display: block;
   width: 100%;
-  height: 220px;
+  height: auto;
+  aspect-ratio: 800 / 220;
+  max-width: 100%;
   cursor: crosshair;
 }
 
@@ -1186,11 +1190,22 @@
 
 .timeline__item {
   position: relative;
+  padding: 0;
+}
+
+.timeline__link {
   display: grid;
-  grid-template-columns: 24px 1fr;
+  grid-template-columns: 24px minmax(0, 1fr);
   gap: 10px;
-  padding: 6px 0;
   align-items: start;
+  padding: 8px 10px 8px 0;
+  color: inherit;
+  border-radius: 8px;
+  transition: background 100ms ease;
+}
+
+.timeline__link:hover {
+  background: var(--wp-admin-surface);
 }
 
 .timeline__dot {
@@ -1381,13 +1396,18 @@
 
 /* ── Block-widget host (dashboard blocks) ── */
 .block-widget-host {
-  min-height: 80px;
-  max-height: 420px;
-  overflow-y: auto;
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  min-width: 0;
 }
 
 .dash-widget[data-span="full"] .block-widget-host {
-  max-height: 520px;
+  max-height: none;
+}
+
+.block-widget-host > * {
+  min-width: 0;
 }
 
 .site-pulse__tabs {

@@ -152,11 +152,29 @@ export function DashboardSettingsButton({ widgets, onToggle, onReset }) {
 }
 
 /* ── Dashboard Page — pure host for block widgets registered in bootstrap ── */
-const DASH_STORAGE_KEY = 'portfolio-light-dash-widgets-v4';
+const DASH_STORAGE_KEY = 'portfolio-light-dash-widgets-v5';
+const DASHBOARD_WIDGET_PRIORITY = {
+  'kanso-welcome': 0,
+  'kanso-traffic-overview': 10,
+  'kanso-key-metrics': 20,
+  'kanso-site-pulse': 30,
+  'kanso-top-content': 40,
+  'kanso-top-referrers': 50,
+  'kanso-recent-activity': 60,
+};
+
+function sortDashboardWidgets(widgets) {
+  return [...widgets].sort((left, right) => {
+    const leftPriority = DASHBOARD_WIDGET_PRIORITY[left.id] ?? 500;
+    const rightPriority = DASHBOARD_WIDGET_PRIORITY[right.id] ?? 500;
+    if (leftPriority !== rightPriority) return leftPriority - rightPriority;
+    return String(left.label ?? left.id).localeCompare(String(right.label ?? right.id));
+  });
+}
 
 export function DashboardPage({ bootstrap, onWidgetConfig }) {
   const defaultWidgets = useMemo(() => {
-    return (bootstrap.dashboardWidgets ?? []).map((widget) => ({
+    return sortDashboardWidgets((bootstrap.dashboardWidgets ?? []).map((widget) => ({
       id: widget.id,
       type: 'block-widget',
       blockName: widget.name,
@@ -165,7 +183,7 @@ export function DashboardPage({ bootstrap, onWidgetConfig }) {
       description: widget.description,
       visible: true,
       span: widget.span === 'full' ? 'full' : 'half',
-    }));
+    })));
   }, [bootstrap.dashboardWidgets]);
 
   const [widgetState, setWidgetState] = useState(() => {

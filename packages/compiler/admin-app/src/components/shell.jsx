@@ -73,6 +73,34 @@ export function NavigationGroup({ id, title, items, state, onToggle }) {
 function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef(null);
+  const triggerRef = React.useRef(null);
+  const [popoverStyle, setPopoverStyle] = useState(null);
+
+  const updatePopoverPosition = React.useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const gutter = 12;
+    const desiredWidth = sidebarCollapsed
+      ? 280
+      : Math.max(240, Math.min(320, rect.width + 24));
+    const width = Math.min(desiredWidth, viewportWidth - (gutter * 2));
+    const left = Math.min(
+      Math.max(gutter, rect.left),
+      viewportWidth - width - gutter
+    );
+    const bottom = Math.max(gutter, viewportHeight - rect.top + 10);
+
+    setPopoverStyle({
+      left: `${left}px`,
+      bottom: `${bottom}px`,
+      width: `${width}px`,
+      maxWidth: `calc(100vw - ${gutter * 2}px)`,
+    });
+  }, [sidebarCollapsed]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -83,9 +111,27 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open) return undefined;
+
+    updatePopoverPosition();
+
+    function handleViewportChange() {
+      updatePopoverPosition();
+    }
+
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [open, updatePopoverPosition]);
+
   return (
     <div className="sidebar__footer" ref={ref}>
       <button
+        ref={triggerRef}
         className="sidebar__user-profile"
         onClick={() => setOpen((v) => !v)}
         title={sidebarCollapsed ? (singletonData.profile?.full_name || 'User') : undefined}
@@ -104,7 +150,10 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
         )}
       </button>
       {open && (
-        <div className="sidebar-popover">
+        <div
+          className={`sidebar-popover${sidebarCollapsed ? ' is-floating' : ''}`}
+          style={popoverStyle ?? undefined}
+        >
           <div className="sidebar-popover__header">
             <div className="sidebar__user-avatar" style={{ width: 36, height: 36 }}>
               <CarbonIcon name="UserAvatar" size={22} />
@@ -121,10 +170,10 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
             <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/docs'); }}>
               Docs
             </button>
-            <a className="sidebar-popover__item" href={window.location.origin} target="_blank" rel="noreferrer">
+            <a className="sidebar-popover__item" href={window.location.origin} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
               View Site
             </a>
-            <a className="sidebar-popover__item" href={`${window.location.origin}/wp-admin/?classic-admin=1`}>
+            <a className="sidebar-popover__item" href={`${window.location.origin}/wp-admin/?classic-admin=1`} onClick={() => setOpen(false)}>
               Classic WP Admin
             </a>
           </div>

@@ -153,6 +153,15 @@ function portfolio_light_get_blocks() {
 function portfolio_light_get_dashboard_widgets() {
 \t$blocks   = portfolio_light_get_blocks();
 \t$widgets  = [];
+\t$priority = [
+\t\t'kanso/welcome'          => 0,
+\t\t'kanso/traffic-overview' => 10,
+\t\t'kanso/key-metrics'      => 20,
+\t\t'kanso/site-pulse'       => 30,
+\t\t'kanso/top-content'      => 40,
+\t\t'kanso/top-referrers'    => 50,
+\t\t'kanso/recent-activity'  => 60,
+\t];
 
 \tforeach ( $blocks as $block ) {
 \t\tif ( ( $block['category'] ?? '' ) !== 'dashboard' ) {
@@ -174,6 +183,19 @@ function portfolio_light_get_dashboard_widgets() {
 \t\t\t'span'        => in_array( 'full', $align, true ) ? 'full' : 'half',
 \t\t];
 \t}
+
+\tusort(
+\t\t$widgets,
+\t\tfunction( $left, $right ) use ( $priority ) {
+\t\t\t$left_priority  = $priority[ $left['name'] ] ?? 500;
+\t\t\t$right_priority = $priority[ $right['name'] ] ?? 500;
+\t\t\tif ( $left_priority !== $right_priority ) {
+\t\t\t\treturn $left_priority <=> $right_priority;
+\t\t\t}
+
+\t\t\treturn strcmp( $left['title'], $right['title'] );
+\t\t}
+\t);
 
 \treturn $widgets;
 }
@@ -993,4 +1015,3 @@ function portfolio_light_collection_breakdown() {
 }
 `;
 }
-

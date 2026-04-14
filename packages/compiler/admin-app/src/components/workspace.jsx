@@ -117,7 +117,7 @@ export function DomainsPage({ bootstrap, pushNotice }) {
       render: ({ item }) => (
         <div className="domain-cell">
           <strong className="row-title">{item.domain}</strong>
-          {item.isPrimary && <span className="status-badge status-badge--publish">Primary</span>}
+          {item.isPrimary && <span className="domain-primary-pill">Primary</span>}
         </div>
       ),
     },
@@ -1461,6 +1461,7 @@ export function IntegrationsPage({ pushNotice }) {
       enableSorting: true,
       enableHiding: false,
       getValue: ({ item }) => item.name,
+      render: ({ item }) => <span className="integration-service-cell__name">{item.name}</span>,
     },
     {
       id: 'media',
@@ -1477,6 +1478,7 @@ export function IntegrationsPage({ pushNotice }) {
       enableGlobalSearch: true,
       enableSorting: false,
       getValue: ({ item }) => item.description,
+      render: ({ item }) => <span className="integration-service-cell__description">{item.description}</span>,
     },
     {
       id: 'category',

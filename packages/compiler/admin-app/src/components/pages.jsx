@@ -8,7 +8,7 @@ import {
   SelectControl,
   TextControl,
 } from '@wordpress/components';
-import { serialize } from '@wordpress/blocks';
+import { createBlock, serialize } from '@wordpress/blocks';
 import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
 import {
   formatDate,
@@ -20,6 +20,99 @@ import {
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+
+const PAGE_TEMPLATE_SLOT_CLASS = 'wplite-page-template-slot';
+
+function cloneBlockTree(block) {
+  return createBlock(
+    block.name,
+    { ...(block.attributes ?? {}) },
+    (block.innerBlocks ?? []).map(cloneBlockTree)
+  );
+}
+
+function cloneBlocks(blocks = []) {
+  return (blocks ?? []).map(cloneBlockTree);
+}
+
+function createPageTemplateSlot(pageBlocks = []) {
+  return createBlock(
+    'core/group',
+    {
+      className: PAGE_TEMPLATE_SLOT_CLASS,
+      lock: {
+        move: true,
+        remove: true,
+      },
+      metadata: {
+        name: 'Page content',
+      },
+    },
+    cloneBlocks(pageBlocks)
+  );
+}
+
+function isPageTemplateSlot(block) {
+  const className = String(block?.attributes?.className ?? '');
+  return block?.name === 'core/group' && className.split(/\s+/).includes(PAGE_TEMPLATE_SLOT_CLASS);
+}
+
+function composeTemplateEditorBlocks(templateBlocks, pageBlocks) {
+  let slotFound = false;
+
+  function visit(block) {
+    if (block?.name === 'core/post-content') {
+      slotFound = true;
+      return createPageTemplateSlot(pageBlocks);
+    }
+
+    return createBlock(
+      block.name,
+      { ...(block.attributes ?? {}) },
+      (block.innerBlocks ?? []).map(visit)
+    );
+  }
+
+  return {
+    blocks: (templateBlocks ?? []).map(visit),
+    slotFound,
+  };
+}
+
+function splitTemplateEditorBlocks(editorBlocks) {
+  let extractedPageBlocks = [];
+
+  function visit(block) {
+    if (isPageTemplateSlot(block)) {
+      extractedPageBlocks = cloneBlocks(block.innerBlocks ?? []);
+      return createBlock('core/post-content');
+    }
+
+    return createBlock(
+      block.name,
+      { ...(block.attributes ?? {}) },
+      (block.innerBlocks ?? []).map(visit)
+    );
+  }
+
+  return {
+    templateBlocks: (editorBlocks ?? []).map(visit),
+    pageContentBlocks: extractedPageBlocks,
+  };
+}
+
+function resolvePageTemplateSlug(page, bootstrap) {
+  const route = (bootstrap?.routes ?? []).find((item) => item?.id === page?.routeId);
+  if (route?.template) {
+    return route.template;
+  }
+
+  if (page?.template && !['default', ''].includes(page.template)) {
+    return page.template;
+  }
+
+  return null;
+}
 
 /* ── Pages screen using DataViews ── */
 export function PagesPage({ pushNotice }) {
@@ -180,6 +273,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
     modified: '',
   }));
   const [blocks, setBlocks] = useState([]);
+  const [templateRecord, setTemplateRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -213,14 +307,38 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
           };
           setDraft(nextDraft);
           setBlocks([]);
+          setTemplateRecord(null);
           return;
         }
 
         const page = await wpApiFetch(`wp/v2/pages/${pageId}?context=edit`);
         if (cancelled) return;
         const normalized = normalizePageRecord(page);
+        const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
+
         setDraft(normalized);
-        setBlocks(blocksFromContent(normalized.content));
+
+        if (templateSlug) {
+          const template = await wpApiFetch(
+            `wp/v2/templates/lookup?slug=${encodeURIComponent(templateSlug)}&context=edit`
+          );
+          if (cancelled) return;
+
+          const pageBlocks = blocksFromContent(normalized.content);
+          const templateBlocks = blocksFromContent(template?.content?.raw ?? '');
+          const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
+
+          setTemplateRecord({
+            id: template.id,
+            slug: template.slug,
+            title: template.title?.raw ?? template.title?.rendered ?? templateSlug,
+            slotFound: composed.slotFound,
+          });
+          setBlocks(composed.blocks);
+        } else {
+          setTemplateRecord(null);
+          setBlocks(blocksFromContent(normalized.content));
+        }
       } catch (error) {
         if (!cancelled) {
           pushNotice({ status: 'error', message: `Failed to load page: ${error.message}` });
@@ -240,22 +358,54 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
     setIsSaving(true);
     try {
       const endpoint = isNew ? 'wp/v2/pages' : `wp/v2/pages/${pageId}`;
-      const payload = await wpApiFetch(endpoint, {
+      const templateSplit = templateRecord
+        ? splitTemplateEditorBlocks(blocks)
+        : { templateBlocks: [], pageContentBlocks: blocks };
+      const pageContentBlocks = templateRecord?.slotFound
+        ? templateSplit.pageContentBlocks
+        : blocksFromContent(draft.content);
+
+      const pageSavePromise = wpApiFetch(endpoint, {
         method: 'POST',
         body: {
           title: draft.title,
           slug: draft.slug,
           status: draft.postStatus,
-          content: serialize(blocks),
+          content: serialize(pageContentBlocks),
           parent: Number(draft.parent || 0),
           template: draft.template || '',
           menu_order: Number(draft.menuOrder || 0),
         },
       });
 
+      const templateSavePromise = templateRecord
+        ? wpApiFetch(`wp/v2/templates/${encodeURIComponent(templateRecord.id)}`, {
+          method: 'POST',
+          body: {
+            content: serialize(templateSplit.templateBlocks),
+          },
+        })
+        : Promise.resolve(null);
+
+      const [payload, savedTemplate] = await Promise.all([pageSavePromise, templateSavePromise]);
+
       const normalized = normalizePageRecord(payload);
       setDraft(normalized);
-      setBlocks(blocksFromContent(normalized.content));
+      if (savedTemplate) {
+        const composed = composeTemplateEditorBlocks(
+          blocksFromContent(savedTemplate?.content?.raw ?? ''),
+          blocksFromContent(normalized.content)
+        );
+        setTemplateRecord({
+          id: savedTemplate.id,
+          slug: savedTemplate.slug,
+          title: savedTemplate.title?.raw ?? savedTemplate.title?.rendered ?? templateRecord?.title ?? 'Template',
+          slotFound: composed.slotFound,
+        });
+        setBlocks(composed.blocks);
+      } else {
+        setBlocks(blocksFromContent(normalized.content));
+      }
       setPages((current) => {
         const next = [...current];
         const index = next.findIndex((item) => String(item.id) === String(normalized.id));
@@ -317,6 +467,8 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
       label: template.title,
     }))),
   ];
+  const route = (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
+
   function handleBlocksChange(nextBlocks) {
     setBlocks(nextBlocks);
   }
@@ -339,6 +491,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
       isPrimaryBusy={isSaving}
       viewUrl={draft.link}
       documentLabel="Page"
+      wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
       documentSidebar={
         <>
@@ -398,7 +551,12 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
                 <span>ID: {draft.id}</span>
                 <span>Updated: {formatDateTime(draft.modified)}</span>
               </div>
-              {draft.routeId === bootstrap?.site?.postsPage ? (
+              {templateRecord ? (
+                <p className="field-hint">
+                  This route is editing the <strong>{templateRecord.title}</strong> template inside the page editor so the canvas matches the frontend shell.
+                </p>
+              ) : null}
+              {route?.postsPage ? (
                 <p className="field-hint">
                   This route is assigned as the posts page, so WordPress renders the archive
                   template instead of the page body.

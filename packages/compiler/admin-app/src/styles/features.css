@@ -1,7 +1,7 @@
 /* ── API Page ── */
 .api-auth-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -12,18 +12,30 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 12px;
   background: var(--wp-admin-surface);
   border: 1px solid var(--wp-admin-border);
-  border-radius: 4px;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .api-password-value {
   flex: 1;
+  display: block;
   font-size: 13px;
   font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
   color: var(--wp-admin-text);
-  word-break: break-all;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.api-password-display .components-button {
+  flex-shrink: 0;
 }
 
 .api-auth__hint {
@@ -218,41 +230,64 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
 }
 
-/* Plain text chips — no dots, no filled backgrounds. Light hover/active. */
-.logs-level-chip.components-button,
-.logs-level-chip.components-button:hover,
-.logs-level-chip.components-button:focus {
+.logs-toolbar .components-button.logs-level-chip,
+.logs-toolbar .components-button.logs-level-chip:hover,
+.logs-toolbar .components-button.logs-level-chip:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 10px;
+  height: 30px;
+  padding: 0 12px;
   font-size: 12px;
-  font-weight: 400;
-  border-radius: 4px;
-  color: var(--wp-admin-text-muted);
-  background: transparent;
-  box-shadow: none;
+  font-weight: 500;
+  border-radius: 999px;
+  color: var(--wp-admin-text-muted) !important;
+  background: #ffffff !important;
+  border: 1px solid var(--wp-admin-border) !important;
+  box-shadow: none !important;
 }
 
-.logs-level-chip.components-button:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.04);
-  color: var(--wp-admin-text);
+.logs-toolbar .components-button.logs-level-chip:hover:not(:disabled) {
+  background: var(--wp-admin-surface) !important;
+  color: var(--wp-admin-text) !important;
+  border-color: color-mix(in srgb, var(--wp-admin-accent) 20%, var(--wp-admin-border)) !important;
 }
 
-.logs-level-chip.components-button.is-pressed,
-.logs-level-chip.components-button.is-pressed:hover,
-.logs-level-chip.components-button.is-pressed:focus {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--wp-admin-text);
-  box-shadow: none;
+.logs-toolbar .components-button.logs-level-chip.is-pressed,
+.logs-toolbar .components-button.logs-level-chip.is-pressed:hover,
+.logs-toolbar .components-button.logs-level-chip.is-pressed:focus {
+  background: color-mix(in srgb, var(--wp-admin-accent) 10%, #ffffff) !important;
+  color: var(--wp-admin-text) !important;
+  border-color: color-mix(in srgb, var(--wp-admin-accent) 34%, var(--wp-admin-border)) !important;
+  box-shadow: none !important;
 }
 
 .logs-level-chip__dot {
-  display: none;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.logs-level-chip__dot--fatal,
+.logs-level-chip__dot--error {
+  background: #b91c1c;
+}
+
+.logs-level-chip__dot--warning {
+  background: #b45309;
+}
+
+.logs-level-chip__dot--notice {
+  background: #6b7280;
+}
+
+.logs-level-chip__dot--info {
+  background: var(--wp-admin-accent);
 }
 
 .logs-level-chip__count {
@@ -382,8 +417,8 @@
 .domain-search-row {
   display: flex;
   gap: 8px;
-  align-items: flex-end;
-  margin-bottom: 16px;
+  align-items: stretch;
+  margin-bottom: 20px;
 }
 
 .domain-search-row .components-base-control {
@@ -395,15 +430,17 @@
   display: grid;
   gap: 0;
   border: 1px solid var(--wp-admin-border);
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: hidden;
+  background: #ffffff;
 }
 
 .domain-result {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  gap: 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--wp-admin-border);
 }
 
@@ -419,17 +456,19 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .domain-result__name {
   font-size: 14px;
   font-weight: 500;
   color: var(--wp-admin-text);
+  min-width: 0;
 }
 
 .domain-result__badge {
-  padding: 2px 8px;
-  border-radius: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
 }
@@ -448,6 +487,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .domain-result__price {
@@ -485,10 +525,32 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.domain-cell .row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.domain-primary-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .domain-type-cell {
   text-transform: capitalize;
+  color: var(--wp-admin-text-muted);
 }
 
 .domain-ssl-cell {
@@ -521,8 +583,8 @@
 }
 
 .dns-panel {
-  padding: 20px 24px;
-  background: var(--wp-admin-surface);
+  padding: 0;
+  background: transparent;
 }
 
 .dns-panel h3 {
@@ -557,6 +619,14 @@
   background: var(--wp-admin-surface);
   padding: 2px 6px;
   border-radius: 3px;
+}
+
+.domain-add-modal .components-modal__content {
+  padding-top: 24px;
+}
+
+.domain-add-modal .components-modal__header {
+  border-bottom-color: var(--wp-admin-border);
 }
 
 .email-forwarding-row {
@@ -608,6 +678,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.integration-service-cell__name {
+  display: block;
+  font-weight: 500;
+  color: var(--wp-admin-text);
+  text-align: left;
 }
 
 /* Square, centered brand icon container. Explicit size + aspect-ratio + SVG
@@ -670,8 +747,10 @@
 .dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content {
   display: flex !important;
   flex-direction: column !important;
+  justify-content: center !important;
   gap: 2px;
   white-space: normal;
+  min-height: 44px;
 }
 
 /* Everything inside the name cell should behave as a block-level left-aligned
@@ -682,6 +761,18 @@
   width: 100%;
   margin-left: 0;
   margin-right: auto;
+  text-align: left !important;
+}
+
+.dataviews-view-table tbody td,
+.dataviews-view-table__cell {
+  vertical-align: middle;
+}
+
+.dataviews-view-table__cell[data-field-id="description"],
+.dataviews-view-table__cell[data-field-id="description"] .dataviews-view-table__cell-content-wrapper {
+  align-items: center !important;
+  justify-content: flex-start !important;
   text-align: left !important;
 }
 
@@ -701,6 +792,11 @@
   padding: 0;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.dataviews-view-grid {
+  padding: 12px;
+  gap: 12px;
 }
 
 /* Kill the inset pseudo-border that caused the doubled border effect. */
@@ -788,4 +884,3 @@
   border-top: 1px solid var(--wp-admin-border);
   padding-top: 12px;
 }
-

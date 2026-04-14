@@ -249,53 +249,61 @@ export function SidekickPanel({
       : [];
 
   return (
-    <aside
-      className="sidekick-panel"
-      role="complementary"
-      aria-label="Sidekick panel"
-    >
-      <div className="sidekick-panel__tabstrip">
-        <nav className="sidekick-panel__tabs" role="tablist">
-          {tabs.map((t) => (
+    <>
+      <button
+        type="button"
+        className="sidekick-scrim"
+        aria-label="Close sidekick"
+        onClick={() => onClose?.()}
+      />
+      <aside
+        className="sidekick-panel"
+        role="complementary"
+        aria-label="Sidekick panel"
+      >
+        <div className="sidekick-panel__tabstrip">
+          <nav className="sidekick-panel__tabs" role="tablist">
+            {tabs.map((t) => (
+              <button
+                key={t.name}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === t.name}
+                className={`sidekick-panel__tab${activeTab === t.name ? ' is-active' : ''}`}
+                onClick={() => onTabChange?.(t.name)}
+              >
+                {t.title}
+              </button>
+            ))}
+          </nav>
+          <div className="sidekick-panel__tabstrip-actions">
+            {menuControls.length > 0 ? (
+              <DropdownMenu
+                className="sidekick-panel__menu"
+                icon={OverflowIcon}
+                label="More actions"
+                controls={menuControls}
+              />
+            ) : null}
             <button
-              key={t.name}
               type="button"
-              role="tab"
-              aria-selected={activeTab === t.name}
-              className={`sidekick-panel__tab${activeTab === t.name ? ' is-active' : ''}`}
-              onClick={() => onTabChange?.(t.name)}
+              className="sidekick-panel__close"
+              onClick={() => onClose?.()}
+              aria-label="Close"
+              title="Close"
             >
-              {t.title}
+              <Close size={16} />
             </button>
-          ))}
-        </nav>
-        <div className="sidekick-panel__tabstrip-actions">
-          {menuControls.length > 0 ? (
-            <DropdownMenu
-              className="sidekick-panel__menu"
-              icon={OverflowIcon}
-              label="More actions"
-              controls={menuControls}
-            />
-          ) : null}
-          <button
-            type="button"
-            className="sidekick-panel__close"
-            onClick={onClose}
-            aria-label="Close"
-            title="Close"
-          >
-            <Close size={16} />
-          </button>
+          </div>
         </div>
-      </div>
-      <div className="sidekick-panel__body">
-        {activeTab === 'notifications' ? (
-          <NotificationsList notifications={notifications} />
-        ) : (
-          <AssistantPlaceholder />
-        )}
-      </div>
-    </aside>
+        <div className="sidekick-panel__body">
+          {activeTab === 'notifications' ? (
+            <NotificationsList notifications={notifications} />
+          ) : (
+            <AssistantPlaceholder />
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

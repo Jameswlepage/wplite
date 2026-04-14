@@ -199,19 +199,25 @@ export function buildBlockEditorSettings(bundle) {
  * element styles, layout) and the theme stylesheet, resolved server-side.
  */
 export function buildCanvasStyles(bundle) {
-  const styles = bundle?.editorSettings?.styles;
-  if (Array.isArray(styles) && styles.length > 0) {
-    return styles;
-  }
-
-  // Fallback for early boot before the bundle arrives: a minimal global
-  // stylesheet from the bundle top-level field, if any.
+  const styles = Array.isArray(bundle?.editorSettings?.styles)
+    ? [...bundle.editorSettings.styles]
+    : [];
   const globalStylesheet = bundle?.globalStylesheet;
   if (globalStylesheet) {
-    return [{ css: globalStylesheet }];
+    styles.unshift({ css: globalStylesheet });
   }
 
-  return [];
+  const themeStylesheetUrl = bundle?.themeStylesheetUrl;
+  if (themeStylesheetUrl) {
+    const version = bundle?.themeStylesheetVersion
+      ? `?ver=${encodeURIComponent(bundle.themeStylesheetVersion)}`
+      : '';
+    styles.push({
+      css: `@import url("${themeStylesheetUrl}${version}");`,
+    });
+  }
+
+  return styles;
 }
 
 export const defaultCanvasStyles = [];

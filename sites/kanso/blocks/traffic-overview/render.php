@@ -59,7 +59,7 @@ function portfolio_light_render_chart_svg( $series, $color = '#3858e9' ) {
 		' L ' . ( $pad['left'] + $iw ) . ',' . ( $pad['top'] + $ih ) . ' Z';
 
 	ob_start(); ?>
-	<svg class="traffic-chart" width="100%" height="<?php echo $h; ?>" viewBox="0 0 <?php echo $w; ?> <?php echo $h; ?>" preserveAspectRatio="none" data-wp-on--mousemove="actions.chartMouseMove" data-wp-on--mouseleave="actions.chartMouseLeave">
+	<svg class="traffic-chart" width="100%" viewBox="0 0 <?php echo $w; ?> <?php echo $h; ?>" preserveAspectRatio="xMidYMid meet" data-wp-on--mousemove="actions.chartMouseMove" data-wp-on--mouseleave="actions.chartMouseLeave">
 		<defs>
 			<linearGradient id="traffic-grad" x1="0" y1="0" x2="0" y2="1">
 				<stop offset="0%" stop-color="<?php echo esc_attr( $color ); ?>" stop-opacity="0.18"/>

@@ -154,26 +154,36 @@
 /* ── Settings layout ── */
 .settings-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
   align-items: start;
 }
 
 .settings-layout__main {
   display: grid;
-  gap: 16px;
+  gap: 20px;
 }
 
 .settings-layout__sidebar {
   display: grid;
-  gap: 16px;
+  gap: 20px;
   position: sticky;
-  top: 16px;
+  top: 24px;
 }
 
 .settings-field-group {
   display: grid;
-  gap: 4px;
+  gap: 14px;
+}
+
+.settings-layout .surface-card .components-card__header,
+.settings-layout .surface-card .components-card-header {
+  padding: 14px 24px;
+}
+
+.settings-layout .surface-card .components-card__body,
+.settings-layout .surface-card .components-card-body {
+  padding: 20px 24px;
 }
 
 .settings-info h3 {
@@ -182,10 +192,15 @@
   font-weight: 600;
 }
 
+.settings-info {
+  display: grid;
+  gap: 12px;
+}
+
 .settings-info__list {
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .settings-info__list dt {
@@ -571,4 +586,3 @@
 .components-progress-bar {
   margin-top: 8px;
 }
-
