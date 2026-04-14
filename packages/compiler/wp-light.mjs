@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import matter from 'gray-matter';
 import TurndownService from 'turndown';
 import { build, resolveRoot } from './compile.mjs';
+import { normalizeCoreCapabilities, normalizeSiteConfig } from './lib/site-config.mjs';
 
 function parseCliArgs(argv) {
   const flags = {};
@@ -295,14 +297,14 @@ async function loadGeneratedSiteSchema() {
 }
 
 async function loadSiteConfig() {
-  return JSON.parse(await readFile(path.join(ROOT, 'app', 'site.json'), 'utf8'));
+  return normalizeSiteConfig(JSON.parse(await readFile(path.join(ROOT, 'app', 'site.json'), 'utf8')));
 }
 
 function loadSiteConfigSync() {
   try {
-    return JSON.parse(readFileSync(path.join(ROOT, 'app', 'site.json'), 'utf8'));
+    return normalizeSiteConfig(JSON.parse(readFileSync(path.join(ROOT, 'app', 'site.json'), 'utf8')));
   } catch {
-    return {};
+    return normalizeSiteConfig({});
   }
 }
 
@@ -326,6 +328,43 @@ async function resolveDevStatePath() {
 
 function compilerDir() {
   return path.dirname(new URL(import.meta.url).pathname);
+}
+
+function adminRuntimeCacheRoot() {
+  const base =
+    process.env.XDG_CACHE_HOME
+      ? path.join(process.env.XDG_CACHE_HOME, 'wplite')
+      : path.join(os.homedir(), '.cache', 'wplite');
+
+  return path.join(base, 'admin-runtime');
+}
+
+function resolveAdminRuntimeCacheDir(runtimeHash) {
+  return path.join(adminRuntimeCacheRoot(), runtimeHash);
+}
+
+function resolveAdminRuntimeMarker(dirPath) {
+  return path.join(dirPath, '.runtime-meta.json');
+}
+
+async function readAdminRuntimeMarker(dirPath) {
+  try {
+    return JSON.parse(await readFile(resolveAdminRuntimeMarker(dirPath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function writeAdminRuntimeMarker(dirPath, payload) {
+  await ensureDir(dirPath);
+  await writeFile(resolveAdminRuntimeMarker(dirPath), `${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function hasRuntimeBundle(dirPath) {
+  return (
+    existsSync(path.join(dirPath, 'admin-app.js')) &&
+    existsSync(path.join(dirPath, 'admin-app.css'))
+  );
 }
 
 function playgroundUrlForPort(port) {
@@ -372,20 +411,51 @@ async function isPortListening(port) {
   }
 }
 
+async function ensureAdminRuntimeBundle(buildResult) {
+  const runtimeHash = buildResult.adminRuntimeHash;
+  const runtimeCacheDir = resolveAdminRuntimeCacheDir(runtimeHash);
+  const adminOutDir = path.join(buildResult.pluginRoot, 'build');
+  let built = false;
+
+  if (buildResult.adminBundleDirty || !hasRuntimeBundle(runtimeCacheDir)) {
+    await rm(runtimeCacheDir, { recursive: true, force: true });
+    await ensureDir(runtimeCacheDir);
+
+    const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
+    await run('npx', ['vite', 'build', '--config', viteConfig], {
+      env: { ...process.env, WPLITE_ADMIN_OUT_DIR: runtimeCacheDir },
+    });
+
+    await writeAdminRuntimeMarker(runtimeCacheDir, {
+      hash: runtimeHash,
+      builtAt: new Date().toISOString(),
+    });
+    built = true;
+  }
+
+  const currentMarker = await readAdminRuntimeMarker(adminOutDir);
+  const syncedHash = currentMarker?.hash ?? null;
+  const needsSync = syncedHash !== runtimeHash || !hasRuntimeBundle(adminOutDir);
+
+  if (needsSync) {
+    await rm(adminOutDir, { recursive: true, force: true });
+    await cp(runtimeCacheDir, adminOutDir, { recursive: true });
+  }
+
+  return {
+    built,
+    synced: needsSync,
+    runtimeHash,
+    cacheDir: runtimeCacheDir,
+    adminOutDir,
+  };
+}
+
 async function buildGeneratedSite() {
   const startedAt = Date.now();
   const result = await build(ROOT);
-  const adminOutDir = path.join(result.pluginRoot, 'build');
-  const existingBundle = existsSync(path.join(adminOutDir, 'admin-app.js'));
   const incremental = result.incremental;
-  const needsBundle = result.adminBundleDirty || !existingBundle;
-
-  if (needsBundle) {
-    const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
-    await run('npx', ['vite', 'build', '--config', viteConfig], {
-      env: { ...process.env, WPLITE_ADMIN_OUT_DIR: adminOutDir },
-    });
-  }
+  const runtime = await ensureAdminRuntimeBundle(result);
 
   if (incremental) {
     const changed = incremental.skipped
@@ -398,6 +468,7 @@ async function buildGeneratedSite() {
 
   return {
     ...result,
+    runtime,
     durationMs: Date.now() - startedAt,
   };
 }
@@ -671,6 +742,79 @@ async function canUseDocker() {
   } catch {
     return false;
   }
+}
+
+function resolveDockerSiteUrl() {
+  const defaultPort = 8888;
+
+  try {
+    const raw = JSON.parse(readFileSync(path.join(ROOT, '.wp-env.json'), 'utf8'));
+    const portCandidates = [
+      raw?.port,
+      raw?.env?.port,
+      raw?.development?.port,
+      process.env.WPLITE_WP_ENV_PORT,
+    ];
+    const port = portCandidates
+      .map((value) => Number(value))
+      .find((value) => Number.isInteger(value) && value > 0) ?? defaultPort;
+
+    return `http://localhost:${port}`;
+  } catch {
+    return `http://localhost:${defaultPort}`;
+  }
+}
+
+async function currentDockerMatchesSite(siteUrl, site) {
+  const pluginSlug = site?.plugin?.slug;
+
+  if (!pluginSlug) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      `${siteUrl}/wp-content/plugins/${pluginSlug}/build/admin-app.js`,
+      {
+        redirect: 'manual',
+        signal: AbortSignal.timeout(2000),
+      }
+    );
+
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForMatchingDockerSite(siteUrl, site, timeoutMs = 30000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await isUrlReachable(siteUrl) && await currentDockerMatchesSite(siteUrl, site)) {
+      return;
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1000);
+    });
+  }
+
+  throw new Error(`Timed out waiting for Docker wp-env site at ${siteUrl}`);
+}
+
+async function ensureDockerSite(site) {
+  const siteUrl = resolveDockerSiteUrl();
+
+  if (await isUrlReachable(siteUrl) && await currentDockerMatchesSite(siteUrl, site)) {
+    note(`Docker wp-env already available at ${siteUrl}`);
+    return { siteUrl, started: false };
+  }
+
+  await run('npx', ['wp-env', 'start']);
+  await waitForMatchingDockerSite(siteUrl, site);
+
+  return { siteUrl, started: true };
 }
 
 function collectionSourcesFromSchema(schema) {
@@ -1174,40 +1318,65 @@ async function buildCommand() {
 }
 
 async function syncRunningSite({ useDocker } = {}) {
-  await buildGeneratedSite();
+  const buildResult = await buildGeneratedSite();
   const site = await loadSiteConfig();
+  const shouldSeed = buildResult.seedRequired;
 
   if (useDocker ?? (await canUseDocker())) {
-    await run('npx', ['wp-env', 'start']);
-    await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
-    return { siteUrl: null, mode: 'docker' };
+    const dockerSite = await ensureDockerSite(site);
+    if (shouldSeed) {
+      await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
+    }
+    return {
+      siteUrl: dockerSite.siteUrl,
+      mode: 'docker',
+      buildResult,
+      seeded: shouldSeed,
+      environmentStarted: dockerSite.started,
+    };
   }
 
   const siteUrl = await startPlaygroundServer(site);
-  await runLocalSeed(siteUrl);
-  return { siteUrl, mode: 'playground' };
+  if (shouldSeed) {
+    await runLocalSeed(siteUrl);
+  }
+  return {
+    siteUrl,
+    mode: 'playground',
+    buildResult,
+    seeded: shouldSeed,
+    environmentStarted: false,
+  };
 }
 
 async function applyCommand() {
-  const { siteUrl, mode } = await syncRunningSite();
+  const { siteUrl, mode, buildResult, seeded, environmentStarted } = await syncRunningSite();
   if (mode === 'playground' && siteUrl) {
     note(`Applied site to ${siteUrl}`);
   }
   return {
     summary: mode === 'playground' && siteUrl
-      ? `Applied and seeded ${siteUrl}`
-      : 'Applied and seeded via Docker wp-env.',
-    data: { mode, siteUrl },
+      ? `Applied ${seeded ? 'and reseeded' : 'without reseeding'} ${siteUrl}`
+      : `Applied ${seeded ? 'and reseeded' : 'without reseeding'} via Docker wp-env.`,
+    data: {
+      mode,
+      siteUrl,
+      seeded,
+      environmentStarted,
+      changes: buildResult.changes,
+      runtime: buildResult.runtime,
+    },
   };
 }
 
 async function seedCommand() {
   if (await canUseDocker()) {
-    await run('npx', ['wp-env', 'start']);
+    const site = await loadSiteConfig();
+    const dockerSite = await ensureDockerSite(site);
     await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
     return {
-      summary: 'Seeded content via Docker wp-env.',
-      data: { mode: 'docker', siteUrl: null },
+      summary: `Seeded content via Docker wp-env${dockerSite.started ? '' : ' (reused running environment)'}.`,
+      data: { mode: 'docker', siteUrl: dockerSite.siteUrl, environmentStarted: dockerSite.started },
     };
   }
 
@@ -1285,7 +1454,30 @@ async function devCommand() {
       if (syncResult.mode === 'playground' && syncResult.siteUrl) {
         note(`Updated ${syncResult.siteUrl}`);
       }
-      note('Rebuilt, reseeded, and triggered browser refresh.');
+      const changeList = Object.entries(syncResult.buildResult.changes ?? {})
+        .filter(([, value]) => value)
+        .map(([key]) => key);
+      const activity = [];
+
+      if (syncResult.buildResult.runtime?.built) {
+        activity.push('rebuilt shared admin runtime');
+      } else if (syncResult.buildResult.runtime?.synced) {
+        activity.push('reused cached admin runtime');
+      }
+
+      if (syncResult.mode === 'docker') {
+        activity.push(syncResult.environmentStarted ? 'started wp-env' : 'reused running wp-env');
+      }
+
+      if (syncResult.seeded) {
+        activity.push('reseeded content');
+      } else {
+        activity.push('skipped reseed');
+      }
+
+      note(
+        `${activity.join(', ')} and triggered browser refresh${changeList.length ? ` (${changeList.join(', ')})` : ''}.`
+      );
     } catch (error) {
       errorOut(`Watch rebuild failed: ${error.stack || error.message}`);
     } finally {
@@ -1423,8 +1615,32 @@ async function loadInitBrief() {
   const name = toKebabCase(brief.name || brief.siteId || fallbackName || 'new-site');
   const title = brief.title || name.split('-').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
   const tagline = brief.tagline || 'Built with wplite.';
+  const capabilityInput = {
+    ...(brief.capabilities ?? brief.coreCapabilities ?? {}),
+  };
+
+  if (typeof brief.posts === 'boolean' && capabilityInput.posts === undefined) {
+    capabilityInput.posts = brief.posts;
+  }
+  if (typeof brief.pages === 'boolean' && capabilityInput.pages === undefined) {
+    capabilityInput.pages = brief.pages;
+  }
+  if (typeof brief.media === 'boolean' && capabilityInput.media === undefined) {
+    capabilityInput.media = brief.media;
+  }
+  if (brief.blogEnabled !== undefined && capabilityInput.posts === undefined) {
+    capabilityInput.posts = brief.blogEnabled !== false;
+  }
+  if (boolFlag('posts')) capabilityInput.posts = true;
+  if (boolFlag('no-posts')) capabilityInput.posts = false;
+  if (boolFlag('pages')) capabilityInput.pages = true;
+  if (boolFlag('no-pages')) capabilityInput.pages = false;
+  if (boolFlag('media')) capabilityInput.media = true;
+  if (boolFlag('no-media')) capabilityInput.media = false;
+
+  const capabilities = normalizeCoreCapabilities(capabilityInput);
   const pageSync = brief.pageSync === true;
-  const blogEnabled = brief.blogEnabled !== false;
+  const blogEnabled = brief.blogEnabled !== undefined ? brief.blogEnabled !== false : capabilities.posts;
 
   const routes = asArray(brief.routes).length > 0
     ? asArray(brief.routes)
@@ -1482,6 +1698,7 @@ async function loadInitBrief() {
     name,
     title,
     tagline,
+    capabilities,
     pageSync,
     blogEnabled,
     routes,
@@ -1530,6 +1747,7 @@ This site is authored with \`wplite\`. Treat files as source of truth and WordPr
 - Theme slug: \`${brief.themeSlug}\`
 - Page sync: \`${brief.pageSync}\`
 - Blog enabled: \`${brief.blogEnabled}\`
+- Core capabilities: \`${JSON.stringify(brief.capabilities)}\`
 `;
 }
 
@@ -1550,6 +1768,7 @@ async function initCommand() {
     title: brief.title,
     tagline: brief.tagline,
     mode: 'light',
+    capabilities: brief.capabilities,
     content: {
       mode: 'files',
       format: 'markdown',
@@ -1558,7 +1777,7 @@ async function initCommand() {
       databaseFirst: false,
       collections: {
         ...Object.fromEntries(brief.collections.map((collection) => [collection.id, { sync: true }])),
-        post: { sync: true },
+        post: { sync: brief.capabilities.posts },
         page: { sync: brief.pageSync },
       },
     },
@@ -1896,6 +2115,16 @@ async function verifyCommand() {
       code: 'PAGE_SYNC_DISABLED_WITH_CONTENT',
       message: 'content/pages has markdown files, but app/site.json has content.collections.page.sync=false.',
       path: 'content/pages',
+    });
+  }
+  const postSync = site?.content?.collections?.post?.sync === true;
+  const postContentFiles = await listFilesRecursive(path.join(ROOT, 'content', 'posts'), (filePath) => filePath.endsWith('.md'));
+  if (!postSync && postContentFiles.length > 0) {
+    pushIssue(issues, {
+      severity: 'warning',
+      code: 'POST_SYNC_DISABLED_WITH_CONTENT',
+      message: 'content/posts has markdown files, but app/site.json has content.collections.post.sync=false.',
+      path: 'content/posts',
     });
   }
 

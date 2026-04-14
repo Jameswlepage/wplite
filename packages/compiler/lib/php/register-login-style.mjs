@@ -256,6 +256,8 @@ body.login input[type="email"]:focus {
 
 body.login .wp-pwd {
   position: relative;
+  display: block;
+  margin-bottom: 12px;
 }
 
 body.login .wp-pwd input[type="password"],
@@ -283,7 +285,7 @@ body.login .forgetmenot {
   gap: 8px;
   font-size: 12px;
   color: var(--wplite-text-muted);
-  margin-bottom: 16px;
+  margin: 2px 0 18px;
   float: none;
 }
 

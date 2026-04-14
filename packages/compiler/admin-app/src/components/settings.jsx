@@ -14,6 +14,7 @@ import {
   buildFieldDefinitions,
   buildFormConfig,
   createEmptySingleton,
+  getCoreCapabilities,
   normalizePageRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
@@ -22,6 +23,7 @@ import { SettingsFormSkeleton } from './skeletons.jsx';
 
 /* ── Site Settings Page ── */
 export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
+  const coreCapabilities = useMemo(() => getCoreCapabilities(bootstrap.site), [bootstrap.site]);
   const [draft, setDraft] = useState(null);
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           wpApiFetch('wp/v2/pages?per_page=100&orderby=menu_order&order=asc&context=edit&status=any'),
         ]);
         if (cancelled) return;
+        const fallbackShowOnFront = coreCapabilities.pages ? 'page' : 'posts';
         setDraft({
           title: settings.title ?? '',
           description: settings.description ?? '',
@@ -47,7 +50,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           time_format: settings.time_format ?? 'g:i a',
           start_of_week: settings.start_of_week ?? 1,
           posts_per_page: settings.posts_per_page ?? 10,
-          show_on_front: settings.show_on_front ?? 'posts',
+          show_on_front: settings.show_on_front ?? fallbackShowOnFront,
           page_on_front: settings.page_on_front ?? 0,
           page_for_posts: settings.page_for_posts ?? 0,
           default_comment_status:
@@ -86,8 +89,14 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           start_of_week: Number(draft.start_of_week || 0),
           posts_per_page: Number(draft.posts_per_page || 10),
           show_on_front: draft.show_on_front,
-          page_on_front: draft.show_on_front === 'page' ? Number(draft.page_on_front || 0) : 0,
-          page_for_posts: draft.show_on_front === 'page' ? Number(draft.page_for_posts || 0) : 0,
+          page_on_front:
+            draft.show_on_front === 'page' && coreCapabilities.pages
+              ? Number(draft.page_on_front || 0)
+              : 0,
+          page_for_posts:
+            draft.show_on_front === 'page' && coreCapabilities.posts
+              ? Number(draft.page_for_posts || 0)
+              : 0,
           default_comment_status: draft.default_comment_status === 'open' ? 'open' : 'closed',
         },
       });
@@ -122,6 +131,13 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
   const pageOptions = [{ value: '0', label: 'Select a page' }].concat(
     pages.map((page) => ({ value: String(page.id), label: page.title || `Page ${page.id}` }))
   );
+  const showOnFrontOptions = [
+    ...(coreCapabilities.posts ? [{ value: 'posts', label: 'Your latest posts' }] : []),
+    ...(coreCapabilities.pages ? [{ value: 'page', label: 'A static page' }] : []),
+  ];
+  const homepageOptions = showOnFrontOptions.length
+    ? showOnFrontOptions
+    : [{ value: 'page', label: 'A static page' }];
 
   return (
     <div className="screen">
@@ -178,14 +194,11 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
                 <SelectControl
                   label="Homepage Displays"
                   value={draft.show_on_front}
-                  options={[
-                    { value: 'posts', label: 'Your latest posts' },
-                    { value: 'page', label: 'A static page' },
-                  ]}
+                  options={homepageOptions}
                   onChange={(value) => setDraft((c) => ({ ...c, show_on_front: value }))}
                   __next40pxDefaultSize
                 />
-                {draft.show_on_front === 'page' && (
+                {draft.show_on_front === 'page' && coreCapabilities.pages && (
                   <div className="inline-field-grid">
                     <SelectControl
                       label="Homepage"
@@ -194,13 +207,15 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
                       onChange={(value) => setDraft((c) => ({ ...c, page_on_front: Number(value || 0) }))}
                       __next40pxDefaultSize
                     />
-                    <SelectControl
-                      label="Posts Page"
-                      value={String(draft.page_for_posts)}
-                      options={pageOptions}
-                      onChange={(value) => setDraft((c) => ({ ...c, page_for_posts: Number(value || 0) }))}
-                      __next40pxDefaultSize
-                    />
+                    {coreCapabilities.posts ? (
+                      <SelectControl
+                        label="Posts Page"
+                        value={String(draft.page_for_posts)}
+                        options={pageOptions}
+                        onChange={(value) => setDraft((c) => ({ ...c, page_for_posts: Number(value || 0) }))}
+                        __next40pxDefaultSize
+                      />
+                    ) : null}
                   </div>
                 )}
                 <TextControl
