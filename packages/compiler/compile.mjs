@@ -99,6 +99,7 @@ async function readBlockDirectory(dirPath) {
     try {
       const metadata = await readJson(blockJsonPath);
       blocks.push({
+        apiVersion: metadata.apiVersion,
         name: metadata.name,
         title: metadata.title,
         category: metadata.category,
@@ -334,7 +335,7 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
     path.join(themeTargetRoot, 'functions.php'),
     `<?php\nadd_action( 'init', function() {\n\tregister_block_pattern_category( '${themeSlug}', [\n\t\t'label' => __( '${toTitleCase(
       themeSlug
-    )}', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'wp_enqueue_scripts', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 1500);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
+    )}', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'enqueue_block_assets', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 1500);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
   );
 
   const headerPath = path.join(themeTargetRoot, 'parts', 'header.html');

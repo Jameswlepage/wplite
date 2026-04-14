@@ -64,7 +64,9 @@ export function registerServerBlockTypes(blockTypes = []) {
     }
 
     if (!bt.isDynamic) {
-      missingStatic.push(bt.name);
+      if (bt.name !== 'core/freeform') {
+        missingStatic.push(bt.name);
+      }
       continue;
     }
 
@@ -216,25 +218,9 @@ export function buildBlockEditorSettings(bundle) {
  * element styles, layout) and the theme stylesheet, resolved server-side.
  */
 export function buildCanvasStyles(bundle) {
-  const styles = Array.isArray(bundle?.editorSettings?.styles)
+  return Array.isArray(bundle?.editorSettings?.styles)
     ? [...bundle.editorSettings.styles]
     : [];
-  const globalStylesheet = bundle?.globalStylesheet;
-  if (globalStylesheet) {
-    styles.unshift({ css: globalStylesheet });
-  }
-
-  const themeStylesheetUrl = bundle?.themeStylesheetUrl;
-  if (themeStylesheetUrl) {
-    const version = bundle?.themeStylesheetVersion
-      ? `?ver=${encodeURIComponent(bundle.themeStylesheetVersion)}`
-      : '';
-    styles.push({
-      css: `@import url("${themeStylesheetUrl}${version}");`,
-    });
-  }
-
-  return styles;
 }
 
 export const defaultCanvasStyles = [];
