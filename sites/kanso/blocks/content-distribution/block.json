@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/content-distribution",
+  "title": "Content distribution",
+  "category": "dashboard",
+  "icon": "chart-pie",
+  "description": "Stacked bar showing content volume across collections.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/key-metrics",
+  "title": "Key metrics",
+  "category": "dashboard",
+  "icon": "chart-bar",
+  "description": "Top-line stat cards with trend deltas and sparklines.",
+  "supports": { "html": false, "align": ["full"] },
+  "render": "file:./render.php"
+}

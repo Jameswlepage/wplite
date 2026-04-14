@@ -691,6 +691,208 @@ function portfolio_light_is_app_request() {
 
 \treturn ! empty( $uri_path ) && 0 === strpos( trailingslashit( $uri_path ), trailingslashit( $app_base ) );
 }
+
+/* ── Deterministic mock analytics (shared across dashboard widgets) ── */
+
+function portfolio_light_mock_hash( $str ) {
+\t$h = 2166136261;
+\t$len = strlen( (string) $str );
+\tfor ( $i = 0; $i < $len; $i++ ) {
+\t\t$h ^= ord( $str[ $i ] );
+\t\t$h = ( $h * 16777619 ) & 0xFFFFFFFF;
+\t}
+\treturn $h;
+}
+
+function portfolio_light_mock_series( $seed, $days = 30, $base = 120, $variance = 0.6 ) {
+\t$state = portfolio_light_mock_hash( $seed ) ?: 1;
+\t$series = [];
+\t$momentum = 0.0;
+\t$dow = (int) wp_date( 'w' );
+\tfor ( $i = 0; $i < $days; $i++ ) {
+\t\t$state = ( $state * 1664525 + 1013904223 ) & 0xFFFFFFFF;
+\t\t$r = $state / 4294967296;
+\t\t$momentum = $momentum * 0.7 + ( $r - 0.5 ) * $variance;
+\t\t$day = ( $dow + $i ) % 7;
+\t\t$weekend = in_array( $day, [ 0, 6 ], true ) ? 0.75 : 1.0;
+\t\t$value = max( 5, (int) round( $base * $weekend * ( 1 + $momentum ) ) );
+\t\t$series[] = $value;
+\t}
+\treturn $series;
+}
+
+function portfolio_light_trend_pct( $series ) {
+\t$count = count( $series );
+\tif ( $count < 4 ) {
+\t\treturn 0;
+\t}
+\t$mid  = (int) floor( $count / 2 );
+\t$prev = array_sum( array_slice( $series, 0, $mid ) ) ?: 1;
+\t$curr = array_sum( array_slice( $series, $mid ) );
+\treturn (int) round( ( ( $curr - $prev ) / $prev ) * 100 );
+}
+
+function portfolio_light_format_compact( $n ) {
+\t$n = (int) $n;
+\tif ( $n >= 1000000 ) {
+\t\treturn round( $n / 1000000, 1 ) . 'M';
+\t}
+\tif ( $n >= 1000 ) {
+\t\treturn round( $n / 1000, 1 ) . 'K';
+\t}
+\treturn (string) $n;
+}
+
+function portfolio_light_format_relative( $iso ) {
+\tif ( ! $iso ) {
+\t\treturn 'just now';
+\t}
+\t$then = strtotime( $iso );
+\tif ( ! $then ) {
+\t\treturn 'recently';
+\t}
+\t$diff  = max( 1, time() - $then );
+\t$units = [
+\t\t[ 'year', 31536000 ],
+\t\t[ 'month', 2592000 ],
+\t\t[ 'day', 86400 ],
+\t\t[ 'hour', 3600 ],
+\t\t[ 'minute', 60 ],
+\t];
+\tforeach ( $units as $unit ) {
+\t\tif ( $diff >= $unit[1] ) {
+\t\t\t$value = (int) round( $diff / $unit[1] );
+\t\t\treturn $value . ' ' . $unit[0] . ( 1 === $value ? '' : 's' ) . ' ago';
+\t\t}
+\t}
+\treturn 'just now';
+}
+
+function portfolio_light_site_seed() {
+\t$site = portfolio_light_get_site_config();
+\treturn $site['title'] ?? get_bloginfo( 'name' );
+}
+
+function portfolio_light_mock_analytics() {
+\t$seed            = portfolio_light_site_seed();
+\t$visitors_series = portfolio_light_mock_series( $seed . '::visitors', 30, 140 );
+\t$sessions_series = portfolio_light_mock_series( $seed . '::sessions', 30, 210 );
+
+\t$referrers_raw = [
+\t\t[ 'source' => 'Direct',    'share' => 38 + ( portfolio_light_mock_hash( $seed . '::r0' ) % 12 ) ],
+\t\t[ 'source' => 'Google',    'share' => 24 + ( portfolio_light_mock_hash( $seed . '::r1' ) % 10 ) ],
+\t\t[ 'source' => 'Instagram', 'share' => 12 + ( portfolio_light_mock_hash( $seed . '::r2' ) %  8 ) ],
+\t\t[ 'source' => 'LinkedIn',  'share' =>  8 + ( portfolio_light_mock_hash( $seed . '::r3' ) %  6 ) ],
+\t\t[ 'source' => 'Other',     'share' =>  4 + ( portfolio_light_mock_hash( $seed . '::r4' ) %  6 ) ],
+\t];
+\t$total     = array_sum( array_column( $referrers_raw, 'share' ) ) ?: 1;
+\t$referrers = array_map(
+\t\tfunction( $r ) use ( $total ) {
+\t\t\t$r['share'] = (int) round( ( $r['share'] / $total ) * 100 );
+\t\t\treturn $r;
+\t\t},
+\t\t$referrers_raw
+\t);
+
+\treturn [
+\t\t'visitors'       => (int) array_sum( $visitors_series ),
+\t\t'visitorsSeries' => $visitors_series,
+\t\t'visitorsTrend'  => portfolio_light_trend_pct( $visitors_series ),
+\t\t'sessions'       => (int) array_sum( $sessions_series ),
+\t\t'sessionsSeries' => $sessions_series,
+\t\t'sessionsTrend'  => portfolio_light_trend_pct( $sessions_series ),
+\t\t'avgSessionSec'  => 90 + ( portfolio_light_mock_hash( $seed ) % 240 ),
+\t\t'bounceRate'     => 32 + ( portfolio_light_mock_hash( $seed . '::bounce' ) % 30 ),
+\t\t'referrers'      => $referrers,
+\t];
+}
+
+function portfolio_light_top_content( $limit = 6 ) {
+\t$seed   = portfolio_light_site_seed();
+\t$models = portfolio_light_get_models();
+\t$items  = [];
+\tforeach ( $models as $model ) {
+\t\tif ( ( $model['type'] ?? '' ) !== 'collection' ) {
+\t\t\tcontinue;
+\t\t}
+\t\t$posts = get_posts(
+\t\t\t[
+\t\t\t\t'post_type'      => $model['postType'],
+\t\t\t\t'post_status'    => 'publish',
+\t\t\t\t'posts_per_page' => 30,
+\t\t\t\t'fields'         => 'ids',
+\t\t\t]
+\t\t);
+\t\tforeach ( $posts as $post_id ) {
+\t\t\t$series  = portfolio_light_mock_series( $seed . '::' . $model['id'] . '::' . $post_id, 30, 18, 0.9 );
+\t\t\t$items[] = [
+\t\t\t\t'id'         => $model['id'] . '-' . $post_id,
+\t\t\t\t'recordId'   => $post_id,
+\t\t\t\t'modelId'    => $model['id'],
+\t\t\t\t'modelLabel' => $model['label'],
+\t\t\t\t'title'      => get_the_title( $post_id ) ?: '(Untitled)',
+\t\t\t\t'views'      => (int) array_sum( $series ),
+\t\t\t\t'trend'      => portfolio_light_trend_pct( $series ),
+\t\t\t\t'editPath'   => '/' . ( $model['adminPath'] ?? $model['id'] . 's' ) . '/' . $post_id,
+\t\t\t];
+\t\t}
+\t}
+\tusort( $items, function( $a, $b ) { return $b['views'] - $a['views']; } );
+\treturn array_slice( $items, 0, $limit );
+}
+
+function portfolio_light_recent_activity_items( $limit = 12 ) {
+\t$models = portfolio_light_get_models();
+\t$items  = [];
+\tforeach ( $models as $model ) {
+\t\t$posts = get_posts(
+\t\t\t[
+\t\t\t\t'post_type'      => $model['postType'],
+\t\t\t\t'post_status'    => 'any',
+\t\t\t\t'posts_per_page' => $limit,
+\t\t\t\t'orderby'        => 'modified',
+\t\t\t\t'order'          => 'DESC',
+\t\t\t]
+\t\t);
+\t\tforeach ( $posts as $post ) {
+\t\t\t$modified = get_post_modified_time( 'c', true, $post );
+\t\t\t$created  = get_post_time( 'c', true, $post );
+\t\t\t$action   = abs( strtotime( $modified ) - strtotime( $created ) ) < 60 ? 'Created' : 'Updated';
+\t\t\t$items[]  = [
+\t\t\t\t'id'         => $model['id'] . '-' . $post->ID,
+\t\t\t\t'recordId'   => $post->ID,
+\t\t\t\t'modelId'    => $model['id'],
+\t\t\t\t'modelLabel' => $model['label'],
+\t\t\t\t'title'      => $post->post_title ?: '(Untitled)',
+\t\t\t\t'modified'   => $modified,
+\t\t\t\t'action'     => $action,
+\t\t\t\t'editPath'   => '/' . ( $model['adminPath'] ?? $model['id'] . 's' ) . '/' . $post->ID,
+\t\t\t];
+\t\t}
+\t}
+\tusort( $items, function( $a, $b ) { return strcmp( $b['modified'], $a['modified'] ); } );
+\treturn array_slice( $items, 0, $limit );
+}
+
+function portfolio_light_collection_breakdown() {
+\t$models            = portfolio_light_get_models();
+\t$collection_models = array_values( array_filter( $models, function( $m ) {
+\t\treturn ( $m['type'] ?? '' ) === 'collection';
+\t} ) );
+\t$total  = max( count( $collection_models ), 1 );
+\t$result = [];
+\tforeach ( $collection_models as $i => $model ) {
+\t\t$tally    = wp_count_posts( $model['postType'] );
+\t\t$count    = (int) ( $tally->publish ?? 0 ) + (int) ( $tally->draft ?? 0 );
+\t\t$result[] = [
+\t\t\t'id'    => $model['id'],
+\t\t\t'label' => $model['label'],
+\t\t\t'count' => $count,
+\t\t\t'hue'   => (int) round( ( $i * 360 ) / $total ),
+\t\t];
+\t}
+\treturn $result;
+}
 `;
 }
 

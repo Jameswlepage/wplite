@@ -25,6 +25,7 @@ import { apiFetch } from './lib/helpers.js';
 import { registerRuntimeBlocks } from './lib/blocks.jsx';
 import { AppLoadingSkeleton } from './components/skeletons.jsx';
 import { AppShell } from './components/shell.jsx';
+import { SpaNavBridge } from './lib/spa-nav.js';
 
 if (!getBlockType('core/paragraph')) {
   registerCoreBlocks();
@@ -76,6 +77,7 @@ function App() {
   return (
     <SlotFillProvider>
       <BrowserRouter basename={appBasePath}>
+        <SpaNavBridge />
         <AppShell
           bootstrap={bootstrap}
           setBootstrap={setBootstrap}

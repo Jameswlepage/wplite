@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/collections-overview",
+  "title": "Collections overview",
+  "category": "dashboard",
+  "icon": "category",
+  "description": "Per-collection strip with the 5 most recently updated records.",
+  "supports": { "html": false, "align": ["full"] },
+  "render": "file:./render.php"
+}

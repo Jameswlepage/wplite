@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/top-content",
+  "title": "Top content",
+  "category": "dashboard",
+  "icon": "awards",
+  "description": "Leaderboard of the highest-traffic content over the last 30 days.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

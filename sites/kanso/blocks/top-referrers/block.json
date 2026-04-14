@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/top-referrers",
+  "title": "Top referrers",
+  "category": "dashboard",
+  "icon": "share",
+  "description": "Traffic source breakdown with share bars.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

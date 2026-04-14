@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/recent-activity",
+  "title": "Recent activity",
+  "category": "dashboard",
+  "icon": "clock",
+  "description": "Vertical timeline of content changes grouped by day.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

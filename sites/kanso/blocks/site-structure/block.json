@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/site-structure",
+  "title": "Site structure",
+  "category": "dashboard",
+  "icon": "networking",
+  "description": "List of routes (pages) on the site with their template.",
+  "supports": { "html": false },
+  "render": "file:./render.php"
+}

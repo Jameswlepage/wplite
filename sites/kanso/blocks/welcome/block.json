@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/welcome",
+  "title": "Welcome",
+  "category": "dashboard",
+  "icon": "admin-home",
+  "description": "Greets the user and surfaces quick actions for the site.",
+  "supports": { "html": false, "align": ["full"] },
+  "render": "file:./render.php"
+}
