@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -36,6 +36,89 @@ const turndown = new TurndownService({
   bulletListMarker: '-',
   codeBlockStyle: 'fenced',
 });
+
+function parseBlockMarkup(source) {
+  const blocks = [];
+  const re = /<!--\s+wp:([a-z0-9_-]+(?:\/[a-z0-9_-]+)?)\s*({[\s\S]*?})?\s*(\/)?-->/g;
+  let match;
+  let lastIndex = 0;
+
+  while ((match = re.exec(source)) !== null) {
+    const [full, name, rawAttrs, selfClosing] = match;
+    const attrs = rawAttrs ? JSON.parse(rawAttrs) : {};
+
+    if (selfClosing) {
+      blocks.push({ name, attrs, inner: '' });
+      lastIndex = re.lastIndex;
+      continue;
+    }
+
+    const closeTag = new RegExp(`<!--\\s+/wp:${name.replace(/[/-]/g, (c) => `\\${c}`)}\\s+-->`, 'g');
+    closeTag.lastIndex = re.lastIndex;
+    const closeMatch = closeTag.exec(source);
+    if (!closeMatch) {
+      lastIndex = re.lastIndex;
+      continue;
+    }
+
+    const inner = source.slice(re.lastIndex, closeMatch.index).trim();
+    blocks.push({ name, attrs, inner });
+    re.lastIndex = closeTag.lastIndex;
+    lastIndex = re.lastIndex;
+  }
+
+  return blocks;
+}
+
+function blockToMarkdown(block) {
+  const { name, attrs, inner } = block;
+
+  if (name === 'html') {
+    return inner;
+  }
+
+  if (name === 'separator') {
+    return '---';
+  }
+
+  if (name === 'heading') {
+    const level = attrs.level || 2;
+    const stripped = inner.replace(/^<h\d[^>]*>/, '').replace(/<\/h\d>\s*$/, '');
+    const text = turndown.turndown(stripped).trim();
+    const anchor = attrs.anchor ? ` {#${attrs.anchor}}` : '';
+    return `${'#'.repeat(level)} ${text}${anchor}`;
+  }
+
+  if (name === 'code') {
+    const className = attrs.className || '';
+    const langMatch = className.match(/language-([a-zA-Z0-9_-]+)/);
+    const lang = langMatch ? langMatch[1] : '';
+    const codeText = inner.replace(/^<pre[^>]*><code[^>]*>/i, '').replace(/<\/code><\/pre>$/i, '');
+    const decoded = codeText
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"');
+    return `\`\`\`${lang}\n${decoded}\n\`\`\``;
+  }
+
+  return turndown.turndown(inner).trim();
+}
+
+function blockMarkupToMarkdown(source) {
+  const raw = String(source ?? '').trim();
+  if (!raw) return '';
+
+  if (!raw.includes('<!-- wp:')) {
+    return turndown.turndown(raw).trim();
+  }
+
+  const blocks = parseBlockMarkup(raw);
+  return blocks
+    .map(blockToMarkdown)
+    .filter((text) => text.length > 0)
+    .join('\n\n');
+}
 
 function run(commandName, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -211,12 +294,29 @@ async function isPortListening(port) {
 }
 
 async function buildGeneratedSite() {
+  const startedAt = Date.now();
   const result = await build(ROOT);
   const adminOutDir = path.join(result.pluginRoot, 'build');
-  const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
-  await run('npx', ['vite', 'build', '--config', viteConfig], {
-    env: { ...process.env, WPLITE_ADMIN_OUT_DIR: adminOutDir },
-  });
+  const existingBundle = existsSync(path.join(adminOutDir, 'admin-app.js'));
+  const incremental = result.incremental;
+  const needsBundle =
+    !incremental || incremental.adminApp || !existingBundle;
+
+  if (needsBundle) {
+    const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
+    await run('npx', ['vite', 'build', '--config', viteConfig], {
+      env: { ...process.env, WPLITE_ADMIN_OUT_DIR: adminOutDir },
+    });
+  }
+
+  if (incremental) {
+    const changed = incremental.skipped
+      ? 'nothing'
+      : Object.entries(incremental).filter(([, v]) => v).map(([k]) => k).join(',') || 'nothing';
+    process.stdout.write(`wplite: incremental build (${changed}) in ${Date.now() - startedAt}ms\n`);
+  } else {
+    process.stdout.write(`wplite: full build in ${Date.now() - startedAt}ms\n`);
+  }
 }
 
 async function writeDevState(state) {
@@ -575,7 +675,7 @@ function htmlToMarkdown(html) {
     return '';
   }
 
-  return turndown.turndown(html).trim();
+  return blockMarkupToMarkdown(html);
 }
 
 async function writePulledCollections(schema, payload) {
@@ -793,15 +893,42 @@ async function fetchBootstrapFromLocalSite(siteUrl) {
   });
 }
 
+function resolvePullCredentials(siteUrl) {
+  const host = (() => {
+    try { return new URL(siteUrl).hostname; } catch { return ''; }
+  })();
+  const isLocalhost = host === '127.0.0.1' || host === 'localhost';
+
+  const args = process.argv.slice(2);
+  let flagUser = null;
+  let flagPass = null;
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--user' && args[i + 1]) flagUser = args[i + 1];
+    if (args[i] === '--pass' && args[i + 1]) flagPass = args[i + 1];
+  }
+
+  const user = flagUser ?? process.env.WPLITE_USER ?? (isLocalhost ? 'admin' : null);
+  const pass = flagPass ?? process.env.WPLITE_PASS ?? (isLocalhost ? 'password' : null);
+
+  if (!user || !pass) {
+    throw new Error(
+      `Pull target ${siteUrl} is not localhost; credentials required. Pass --user/--pass or set WPLITE_USER/WPLITE_PASS.`
+    );
+  }
+
+  return { user, pass };
+}
+
 async function createLocalAdminSession(siteUrl) {
+  const { user, pass } = resolvePullCredentials(siteUrl);
   const loginResponse = await fetch(`${siteUrl}/wp-login.php`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
-      log: 'admin',
-      pwd: 'password',
+      log: user,
+      pwd: pass,
       'wp-submit': 'Log In',
       redirect_to: `${siteUrl}/wp-admin/`,
       testcookie: '1',
@@ -985,6 +1112,10 @@ async function applyCommand() {
 
 function watchPath(target, onChange) {
   const absoluteTarget = path.join(ROOT, target);
+  if (!existsSync(absoluteTarget)) {
+    process.stdout.write(`Skipping watch (not present): ${target}\n`);
+    return null;
+  }
   const watcher = watch(
     absoluteTarget,
     { recursive: path.extname(target) === '' },
@@ -1027,7 +1158,7 @@ async function devCommand() {
     timer = setTimeout(() => {
       void flushChanges();
     }, 250);
-  }));
+  })).filter(Boolean);
 
   async function flushChanges() {
     if (syncing) {

@@ -1,4 +1,5 @@
-import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import process from 'node:process';
 import matter from 'gray-matter';
@@ -117,34 +118,46 @@ function serializeBlock(name, html, attributes = null) {
   return `<!-- wp:${name}${serializedAttributes} -->\n${html.trim()}\n<!-- /wp:${name} -->`;
 }
 
-function tokenToBlockMarkup(token) {
-  const html = marked.parser([token]).trim();
-
+function tokenToBlockMarkup(token, attrOverrides = {}) {
   switch (token.type) {
     case 'paragraph':
-      return serializeBlock('paragraph', html);
+      return serializeBlock('paragraph', marked.parser([token]).trim(), attrOverrides.paragraph || null);
     case 'heading': {
-      const attributes = token.depth && token.depth !== 2 ? { level: token.depth } : null;
-      return serializeBlock('heading', html, attributes);
+      const attributes = { ...(token.depth && token.depth !== 2 ? { level: token.depth } : {}) };
+      let workingToken = token;
+      const anchorMatch = /\s*\{#([a-zA-Z0-9_-]+)\}\s*$/.exec(token.text || '');
+      if (anchorMatch) {
+        attributes.anchor = anchorMatch[1];
+        const strippedText = token.text.replace(anchorMatch[0], '').trimEnd();
+        workingToken = { ...token, text: strippedText, tokens: marked.lexer(strippedText)[0]?.tokens ?? token.tokens };
+      }
+      if (attrOverrides.heading) Object.assign(attributes, attrOverrides.heading);
+      const html = marked.parser([workingToken]).trim();
+      const withAnchor = attributes.anchor
+        ? html.replace(/^<h(\d)([^>]*)>/, (m, d, rest) => `<h${d}${rest} id="${attributes.anchor}">`)
+        : html;
+      return serializeBlock('heading', withAnchor, Object.keys(attributes).length ? attributes : null);
     }
     case 'list':
-      return serializeBlock('list', html);
+      return serializeBlock('list', marked.parser([token]).trim(), attrOverrides.list || null);
     case 'blockquote':
-      return serializeBlock('quote', html);
+      return serializeBlock('quote', marked.parser([token]).trim(), attrOverrides.quote || null);
     case 'code': {
-      const attributes = token.lang ? { className: `language-${token.lang}` } : null;
-      return serializeBlock('code', html, attributes);
+      const html = marked.parser([token]).trim();
+      const attributes = { ...(token.lang ? { className: `language-${token.lang}` } : {}) };
+      if (attrOverrides.code) Object.assign(attributes, attrOverrides.code);
+      return serializeBlock('code', html, Object.keys(attributes).length ? attributes : null);
     }
     case 'hr':
       return '<!-- wp:separator -->\n<hr class="wp-block-separator"/>\n<!-- /wp:separator -->';
     case 'html':
-      return serializeBlock('html', html);
+      return serializeBlock('html', (token.raw ?? token.text ?? '').trim());
     default:
-      return serializeBlock('html', html);
+      return serializeBlock('html', (token.raw ?? marked.parser([token])).trim());
   }
 }
 
-function markdownToBlockMarkup(source) {
+function markdownToBlockMarkup(source, attrOverrides = {}) {
   const trimmed = String(source ?? '').trim();
 
   if (!trimmed) {
@@ -155,7 +168,7 @@ function markdownToBlockMarkup(source) {
 
   return tokens
     .filter((token) => token.type !== 'space')
-    .map((token) => tokenToBlockMarkup(token))
+    .map((token) => tokenToBlockMarkup(token, attrOverrides))
     .join('\n\n');
 }
 
@@ -515,35 +528,35 @@ function expandTemplateReferences(source, assets, stack = []) {
   let output = source;
 
   output = output.replace(/<!--\s+wp:template-part\s+({[\s\S]*?})\s+\/-->/g, (match, rawAttrs) => {
-    try {
-      const attrs = JSON.parse(rawAttrs);
-      const slug = String(attrs.slug ?? '');
-      const key = `part:${slug}`;
+    const attrs = JSON.parse(rawAttrs);
+    const slug = String(attrs.slug ?? '');
+    const key = `part:${slug}`;
 
-      if (!slug || stack.includes(key) || !assets.parts[slug]) {
-        return '';
-      }
-
-      return expandTemplateReferences(assets.parts[slug], assets, [...stack, key]);
-    } catch {
-      return match;
+    if (!slug || !assets.parts[slug]) {
+      return '';
     }
+
+    if (stack.includes(key)) {
+      throw new Error(`Template cycle detected: ${[...stack, key].join(' -> ')}`);
+    }
+
+    return expandTemplateReferences(assets.parts[slug], assets, [...stack, key]);
   });
 
   output = output.replace(/<!--\s+wp:pattern\s+({[\s\S]*?})\s+\/-->/g, (match, rawAttrs) => {
-    try {
-      const attrs = JSON.parse(rawAttrs);
-      const patternName = resolvePatternName(attrs.slug);
-      const key = `pattern:${patternName}`;
+    const attrs = JSON.parse(rawAttrs);
+    const patternName = resolvePatternName(attrs.slug);
+    const key = `pattern:${patternName}`;
 
-      if (!patternName || stack.includes(key) || !assets.patterns[patternName]) {
-        return '';
-      }
-
-      return expandTemplateReferences(assets.patterns[patternName], assets, [...stack, key]);
-    } catch {
-      return match;
+    if (!patternName || !assets.patterns[patternName]) {
+      return '';
     }
+
+    if (stack.includes(key)) {
+      throw new Error(`Template cycle detected: ${[...stack, key].join(' -> ')}`);
+    }
+
+    return expandTemplateReferences(assets.patterns[patternName], assets, [...stack, key]);
   });
 
   return output;
@@ -718,6 +731,7 @@ require_once __DIR__ . '/inc/register-meta.php';
 require_once __DIR__ . '/inc/register-singletons.php';
 require_once __DIR__ . '/inc/register-rest.php';
 require_once __DIR__ . '/inc/register-admin-app.php';
+require_once __DIR__ . '/inc/register-login-style.php';
 require_once __DIR__ . '/inc/seed.php';
 
 add_action( 'init', function() {
@@ -2068,9 +2082,418 @@ add_action(
 `;
 }
 
+function phpRegisterLoginStyleFile() {
+  return `<?php
+defined( 'ABSPATH' ) || exit;
+
+add_action(
+\t'login_enqueue_scripts',
+\tfunction() {
+\t\t$plugin_file = glob( dirname( __DIR__ ) . '/*.php' )[0] ?? __FILE__;
+\t\t$style_url   = plugins_url( 'assets/login.css', $plugin_file );
+\t\twp_enqueue_style( 'wplite-login', $style_url, [], null );
+\t}
+);
+
+add_filter(
+\t'login_headerurl',
+\tfunction() {
+\t\treturn home_url( '/' );
+\t}
+);
+
+add_filter(
+\t'login_headertext',
+\tfunction() {
+\t\treturn get_bloginfo( 'name' );
+\t}
+);
+
+add_filter(
+\t'login_body_class',
+\tfunction( $classes ) {
+\t\t$classes[] = 'wplite-login';
+\t\treturn $classes;
+\t}
+);
+`;
+}
+
+function loginStyleCss() {
+  return `:root {
+  --wplite-bg: #f5f5f5;
+  --wplite-surface: #ffffff;
+  --wplite-border: #e0e0e0;
+  --wplite-text: #1e1e1e;
+  --wplite-text-muted: #757575;
+  --wplite-accent: #3858e9;
+  --wplite-accent-hover: #1d35b4;
+  --wplite-destructive: #cc1818;
+  --wplite-radius: 8px;
+  --wplite-radius-sm: 6px;
+  --wplite-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+}
+
+body.login {
+  background: var(--wplite-bg);
+  color: var(--wplite-text);
+  font-family: var(--wplite-font);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.login div#login {
+  width: 360px;
+  padding: 0;
+  margin: 0;
+}
+
+body.login h1 {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+body.login h1 a {
+  background-image: none !important;
+  width: auto;
+  height: auto;
+  text-indent: 0;
+  overflow: visible;
+  display: inline-block;
+  font-family: var(--wplite-font);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--wplite-text);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  outline: none;
+  box-shadow: none;
+}
+
+body.login h1 a:hover,
+body.login h1 a:focus {
+  color: var(--wplite-accent);
+}
+
+body.login form {
+  background: var(--wplite-surface);
+  border: 1px solid var(--wplite-border);
+  border-radius: var(--wplite-radius);
+  box-shadow: none;
+  padding: 24px;
+  margin: 0;
+  font-weight: normal;
+  overflow: visible;
+}
+
+body.login form p {
+  margin-bottom: 12px;
+}
+
+body.login form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wplite-text);
+  margin-bottom: 4px;
+}
+
+body.login form .input,
+body.login input[type="text"],
+body.login input[type="password"],
+body.login input[type="email"] {
+  width: 100%;
+  height: 36px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: var(--wplite-font);
+  color: var(--wplite-text);
+  background: var(--wplite-surface);
+  border: 1px solid var(--wplite-border);
+  border-radius: var(--wplite-radius-sm);
+  box-shadow: none;
+  transition: border-color 80ms ease, box-shadow 80ms ease;
+  margin: 0 0 4px;
+}
+
+body.login form .input:focus,
+body.login input[type="text"]:focus,
+body.login input[type="password"]:focus,
+body.login input[type="email"]:focus {
+  border-color: var(--wplite-accent);
+  box-shadow: none;
+  outline: none;
+}
+
+body.login .wp-pwd {
+  position: relative;
+}
+
+body.login .wp-pwd input[type="password"],
+body.login .wp-pwd input[type="text"] {
+  padding-right: 40px;
+}
+
+body.login .wp-pwd .button.wp-hide-pw {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--wplite-text-muted);
+  height: 34px;
+  top: 1px;
+  right: 1px;
+}
+
+body.login .wp-pwd .button.wp-hide-pw:hover {
+  color: var(--wplite-text);
+}
+
+body.login .forgetmenot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--wplite-text-muted);
+  margin-bottom: 16px;
+  float: none;
+}
+
+body.login .forgetmenot input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--wplite-border);
+  border-radius: 4px;
+  background: var(--wplite-surface);
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 80ms ease, background 80ms ease;
+}
+
+body.login .forgetmenot input[type="checkbox"]:checked {
+  background: var(--wplite-accent);
+  border-color: var(--wplite-accent);
+}
+
+body.login .forgetmenot input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+body.login .forgetmenot input[type="checkbox"]:focus {
+  border-color: var(--wplite-accent);
+  box-shadow: none;
+  outline: none;
+}
+
+body.login .forgetmenot label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--wplite-text-muted);
+}
+
+body.login .submit {
+  margin: 0;
+}
+
+body.login .button-primary,
+body.login #wp-submit {
+  width: 100%;
+  height: 36px;
+  float: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--wplite-accent);
+  border: 1px solid var(--wplite-accent);
+  border-radius: var(--wplite-radius-sm);
+  color: #fff;
+  font-family: var(--wplite-font);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 14px;
+  text-shadow: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 80ms ease, border-color 80ms ease;
+}
+
+body.login .button-primary:hover,
+body.login #wp-submit:hover,
+body.login .button-primary:focus,
+body.login #wp-submit:focus {
+  background: var(--wplite-accent-hover);
+  border-color: var(--wplite-accent-hover);
+  color: #fff;
+  box-shadow: none;
+  outline: none;
+}
+
+body.login #nav,
+body.login #backtoblog {
+  text-align: center;
+  margin: 12px 0 0;
+  padding: 0 24px;
+  font-size: 12px;
+  color: var(--wplite-text-muted);
+  text-shadow: none;
+}
+
+body.login #nav a,
+body.login #backtoblog a {
+  color: var(--wplite-text-muted);
+  text-decoration: none;
+  transition: color 80ms ease;
+}
+
+body.login #nav a:hover,
+body.login #backtoblog a:hover,
+body.login #nav a:focus,
+body.login #backtoblog a:focus {
+  color: var(--wplite-accent);
+  box-shadow: none;
+  outline: none;
+}
+
+body.login .message,
+body.login .notice,
+body.login #login_error {
+  background: var(--wplite-surface);
+  border: 1px solid var(--wplite-border);
+  border-left: 3px solid var(--wplite-accent);
+  border-radius: var(--wplite-radius-sm);
+  box-shadow: none;
+  padding: 10px 12px;
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--wplite-text);
+}
+
+body.login #login_error {
+  border-left-color: var(--wplite-destructive);
+  color: var(--wplite-destructive);
+}
+
+body.login .privacy-policy-page-link {
+  text-align: center;
+  margin-top: 16px;
+}
+
+body.login .privacy-policy-page-link a {
+  font-size: 12px;
+  color: var(--wplite-text-muted);
+}
+
+body.login .language-switcher {
+  margin-top: 16px;
+}
+
+body.login .language-switcher select {
+  height: 32px;
+  border: 1px solid var(--wplite-border);
+  border-radius: var(--wplite-radius-sm);
+  padding: 4px 8px;
+  font-family: var(--wplite-font);
+  font-size: 12px;
+  background: var(--wplite-surface);
+  color: var(--wplite-text);
+}
+`;
+}
+
+async function writeStaticAssets(pluginDir) {
+  const assetsDir = path.join(pluginDir, 'assets');
+  await ensureDir(assetsDir);
+  await writeFile(path.join(assetsDir, 'login.css'), loginStyleCss());
+}
+
 function phpSeedFile() {
   return `<?php
 defined( 'ABSPATH' ) || exit;
+
+function portfolio_light_build_post_index( $post_type ) {
+\t$index = [
+\t\t'by_source_id' => [],
+\t\t'by_route_id'  => [],
+\t\t'by_slug'      => [],
+\t\t'by_title'     => [],
+\t\t'posts'        => [],
+\t];
+
+\t$posts = get_posts(
+\t\t[
+\t\t\t'post_type'      => $post_type,
+\t\t\t'post_status'    => 'any',
+\t\t\t'posts_per_page' => -1,
+\t\t\t'orderby'        => 'date',
+\t\t\t'order'          => 'ASC',
+\t\t]
+\t);
+
+\tforeach ( $posts as $post ) {
+\t\t$index['posts'][ (int) $post->ID ] = $post;
+\t\t$source_id = (string) get_post_meta( $post->ID, '_portfolio_source_id', true );
+\t\t$route_id  = (string) get_post_meta( $post->ID, '_portfolio_route_id', true );
+\t\tif ( $source_id && ! isset( $index['by_source_id'][ $source_id ] ) ) {
+\t\t\t$index['by_source_id'][ $source_id ] = $post;
+\t\t}
+\t\tif ( $route_id && ! isset( $index['by_route_id'][ $route_id ] ) ) {
+\t\t\t$index['by_route_id'][ $route_id ] = $post;
+\t\t}
+\t\tif ( $post->post_name && ! isset( $index['by_slug'][ $post->post_name ] ) ) {
+\t\t\t$index['by_slug'][ $post->post_name ] = $post;
+\t\t}
+\t\tif ( $post->post_title && ! isset( $index['by_title'][ $post->post_title ] ) ) {
+\t\t\t$index['by_title'][ $post->post_title ] = $post;
+\t\t}
+\t}
+
+\treturn $index;
+}
+
+function portfolio_light_find_route_page_in_index( $route, $index ) {
+\t$route_id = (string) ( $route['id'] ?? '' );
+\t$slug     = (string) ( $route['slug'] ?? '' );
+\t$title    = (string) ( $route['title'] ?? ucfirst( $route_id ?: 'Page' ) );
+
+\tif ( $route_id && isset( $index['by_route_id'][ $route_id ] ) ) {
+\t\treturn $index['by_route_id'][ $route_id ];
+\t}
+
+\tif ( $slug && isset( $index['by_slug'][ $slug ] ) ) {
+\t\treturn $index['by_slug'][ $slug ];
+\t}
+
+\tif ( ! $slug ) {
+\t\t$current_front = (int) get_option( 'page_on_front' );
+\t\tif ( $current_front && isset( $index['posts'][ $current_front ] ) ) {
+\t\t\t$front = $index['posts'][ $current_front ];
+\t\t\tif ( $front instanceof WP_Post && 'page' === $front->post_type ) {
+\t\t\t\treturn $front;
+\t\t\t}
+\t\t}
+
+\t\tif ( $title && isset( $index['by_title'][ $title ] ) ) {
+\t\t\treturn $index['by_title'][ $title ];
+\t\t}
+\t}
+
+\treturn null;
+}
 
 function portfolio_light_find_route_page( $route ) {
 \t$route_id = (string) ( $route['id'] ?? '' );
@@ -2147,13 +2570,15 @@ function portfolio_light_find_page_content_entry( $route ) {
 \treturn null;
 }
 
-function portfolio_light_seed_page_from_route( $route ) {
+function portfolio_light_seed_page_from_route( $route, $page_index = null ) {
 \tif ( 'page' !== ( $route['type'] ?? '' ) || empty( $route['seed']['createPageShell'] ) ) {
 \t\treturn 0;
 \t}
 
 \t$slug     = (string) ( $route['slug'] ?? '' );
-\t$existing = portfolio_light_find_route_page( $route );
+\t$existing = $page_index
+\t\t? portfolio_light_find_route_page_in_index( $route, $page_index )
+\t\t: portfolio_light_find_route_page( $route );
 \t$content_entry = portfolio_light_find_page_content_entry( $route );
 \t$payload  = [
 \t\t'post_type'    => 'page',
@@ -2271,7 +2696,7 @@ function portfolio_light_cleanup_default_content() {
 \t}
 }
 
-function portfolio_light_seed_collection_items() {
+function portfolio_light_seed_collection_items( $indexes = null ) {
 \t$site        = portfolio_light_get_site_config();
 \tif (
 \t\tempty( $site['content']['push'] ) ||
@@ -2279,6 +2704,10 @@ function portfolio_light_seed_collection_items() {
 \t\t! empty( $site['content']['databaseFirst'] )
 \t) {
 \t\treturn;
+\t}
+
+\tif ( null === $indexes ) {
+\t\t$indexes = [];
 \t}
 
 \t$collections = portfolio_light_get_content_collections();
@@ -2294,29 +2723,23 @@ function portfolio_light_seed_collection_items() {
 \t\t\t\t\t$route = portfolio_light_get_route( (string) $entry['routeId'] );
 \t\t\t\t}
 
+\t\t\t\t$page_index = $indexes['page'] ?? null;
 \t\t\t\tif ( $route ) {
-\t\t\t\t\t$existing = portfolio_light_find_route_page( $route );
+\t\t\t\t\t$existing = $page_index
+\t\t\t\t\t\t? portfolio_light_find_route_page_in_index( $route, $page_index )
+\t\t\t\t\t\t: portfolio_light_find_route_page( $route );
 \t\t\t\t} else {
 \t\t\t\t\t$existing = null;
-\t\t\t\t\tif ( ! empty( $entry['sourceId'] ) ) {
-\t\t\t\t\t\t$results = get_posts(
-\t\t\t\t\t\t\t[
-\t\t\t\t\t\t\t\t'post_type'      => 'page',
-\t\t\t\t\t\t\t\t'post_status'    => 'any',
-\t\t\t\t\t\t\t\t'posts_per_page' => 1,
-\t\t\t\t\t\t\t\t'meta_query'     => [
-\t\t\t\t\t\t\t\t\t[
-\t\t\t\t\t\t\t\t\t\t'key'   => '_portfolio_source_id',
-\t\t\t\t\t\t\t\t\t\t'value' => $entry['sourceId'],
-\t\t\t\t\t\t\t\t\t],
-\t\t\t\t\t\t\t\t],
-\t\t\t\t\t\t\t]
-\t\t\t\t\t\t);
-\t\t\t\t\t\t$existing = ! empty( $results ) ? $results[0] : null;
+\t\t\t\t\tif ( ! empty( $entry['sourceId'] ) && $page_index && isset( $page_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t\t\t\t\t$existing = $page_index['by_source_id'][ $entry['sourceId'] ];
 \t\t\t\t\t}
 
 \t\t\t\t\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
-\t\t\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, 'page' );
+\t\t\t\t\t\tif ( $page_index && isset( $page_index['by_slug'][ $entry['slug'] ] ) ) {
+\t\t\t\t\t\t\t$existing = $page_index['by_slug'][ $entry['slug'] ];
+\t\t\t\t\t\t} else {
+\t\t\t\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, 'page' );
+\t\t\t\t\t\t}
 \t\t\t\t\t}
 \t\t\t\t}
 
@@ -2357,7 +2780,15 @@ function portfolio_light_seed_collection_items() {
 \t\t\t}
 
 \t\t\tif ( 'post' === ( $entry['model'] ?? '' ) ) {
-\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, 'post' );
+\t\t\t\t$post_index = $indexes['post'] ?? null;
+\t\t\t\t$existing   = null;
+\t\t\t\tif ( ! empty( $entry['sourceId'] ) && $post_index && isset( $post_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t\t\t\t$existing = $post_index['by_source_id'][ $entry['sourceId'] ];
+\t\t\t\t} elseif ( ! empty( $entry['slug'] ) ) {
+\t\t\t\t\t$existing = $post_index && isset( $post_index['by_slug'][ $entry['slug'] ] )
+\t\t\t\t\t\t? $post_index['by_slug'][ $entry['slug'] ]
+\t\t\t\t\t\t: get_page_by_path( $entry['slug'], OBJECT, 'post' );
+\t\t\t\t}
 \t\t\t\t$payload  = [
 \t\t\t\t\t'post_type'    => 'post',
 \t\t\t\t\t'post_status'  => $entry['status'] ?? 'publish',
@@ -2385,26 +2816,16 @@ function portfolio_light_seed_collection_items() {
 \t\t\t\tcontinue;
 \t\t\t}
 
-\t\t\t$existing = null;
-\t\t\tif ( ! empty( $entry['sourceId'] ) ) {
-\t\t\t\t$results = get_posts(
-\t\t\t\t\t[
-\t\t\t\t\t\t'post_type'      => $model['postType'],
-\t\t\t\t\t\t'post_status'    => 'any',
-\t\t\t\t\t\t'posts_per_page' => 1,
-\t\t\t\t\t\t'meta_query'     => [
-\t\t\t\t\t\t\t[
-\t\t\t\t\t\t\t\t'key'   => '_portfolio_source_id',
-\t\t\t\t\t\t\t\t'value' => $entry['sourceId'],
-\t\t\t\t\t\t\t],
-\t\t\t\t\t\t],
-\t\t\t\t\t]
-\t\t\t\t);
-\t\t\t\t$existing = ! empty( $results ) ? $results[0] : null;
+\t\t\t$model_index = $indexes[ $model['postType'] ] ?? null;
+\t\t\t$existing    = null;
+\t\t\tif ( ! empty( $entry['sourceId'] ) && $model_index && isset( $model_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t\t\t$existing = $model_index['by_source_id'][ $entry['sourceId'] ];
 \t\t\t}
 
 \t\t\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
-\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, $model['postType'] );
+\t\t\t\t$existing = $model_index && isset( $model_index['by_slug'][ $entry['slug'] ] )
+\t\t\t\t\t? $model_index['by_slug'][ $entry['slug'] ]
+\t\t\t\t\t: get_page_by_path( $entry['slug'], OBJECT, $model['postType'] );
 \t\t\t}
 
 \t\t\tif ( ! empty( $site['content']['collections'][ $entry['model'] ] ) && empty( $site['content']['collections'][ $entry['model'] ]['sync'] ) ) {
@@ -2436,16 +2857,30 @@ function portfolio_light_seed_collection_items() {
 }
 
 function portfolio_light_seed_site() {
+\t$indexes = [
+\t\t'page' => portfolio_light_build_post_index( 'page' ),
+\t\t'post' => portfolio_light_build_post_index( 'post' ),
+\t];
+\tforeach ( portfolio_light_get_models() as $model ) {
+\t\tif ( 'collection' !== ( $model['type'] ?? '' ) ) {
+\t\t\tcontinue;
+\t\t}
+\t\t$pt = $model['postType'] ?? '';
+\t\tif ( $pt && ! isset( $indexes[ $pt ] ) ) {
+\t\t\t$indexes[ $pt ] = portfolio_light_build_post_index( $pt );
+\t\t}
+\t}
+
 \t$page_ids = [];
 \tforeach ( portfolio_light_get_routes() as $route ) {
-\t\t$page_ids[ $route['id'] ] = portfolio_light_seed_page_from_route( $route );
+\t\t$page_ids[ $route['id'] ] = portfolio_light_seed_page_from_route( $route, $indexes['page'] );
 \t}
 
 \tportfolio_light_cleanup_route_duplicates( $page_ids );
 
 \tportfolio_light_seed_singletons();
 \tportfolio_light_cleanup_default_content();
-\tportfolio_light_seed_collection_items();
+\tportfolio_light_seed_collection_items( $indexes );
 
 \t$site = portfolio_light_get_site_config();
 \tif ( ! empty( $site['theme']['slug'] ) ) {
@@ -2496,7 +2931,9 @@ async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths) {
   await writeFile(path.join(incDir, 'register-singletons.php'), phpRegisterSingletonsFile());
   await writeFile(path.join(incDir, 'register-rest.php'), phpRegisterRestFile());
   await writeFile(path.join(incDir, 'register-admin-app.php'), phpRegisterAdminAppFile());
+  await writeFile(path.join(incDir, 'register-login-style.php'), phpRegisterLoginStyleFile());
   await writeFile(path.join(incDir, 'seed.php'), phpSeedFile());
+  await writeStaticAssets(paths.pluginRoot);
   await writeFile(
     path.join(compiledDir, 'site-schema.json'),
     JSON.stringify(siteSchema, null, 2)
@@ -2519,8 +2956,101 @@ async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths) {
   await writeFile(path.join(paths.pluginRoot, 'build', '.gitkeep'), '');
 }
 
-async function build(root) {
-  root = root || resolveRoot();
+async function hashPath(target) {
+  const hash = createHash('sha1');
+  async function walk(p) {
+    let stat;
+    try {
+      const entries = await readdir(p, { withFileTypes: true });
+      for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name.startsWith('.')) continue;
+        const full = path.join(p, entry.name);
+        hash.update(entry.name + (entry.isDirectory() ? '/' : ''));
+        if (entry.isDirectory()) {
+          await walk(full);
+        } else if (entry.isFile()) {
+          hash.update(await readFile(full));
+        }
+      }
+      return;
+    } catch (err) {
+      if (err.code === 'ENOTDIR') {
+        try {
+          hash.update(await readFile(p));
+        } catch {}
+        return;
+      }
+      if (err.code !== 'ENOENT') throw err;
+    }
+  }
+  await walk(target);
+  return hash.digest('hex');
+}
+
+function compilerSelfHash() {
+  // Cheap invariant: fall back to full rebuild if compiler source changes.
+  return createHash('sha1')
+    .update(phpSeedFile())
+    .update(phpHelpersFile())
+    .update(phpRegisterPostTypesFile())
+    .update(phpRegisterTaxonomiesFile())
+    .update(phpRegisterMetaFile())
+    .update(phpRegisterSingletonsFile())
+    .update(phpRegisterRestFile())
+    .update(phpRegisterAdminAppFile())
+    .update(phpRegisterLoginStyleFile())
+    .update(loginStyleCss())
+    .digest('hex');
+}
+
+async function computeInputHashes(root) {
+  const [app, content, theme, blocks, admin, adminApp, pkg] = await Promise.all([
+    hashPath(path.join(root, 'app')),
+    hashPath(path.join(root, 'content')),
+    hashPath(path.join(root, 'theme')),
+    hashPath(path.join(root, 'blocks')),
+    hashPath(path.join(root, 'admin')),
+    hashPath(path.join(path.dirname(new URL(import.meta.url).pathname), 'admin-app')),
+    hashPath(path.join(root, 'package.json')),
+  ]);
+
+  return {
+    app,
+    content,
+    theme,
+    blocks,
+    admin,
+    adminApp,
+    pkg,
+    compiler: compilerSelfHash(),
+  };
+}
+
+async function readCompileCache(generatedRoot) {
+  try {
+    return JSON.parse(await readFile(path.join(generatedRoot, '.compile-cache.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function writeCompileCache(generatedRoot, hashes) {
+  await writeFile(
+    path.join(generatedRoot, '.compile-cache.json'),
+    `${JSON.stringify(hashes, null, 2)}\n`
+  );
+}
+
+async function pathExists(p) {
+  try {
+    await readdir(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function computeBuildArtifacts(root) {
   const site = await readJson(path.join(root, 'app', 'site.json'));
   const paths = resolvePaths(root, site);
 
@@ -2539,30 +3069,15 @@ async function build(root) {
   const contentSources = [
     ...models
       .filter((model) => model.type === 'collection')
-      .map((model) => ({
-        id: model.id,
-        directory: pluralize(model.id),
-      })),
-    {
-      id: 'page',
-      directory: 'pages',
-    },
-    {
-      id: 'post',
-      directory: 'posts',
-    },
+      .map((model) => ({ id: model.id, directory: pluralize(model.id) })),
+    { id: 'page', directory: 'pages' },
+    { id: 'post', directory: 'posts' },
   ];
-  const contentCollections = await readContentEntries(
-    path.join(root, 'content'),
-    contentSources
-  );
+  const contentCollections = await readContentEntries(path.join(root, 'content'), contentSources);
   const contentSingletons = await readJsonDirectory(path.join(root, 'content', 'singletons'));
   const adminOverrides = await readJsonDirectory(path.join(root, 'admin'));
   const blocks = await readBlockDirectory(path.join(root, 'blocks'));
-  const editorTemplates = await buildEditorTemplates(path.join(root, 'theme'), {
-    models,
-    routes,
-  });
+  const editorTemplates = await buildEditorTemplates(path.join(root, 'theme'), { models, routes, menus });
 
   const siteSchema = {
     site,
@@ -2584,61 +3099,179 @@ async function build(root) {
   };
 
   const adminSchemas = {};
-
   for (const model of models) {
-    adminSchemas[`${model.id}.view.json`] = buildCollectionViewSchema(
-      model,
-      adminOverrides[`${model.id}.view`]
-    );
-    adminSchemas[`${model.id}.form.json`] = buildCollectionFormSchema(
-      model,
-      adminOverrides[`${model.id}.form`]
-    );
+    adminSchemas[`${model.id}.view.json`] = buildCollectionViewSchema(model, adminOverrides[`${model.id}.view`]);
+    adminSchemas[`${model.id}.form.json`] = buildCollectionFormSchema(model, adminOverrides[`${model.id}.form`]);
   }
-
   for (const singleton of singletons) {
     adminSchemas[`${singleton.id}.form.json`] = buildSingletonFormSchema(
       singleton,
       adminOverrides[`settings-${singleton.id}.form`] ?? adminOverrides[`${singleton.id}.form`]
     );
   }
-
   const builtinPostModel = getBuiltinPostModel();
-  adminSchemas['post.view.json'] = buildCollectionViewSchema(
-    builtinPostModel,
-    adminOverrides['post.view']
-  );
-  adminSchemas['post.form.json'] = buildCollectionFormSchema(
-    builtinPostModel,
-    adminOverrides['post.form']
-  );
+  adminSchemas['post.view.json'] = buildCollectionViewSchema(builtinPostModel, adminOverrides['post.view']);
+  adminSchemas['post.form.json'] = buildCollectionFormSchema(builtinPostModel, adminOverrides['post.form']);
 
-  await rm(paths.generatedRoot, {
-    recursive: true,
-    force: true,
-    maxRetries: 6,
-    retryDelay: 200,
-  });
-  await ensureDir(paths.adminSchemaRoot);
+  return { site, paths, siteSchema, adminSchemas };
+}
 
+async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminSchemas) {
+  const paths = resolvePaths(root, site);
+  // Rebase paths onto generatedRoot (since callers may pass a tmp dir).
+  const rebased = {
+    root,
+    generatedRoot,
+    wpContentRoot: path.join(generatedRoot, 'wp-content'),
+    pluginRoot: path.join(generatedRoot, 'wp-content', 'plugins', site.plugin?.slug ?? paths.pluginRoot.split(path.sep).pop()),
+    themeRoot: path.join(generatedRoot, 'wp-content', 'themes', site.theme?.slug ?? paths.themeRoot.split(path.sep).pop()),
+    adminSchemaRoot: path.join(generatedRoot, 'admin-schema'),
+  };
+
+  await ensureDir(rebased.adminSchemaRoot);
   for (const [fileName, schema] of Object.entries(adminSchemas)) {
-    await writeFile(
-      path.join(paths.adminSchemaRoot, fileName),
-      JSON.stringify(schema, null, 2)
-    );
+    await writeFile(path.join(rebased.adminSchemaRoot, fileName), JSON.stringify(schema, null, 2));
   }
 
+  await ensureDir(generatedRoot);
   await writeFile(
-    path.join(paths.generatedRoot, 'blueprint.json'),
+    path.join(generatedRoot, 'blueprint.json'),
     await readFile(path.join(root, 'build', 'blueprint.json'), 'utf8')
   );
   await writeFile(
-    path.join(paths.generatedRoot, 'site-schema.json'),
+    path.join(generatedRoot, 'site-schema.json'),
     JSON.stringify(siteSchema, null, 2)
   );
 
-  await copyThemeSource(path.join(root, 'theme'), paths.themeRoot, site.theme.slug, siteSchema);
-  await writeGeneratedPlugin(siteSchema, adminSchemas, site, paths);
+  await writeGeneratedPlugin(siteSchema, adminSchemas, site, rebased);
+  return rebased;
+}
+
+async function emitThemeArtifacts(root, generatedRoot, site, siteSchema) {
+  const themeRoot = path.join(generatedRoot, 'wp-content', 'themes', site.theme.slug);
+  await rm(themeRoot, { recursive: true, force: true });
+  await copyThemeSource(path.join(root, 'theme'), themeRoot, site.theme.slug, siteSchema);
+}
+
+async function emitContentArtifacts(generatedRoot, site, siteSchema) {
+  // Content lives entirely inside site-schema.json (seeded at activation by PHP).
+  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const compiledDir = path.join(generatedRoot, 'wp-content', 'plugins', pluginSlug, 'compiled');
+  await ensureDir(compiledDir);
+  await writeFile(path.join(compiledDir, 'site-schema.json'), JSON.stringify(siteSchema, null, 2));
+  await writeFile(path.join(generatedRoot, 'site-schema.json'), JSON.stringify(siteSchema, null, 2));
+}
+
+async function runFullBuild(root, site, paths, hashes) {
+  const tmpRoot = `${paths.generatedRoot}.tmp-${process.pid}`;
+  await rm(tmpRoot, { recursive: true, force: true });
+  await ensureDir(tmpRoot);
+
+  try {
+    const { siteSchema, adminSchemas } = await computeBuildArtifacts(root);
+
+    await emitSchemaArtifacts(root, tmpRoot, site, siteSchema, adminSchemas);
+    await emitThemeArtifacts(root, tmpRoot, site, siteSchema);
+
+    // Preserve prior admin-app build if present (not part of schema artifacts).
+    const priorBuildDir = path.join(paths.pluginRoot, 'build');
+    const tmpPluginBuildDir = path.join(tmpRoot, 'wp-content', 'plugins', site.plugin?.slug ?? 'wp-light-app', 'build');
+    try {
+      await cp(priorBuildDir, tmpPluginBuildDir, { recursive: true });
+    } catch {}
+
+    await writeCompileCache(tmpRoot, hashes);
+
+    const oldRoot = `${paths.generatedRoot}.old-${process.pid}`;
+    const prevExists = await pathExists(paths.generatedRoot);
+    if (prevExists) {
+      await rename(paths.generatedRoot, oldRoot);
+    }
+    try {
+      await rename(tmpRoot, paths.generatedRoot);
+    } catch (err) {
+      if (prevExists) {
+        await rename(oldRoot, paths.generatedRoot);
+      }
+      throw err;
+    }
+    if (prevExists) {
+      await rm(oldRoot, { recursive: true, force: true });
+    }
+  } catch (err) {
+    await rm(tmpRoot, { recursive: true, force: true });
+    throw err;
+  }
+}
+
+async function build(root) {
+  root = root || resolveRoot();
+  const site = await readJson(path.join(root, 'app', 'site.json'));
+  const paths = resolvePaths(root, site);
+
+  const hashes = await computeInputHashes(root);
+  const prior = await readCompileCache(paths.generatedRoot);
+
+  const needsFull =
+    !prior ||
+    !(await pathExists(paths.generatedRoot)) ||
+    prior.compiler !== hashes.compiler ||
+    prior.pkg !== hashes.pkg;
+
+  if (needsFull) {
+    await runFullBuild(root, site, paths, hashes);
+  } else {
+    const changed = {
+      app: prior.app !== hashes.app,
+      content: prior.content !== hashes.content,
+      theme: prior.theme !== hashes.theme,
+      blocks: prior.blocks !== hashes.blocks,
+      admin: prior.admin !== hashes.admin,
+      adminApp: prior.adminApp !== hashes.adminApp,
+    };
+
+    const anyChanged = Object.values(changed).some(Boolean);
+
+    if (!anyChanged) {
+      return {
+        generatedRoot: paths.generatedRoot,
+        pluginRoot: paths.pluginRoot,
+        themeRoot: paths.themeRoot,
+        incremental: { skipped: true },
+      };
+    }
+
+    try {
+      const { siteSchema, adminSchemas } = await computeBuildArtifacts(root);
+
+      if (changed.app || changed.admin || changed.blocks) {
+        await emitSchemaArtifacts(root, paths.generatedRoot, site, siteSchema, adminSchemas);
+      } else if (changed.content) {
+        await emitContentArtifacts(paths.generatedRoot, site, siteSchema);
+      }
+
+      if (changed.theme) {
+        await emitThemeArtifacts(root, paths.generatedRoot, site, siteSchema);
+      }
+
+      if (changed.blocks) {
+        const pluginBlocks = path.join(paths.pluginRoot, 'blocks');
+        await rm(pluginBlocks, { recursive: true, force: true });
+        await cp(path.join(root, 'blocks'), pluginBlocks, { recursive: true });
+      }
+
+      await writeCompileCache(paths.generatedRoot, hashes);
+      return {
+        generatedRoot: paths.generatedRoot,
+        pluginRoot: paths.pluginRoot,
+        themeRoot: paths.themeRoot,
+        incremental: changed,
+      };
+    } catch (err) {
+      // Fall back to a full rebuild if anything goes wrong incrementally.
+      await runFullBuild(root, site, paths, hashes);
+    }
+  }
 
   return {
     generatedRoot: paths.generatedRoot,
