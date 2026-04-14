@@ -578,6 +578,100 @@ async function computeBuildArtifacts(root) {
   return { site, paths, siteSchema, adminSchemas };
 }
 
+function sitePortBase(siteId) {
+  const h = createHash('sha1').update(String(siteId || 'wplite-default')).digest();
+  // 50 buckets × 4 ports each = 8800..8999. Port and testsPort differ by 1.
+  const bucket = ((h[0] << 8) | h[1]) % 50;
+  return 8800 + bucket * 4;
+}
+
+function defaultBlueprint(site) {
+  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const themeSlug = site.theme?.slug ?? 'wp-light-theme';
+  return {
+    landingPage: '/',
+    steps: [
+      {
+        step: 'runPHP',
+        code: `<?php require '/wordpress/wp-load.php'; activate_plugin( '${pluginSlug}/${pluginSlug}.php' ); ?>`,
+      },
+      {
+        step: 'runPHP',
+        code: `<?php require '/wordpress/wp-load.php'; switch_theme( '${themeSlug}' ); ?>`,
+      },
+      {
+        step: 'runPHP',
+        code: `<?php require '/wordpress/wp-load.php'; update_option( 'permalink_structure', '/%postname%/' ); flush_rewrite_rules(); ?>`,
+      },
+    ],
+  };
+}
+
+async function resolveBlueprint(root, site) {
+  // Legacy: a hand-authored blueprint.json wins.
+  try {
+    return await readFile(path.join(root, 'build', 'blueprint.json'), 'utf8');
+  } catch (err) {
+    if (!err || err.code !== 'ENOENT') throw err;
+  }
+
+  const blueprint = defaultBlueprint(site);
+
+  // Optional: extra steps merged in from build/blueprint.overrides.json (array of Playground steps).
+  try {
+    const extra = JSON.parse(
+      await readFile(path.join(root, 'build', 'blueprint.overrides.json'), 'utf8')
+    );
+    if (Array.isArray(extra)) {
+      blueprint.steps.push(...extra);
+    } else if (extra && Array.isArray(extra.steps)) {
+      blueprint.steps.push(...extra.steps);
+    }
+  } catch (err) {
+    if (!err || err.code !== 'ENOENT') throw err;
+  }
+
+  return JSON.stringify(blueprint, null, 2);
+}
+
+function defaultWpEnv(site) {
+  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const themeSlug = site.theme?.slug ?? 'wp-light-theme';
+  const basePort = sitePortBase(site.id);
+  return {
+    port: basePort,
+    testsPort: basePort + 1,
+    plugins: [`./generated/wp-content/plugins/${pluginSlug}`],
+    themes: [`./generated/wp-content/themes/${themeSlug}`],
+    config: {
+      WP_DEBUG: true,
+      SCRIPT_DEBUG: true,
+    },
+  };
+}
+
+async function resolveWpEnv(root, site) {
+  const generated = defaultWpEnv(site);
+
+  // Optional: deep-merge overrides from .wp-env.overrides.json.
+  try {
+    const overrides = JSON.parse(
+      await readFile(path.join(root, '.wp-env.overrides.json'), 'utf8')
+    );
+    return {
+      ...generated,
+      ...overrides,
+      plugins: overrides.plugins ?? generated.plugins,
+      themes: overrides.themes ?? generated.themes,
+      config: { ...(generated.config || {}), ...(overrides.config || {}) },
+    };
+  } catch (err) {
+    if (!err || err.code !== 'ENOENT') throw err;
+  }
+
+  return generated;
+}
+
 async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminSchemas) {
   const paths = resolvePaths(root, site);
   // Rebase paths onto generatedRoot (since callers may pass a tmp dir).
@@ -598,11 +692,18 @@ async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminS
   await ensureDir(generatedRoot);
   await writeFile(
     path.join(generatedRoot, 'blueprint.json'),
-    await readFile(path.join(root, 'build', 'blueprint.json'), 'utf8')
+    await resolveBlueprint(root, site)
   );
   await writeFile(
     path.join(generatedRoot, 'site-schema.json'),
     JSON.stringify(siteSchema, null, 2)
+  );
+
+  // wp-env.json is authoritative and regenerated every build. It lives at the
+  // site root because wp-env looks for it there.
+  await writeFile(
+    path.join(root, '.wp-env.json'),
+    JSON.stringify(await resolveWpEnv(root, site), null, 2) + '\n'
   );
 
   await writeGeneratedPlugin(siteSchema, adminSchemas, site, rebased);

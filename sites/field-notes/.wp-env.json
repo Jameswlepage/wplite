@@ -1,0 +1,14 @@
+{
+  "port": 8864,
+  "testsPort": 8865,
+  "plugins": [
+    "./generated/wp-content/plugins/field-notes-app"
+  ],
+  "themes": [
+    "./generated/wp-content/themes/field-notes-theme"
+  ],
+  "config": {
+    "WP_DEBUG": true,
+    "SCRIPT_DEBUG": true
+  }
+}

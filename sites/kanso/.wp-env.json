@@ -1,4 +1,6 @@
 {
+  "port": 8984,
+  "testsPort": 8985,
   "plugins": [
     "./generated/wp-content/plugins/kanso-app"
   ],

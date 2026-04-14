@@ -70,6 +70,7 @@ The custom app at `/app` owns the visible management experience.
 It handles:
 
 - dashboard and workspace shell
+- global `Cmd/Ctrl + K` command/search that spans app routes, indexed records, and live native WordPress entities
 - collections via DataViews
 - settings via DataForm
 - media selection/upload inside the app

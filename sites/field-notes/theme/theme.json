@@ -11,7 +11,7 @@
         { "slug": "paper",   "name": "Paper",    "color": "#f3ead4" },
         { "slug": "manila",  "name": "Manila",   "color": "#d9b787" },
         { "slug": "kraft",   "name": "Kraft",    "color": "#a97c4f" },
-        { "slug": "rule",    "name": "Ruled Line", "color": "#b9a67a" },
+        { "slug": "rule",    "name": "Ruled Line", "color": "#e0d3ae" },
         { "slug": "moss",    "name": "Moss",     "color": "#556b3c" },
         { "slug": "indigo",  "name": "Indigo",   "color": "#2a3c62" },
         { "slug": "rust",    "name": "Rust",     "color": "#a83e1d" }

@@ -1,4 +1,5 @@
 @import './styles/base.css';
+@import './styles/command-bar.css';
 @import './styles/shell.css';
 @import './styles/screens.css';
 @import './styles/dashboard.css';

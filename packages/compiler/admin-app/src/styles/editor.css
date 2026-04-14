@@ -396,27 +396,28 @@
   box-shadow: none;
 }
 
-/* Kill all WordPress block editor internal padding */
-.native-editor__canvas .block-editor-block-list__layout,
-.native-editor__canvas .editor-styles-wrapper .block-editor-block-list__layout {
+/* In template-fit mode we remove internal editor padding so the template shell
+   can fill the canvas width. Content editors keep default WP spacing. */
+.native-editor__canvas--fit .block-editor-block-list__layout,
+.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__layout {
   padding: 0 !important;
   margin: 0 !important;
 }
 
-.native-editor__canvas .block-editor-block-list__layout .block-editor-block-list__layout,
-.native-editor__canvas .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
+.native-editor__canvas--fit .block-editor-block-list__layout .block-editor-block-list__layout,
+.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
   padding: 0 !important;
 }
 
-.native-editor__canvas .block-editor-block-list__block,
-.native-editor__canvas .editor-styles-wrapper .block-editor-block-list__block {
+.native-editor__canvas--fit .block-editor-block-list__block,
+.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__block {
   margin-left: 0 !important;
   margin-right: 0 !important;
   max-width: none !important;
 }
 
-.native-editor__canvas .block-editor-default-block-appender,
-.native-editor__canvas .editor-styles-wrapper .block-editor-default-block-appender {
+.native-editor__canvas--fit .block-editor-default-block-appender,
+.native-editor__canvas--fit .editor-styles-wrapper .block-editor-default-block-appender {
   margin-left: 0 !important;
   margin-right: 0 !important;
   max-width: none !important;

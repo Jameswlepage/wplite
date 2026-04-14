@@ -194,6 +194,7 @@ It provides:
 - DataViews-driven collection management
 - DataForm-driven structured field editing
 - a stripped-down Gutenberg-based content editor
+- a global `Cmd/Ctrl + K` command bar for routes, commands, and live admin search
 - in-app settings, media, users, and workspace surfaces
 
 Long-form content still uses Gutenberg primitives. Structured content still uses the generated forms.

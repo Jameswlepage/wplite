@@ -38,6 +38,7 @@ export async function requestJson(baseUrl, endpoint, options = {}) {
     headers,
     body,
     credentials: 'same-origin',
+    signal: options.signal,
   });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};

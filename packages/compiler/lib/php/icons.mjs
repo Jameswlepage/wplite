@@ -18,5 +18,9 @@ export function launcherIconSvg(kind, { size = 16, className = '' } = {}) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" focusable="false"${classAttr}><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4m0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5m0-8a2 2 0 1 1-2 2 2 2 0 0 1 2-2m-6 12c.55-1.57 3.03-3 6-3s5.45 1.43 6 3z"/></svg>`;
   }
 
+  if (kind === 'search') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" focusable="false"${classAttr}><path fill="currentColor" d="M10 2a8 8 0 1 0 4.9 14.33l4.38 4.38a1 1 0 0 0 1.41-1.41l-4.38-4.38A8 8 0 0 0 10 2m0 2a6 6 0 1 1 0 12 6 6 0 0 1 0-12"/></svg>`;
+  }
+
   return '';
 }

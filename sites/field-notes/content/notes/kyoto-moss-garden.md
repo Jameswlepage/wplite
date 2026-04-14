@@ -6,6 +6,7 @@ title: Saihō-ji, After the Rain
 excerpt: The moss garden in west Kyoto is a different place fifteen minutes after a shower — a landscape that wakes up.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/kyoto-moss-garden.jpg
   observed_on: '2025-06-17'
   place: Saihō-ji, Kyoto, Japan
   lat: '34.9924'

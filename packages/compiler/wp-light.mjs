@@ -1640,7 +1640,7 @@ async function loadInitBrief() {
 
   const capabilities = normalizeCoreCapabilities(capabilityInput);
   const pageSync = brief.pageSync === true;
-  const blogEnabled = brief.blogEnabled !== undefined ? brief.blogEnabled !== false : capabilities.posts;
+  const blogEnabled = brief.blogEnabled !== undefined ? brief.blogEnabled === true : false;
 
   const routes = asArray(brief.routes).length > 0
     ? asArray(brief.routes)

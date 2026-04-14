@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "field-notes/welcome",
+  "title": "Welcome",
+  "category": "dashboard",
+  "icon": "admin-home",
+  "description": "Greeting with site title and an overall count of entries and places.",
+  "supports": { "html": false, "align": ["full"] },
+  "dashboard": { "priority": 0, "span": "full", "chromeless": true },
+  "render": "file:./render.php"
+}

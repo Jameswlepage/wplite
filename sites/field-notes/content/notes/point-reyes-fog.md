@@ -6,6 +6,7 @@ title: The Fog That Arrives From Below
 excerpt: A morning at Point Reyes where the fog moved uphill instead of in — a slow, bottom-fed tide of cold air.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/point-reyes-fog.jpg
   observed_on: '2026-02-11'
   place: Point Reyes, California
   lat: '38.0734'

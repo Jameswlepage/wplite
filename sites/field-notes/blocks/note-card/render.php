@@ -35,8 +35,18 @@ if ( $lat && $lng ) {
 		$lng_f >= 0 ? 'E' : 'W'
 	);
 }
+$hero = get_post_meta( $post_id, 'hero_url', true );
+if ( ! $hero ) {
+	$thumb = get_the_post_thumbnail_url( $post_id, 'large' );
+	if ( $thumb ) { $hero = $thumb; }
+}
 ?>
 <article class="fn-note">
+	<?php if ( $hero ) : ?>
+		<a class="fn-note__hero" href="<?php echo esc_url( $link ); ?>" aria-hidden="true" tabindex="-1">
+			<img src="<?php echo esc_url( $hero ); ?>" alt="" loading="lazy">
+		</a>
+	<?php endif; ?>
 	<div class="fn-note__stamp">
 		<span><?php echo esc_html( $date_fmt ); ?></span>
 		<span><?php echo esc_html( $place ); ?></span>
