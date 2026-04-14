@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, watch, writeFileSync } from 'node:fs';
-import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import matter from 'gray-matter';
@@ -328,6 +329,43 @@ function compilerDir() {
   return path.dirname(new URL(import.meta.url).pathname);
 }
 
+function adminRuntimeCacheRoot() {
+  const base =
+    process.env.XDG_CACHE_HOME
+      ? path.join(process.env.XDG_CACHE_HOME, 'wplite')
+      : path.join(os.homedir(), '.cache', 'wplite');
+
+  return path.join(base, 'admin-runtime');
+}
+
+function resolveAdminRuntimeCacheDir(runtimeHash) {
+  return path.join(adminRuntimeCacheRoot(), runtimeHash);
+}
+
+function resolveAdminRuntimeMarker(dirPath) {
+  return path.join(dirPath, '.runtime-meta.json');
+}
+
+async function readAdminRuntimeMarker(dirPath) {
+  try {
+    return JSON.parse(await readFile(resolveAdminRuntimeMarker(dirPath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function writeAdminRuntimeMarker(dirPath, payload) {
+  await ensureDir(dirPath);
+  await writeFile(resolveAdminRuntimeMarker(dirPath), `${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function hasRuntimeBundle(dirPath) {
+  return (
+    existsSync(path.join(dirPath, 'admin-app.js')) &&
+    existsSync(path.join(dirPath, 'admin-app.css'))
+  );
+}
+
 function playgroundUrlForPort(port) {
   return `http://${PLAYGROUND_HOST}:${port}`;
 }
@@ -372,20 +410,51 @@ async function isPortListening(port) {
   }
 }
 
+async function ensureAdminRuntimeBundle(buildResult) {
+  const runtimeHash = buildResult.adminRuntimeHash;
+  const runtimeCacheDir = resolveAdminRuntimeCacheDir(runtimeHash);
+  const adminOutDir = path.join(buildResult.pluginRoot, 'build');
+  let built = false;
+
+  if (buildResult.adminBundleDirty || !hasRuntimeBundle(runtimeCacheDir)) {
+    await rm(runtimeCacheDir, { recursive: true, force: true });
+    await ensureDir(runtimeCacheDir);
+
+    const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
+    await run('npx', ['vite', 'build', '--config', viteConfig], {
+      env: { ...process.env, WPLITE_ADMIN_OUT_DIR: runtimeCacheDir },
+    });
+
+    await writeAdminRuntimeMarker(runtimeCacheDir, {
+      hash: runtimeHash,
+      builtAt: new Date().toISOString(),
+    });
+    built = true;
+  }
+
+  const currentMarker = await readAdminRuntimeMarker(adminOutDir);
+  const syncedHash = currentMarker?.hash ?? null;
+  const needsSync = syncedHash !== runtimeHash || !hasRuntimeBundle(adminOutDir);
+
+  if (needsSync) {
+    await rm(adminOutDir, { recursive: true, force: true });
+    await cp(runtimeCacheDir, adminOutDir, { recursive: true });
+  }
+
+  return {
+    built,
+    synced: needsSync,
+    runtimeHash,
+    cacheDir: runtimeCacheDir,
+    adminOutDir,
+  };
+}
+
 async function buildGeneratedSite() {
   const startedAt = Date.now();
   const result = await build(ROOT);
-  const adminOutDir = path.join(result.pluginRoot, 'build');
-  const existingBundle = existsSync(path.join(adminOutDir, 'admin-app.js'));
   const incremental = result.incremental;
-  const needsBundle = result.adminBundleDirty || !existingBundle;
-
-  if (needsBundle) {
-    const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
-    await run('npx', ['vite', 'build', '--config', viteConfig], {
-      env: { ...process.env, WPLITE_ADMIN_OUT_DIR: adminOutDir },
-    });
-  }
+  const runtime = await ensureAdminRuntimeBundle(result);
 
   if (incremental) {
     const changed = incremental.skipped
@@ -398,6 +467,7 @@ async function buildGeneratedSite() {
 
   return {
     ...result,
+    runtime,
     durationMs: Date.now() - startedAt,
   };
 }
@@ -1174,30 +1244,51 @@ async function buildCommand() {
 }
 
 async function syncRunningSite({ useDocker } = {}) {
-  await buildGeneratedSite();
+  const buildResult = await buildGeneratedSite();
   const site = await loadSiteConfig();
+  const shouldSeed = buildResult.seedRequired;
 
   if (useDocker ?? (await canUseDocker())) {
     await run('npx', ['wp-env', 'start']);
-    await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
-    return { siteUrl: null, mode: 'docker' };
+    if (shouldSeed) {
+      await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
+    }
+    return {
+      siteUrl: null,
+      mode: 'docker',
+      buildResult,
+      seeded: shouldSeed,
+    };
   }
 
   const siteUrl = await startPlaygroundServer(site);
-  await runLocalSeed(siteUrl);
-  return { siteUrl, mode: 'playground' };
+  if (shouldSeed) {
+    await runLocalSeed(siteUrl);
+  }
+  return {
+    siteUrl,
+    mode: 'playground',
+    buildResult,
+    seeded: shouldSeed,
+  };
 }
 
 async function applyCommand() {
-  const { siteUrl, mode } = await syncRunningSite();
+  const { siteUrl, mode, buildResult, seeded } = await syncRunningSite();
   if (mode === 'playground' && siteUrl) {
     note(`Applied site to ${siteUrl}`);
   }
   return {
     summary: mode === 'playground' && siteUrl
-      ? `Applied and seeded ${siteUrl}`
-      : 'Applied and seeded via Docker wp-env.',
-    data: { mode, siteUrl },
+      ? `Applied ${seeded ? 'and reseeded' : 'without reseeding'} ${siteUrl}`
+      : `Applied ${seeded ? 'and reseeded' : 'without reseeding'} via Docker wp-env.`,
+    data: {
+      mode,
+      siteUrl,
+      seeded,
+      changes: buildResult.changes,
+      runtime: buildResult.runtime,
+    },
   };
 }
 
@@ -1285,7 +1376,26 @@ async function devCommand() {
       if (syncResult.mode === 'playground' && syncResult.siteUrl) {
         note(`Updated ${syncResult.siteUrl}`);
       }
-      note('Rebuilt, reseeded, and triggered browser refresh.');
+      const changeList = Object.entries(syncResult.buildResult.changes ?? {})
+        .filter(([, value]) => value)
+        .map(([key]) => key);
+      const activity = [];
+
+      if (syncResult.buildResult.runtime?.built) {
+        activity.push('rebuilt shared admin runtime');
+      } else if (syncResult.buildResult.runtime?.synced) {
+        activity.push('reused cached admin runtime');
+      }
+
+      if (syncResult.seeded) {
+        activity.push('reseeded content');
+      } else {
+        activity.push('skipped reseed');
+      }
+
+      note(
+        `${activity.join(', ')} and triggered browser refresh${changeList.length ? ` (${changeList.join(', ')})` : ''}.`
+      );
     } catch (error) {
       errorOut(`Watch rebuild failed: ${error.stack || error.message}`);
     } finally {

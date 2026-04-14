@@ -447,6 +447,20 @@ function compilerSelfHash() {
     .digest('hex');
 }
 
+function computeAdminRuntimeHash(hashes) {
+  const hash = createHash('sha1');
+
+  hash.update(hashes.adminApp);
+
+  try {
+    hash.update(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+  } catch {
+    // Ignore missing package metadata in unusual packaging scenarios.
+  }
+
+  return hash.digest('hex');
+}
+
 async function computeInputHashes(root) {
   const [app, content, theme, blocks, admin, adminApp, pkg] = await Promise.all([
     hashPath(path.join(root, 'app')),
@@ -617,13 +631,6 @@ async function runFullBuild(root, site, paths, hashes) {
     await emitSchemaArtifacts(root, tmpRoot, site, siteSchema, adminSchemas);
     await emitThemeArtifacts(root, tmpRoot, site, siteSchema);
 
-    // Preserve prior admin-app build if present (not part of schema artifacts).
-    const priorBuildDir = path.join(paths.pluginRoot, 'build');
-    const tmpPluginBuildDir = path.join(tmpRoot, 'wp-content', 'plugins', site.plugin?.slug ?? 'wp-light-app', 'build');
-    try {
-      await cp(priorBuildDir, tmpPluginBuildDir, { recursive: true });
-    } catch {}
-
     await writeCompileCache(tmpRoot, hashes);
 
     const oldRoot = `${paths.generatedRoot}.old-${process.pid}`;
@@ -655,7 +662,26 @@ async function build(root) {
 
   const hashes = await computeInputHashes(root);
   const prior = await readCompileCache(paths.generatedRoot);
+  const changes = prior
+    ? {
+        app: prior.app !== hashes.app,
+        content: prior.content !== hashes.content,
+        theme: prior.theme !== hashes.theme,
+        blocks: prior.blocks !== hashes.blocks,
+        admin: prior.admin !== hashes.admin,
+        adminApp: prior.adminApp !== hashes.adminApp,
+      }
+    : {
+        app: true,
+        content: true,
+        theme: true,
+        blocks: true,
+        admin: true,
+        adminApp: true,
+      };
+  const adminRuntimeHash = computeAdminRuntimeHash(hashes);
   const adminBundleDirty = !prior || prior.adminApp !== hashes.adminApp;
+  const seedRequired = !prior || changes.app || changes.content || changes.admin;
 
   const needsFull =
     !prior ||
@@ -669,44 +695,41 @@ async function build(root) {
       generatedRoot: paths.generatedRoot,
       pluginRoot: paths.pluginRoot,
       themeRoot: paths.themeRoot,
+      changes,
+      seedRequired,
       adminBundleDirty,
+      adminRuntimeHash,
     };
   } else {
-    const changed = {
-      app: prior.app !== hashes.app,
-      content: prior.content !== hashes.content,
-      theme: prior.theme !== hashes.theme,
-      blocks: prior.blocks !== hashes.blocks,
-      admin: prior.admin !== hashes.admin,
-      adminApp: prior.adminApp !== hashes.adminApp,
-    };
-
-    const anyChanged = Object.values(changed).some(Boolean);
+    const anyChanged = Object.values(changes).some(Boolean);
 
     if (!anyChanged) {
       return {
         generatedRoot: paths.generatedRoot,
         pluginRoot: paths.pluginRoot,
         themeRoot: paths.themeRoot,
+        changes,
+        seedRequired: false,
         incremental: { skipped: true },
         adminBundleDirty: false,
+        adminRuntimeHash,
       };
     }
 
     try {
       const { siteSchema, adminSchemas } = await computeBuildArtifacts(root);
 
-      if (changed.app || changed.admin || changed.blocks) {
+      if (changes.app || changes.admin || changes.blocks) {
         await emitSchemaArtifacts(root, paths.generatedRoot, site, siteSchema, adminSchemas);
-      } else if (changed.content) {
+      } else if (changes.content) {
         await emitContentArtifacts(paths.generatedRoot, site, siteSchema);
       }
 
-      if (changed.theme) {
+      if (changes.theme) {
         await emitThemeArtifacts(root, paths.generatedRoot, site, siteSchema);
       }
 
-      if (changed.blocks) {
+      if (changes.blocks) {
         const pluginBlocks = path.join(paths.pluginRoot, 'blocks');
         await rm(pluginBlocks, { recursive: true, force: true });
         await cp(path.join(root, 'blocks'), pluginBlocks, { recursive: true });
@@ -717,8 +740,11 @@ async function build(root) {
         generatedRoot: paths.generatedRoot,
         pluginRoot: paths.pluginRoot,
         themeRoot: paths.themeRoot,
-        incremental: changed,
-        adminBundleDirty: changed.adminApp,
+        changes,
+        seedRequired,
+        incremental: changes,
+        adminBundleDirty: changes.adminApp,
+        adminRuntimeHash,
       };
     } catch (err) {
       // Fall back to a full rebuild if anything goes wrong incrementally.
@@ -727,7 +753,10 @@ async function build(root) {
         generatedRoot: paths.generatedRoot,
         pluginRoot: paths.pluginRoot,
         themeRoot: paths.themeRoot,
+        changes,
+        seedRequired,
         adminBundleDirty,
+        adminRuntimeHash,
       };
     }
   }
