@@ -1,4 +1,6 @@
 // Generates the `plugin-main.php` file included by the compiled plugin.
+import { toTitleCase } from '../strings.mjs';
+
 export function pluginMainFile(site = {}) {
   const pluginName = toTitleCase(site.plugin?.slug ?? 'wp-light-app');
   const siteTitle = site.title ?? 'WP Light';

@@ -36,7 +36,7 @@ add_filter(
 `;
 }
 
-function loginStyleCss() {
+export function loginStyleCss() {
   return `:root {
   --wplite-bg: #f5f5f5;
   --wplite-surface: #ffffff;
@@ -330,11 +330,5 @@ body.login .language-switcher select {
   color: var(--wplite-text);
 }
 `;
-}
-
-async function writeStaticAssets(pluginDir) {
-  const assetsDir = path.join(pluginDir, 'assets');
-  await ensureDir(assetsDir);
-  await writeFile(path.join(assetsDir, 'login.css'), loginStyleCss());
 }
 
