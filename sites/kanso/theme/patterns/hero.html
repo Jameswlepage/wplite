@@ -1,29 +1,33 @@
-<!-- wp:group {"className":"kanso-hero","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-hero" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!--
+Title: Hero
+Slug: kanso-theme/hero
+Inserter: no
+-->
+<!-- wp:group {"className":"k-hero","layout":{"type":"default"}} -->
+<div class="wp-block-group k-hero">
 
-<!-- wp:paragraph {"className":"kicker"} -->
-<p class="kicker">Interior Architecture</p>
-<!-- /wp:paragraph -->
+<!-- wp:html -->
+<div class="k-hero__eyebrow">
+  <span class="k-label">— 001 / Studio Introduction</span>
+  <span class="line"></span>
+  <span class="k-label">Est. MMXIX · Tokyo · New York</span>
+</div>
+<!-- /wp:html -->
 
-<!-- wp:heading {"level":1} -->
-<h1 class="wp-block-heading">Spaces shaped by stillness and purpose.</h1>
+<!-- wp:heading {"level":1,"className":"k-hero__title"} -->
+<h1 class="wp-block-heading k-hero__title">This Is<br>Kanso<em>&nbsp;簡素</em></h1>
 <!-- /wp:heading -->
 
-<!-- wp:paragraph -->
-<p>We design residential and working environments where Japanese minimalism meets Scandinavian warmth — serene, functional, and built to endure.</p>
-<!-- /wp:paragraph -->
-
-<!-- wp:spacer {"height":"32px"} -->
-<div style="height:32px" aria-hidden="true" class="wp-block-spacer"></div>
-<!-- /wp:spacer -->
-
-<!-- wp:buttons -->
-<div class="wp-block-buttons">
-<!-- wp:button -->
-<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="/work">View projects</a></div>
-<!-- /wp:button -->
+<!-- wp:html -->
+<div class="k-hero__grid">
+  <p class="k-hero__lede">For over a decade we have shaped residential and working environments where Japanese minimalism meets Swiss precision — rooms that breathe, materials that age, proportions that rest.</p>
+  <div class="k-hero__meta">
+    <div class="row"><span>Sector</span> <strong>Residential · Workspace · Sourcing</strong></div>
+    <div class="row"><span>Clients</span> <strong>Private · Institutional · Civic</strong></div>
+    <div class="row"><span>Regions</span> <strong>NYC · Tokyo · Copenhagen</strong></div>
+  </div>
 </div>
-<!-- /wp:buttons -->
+<!-- /wp:html -->
 
 </div>
 <!-- /wp:group -->
