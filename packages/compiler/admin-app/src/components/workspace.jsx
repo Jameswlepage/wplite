@@ -1,5 +1,7 @@
 import React, { Fragment, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  __experimentalToggleGroupControl as ToggleGroupControl,
+  __experimentalToggleGroupControlOption as ToggleGroupControlOption,
   Button,
   Card,
   CardBody,
@@ -8,6 +10,7 @@ import {
   Spinner,
   TextControl,
 } from '@wordpress/components';
+import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
 import {
   Add,
   CheckmarkFilled,
@@ -33,14 +36,16 @@ export function DomainsPage({ bootstrap, pushNotice }) {
   const [primaryDomain, setPrimaryDomain] = useState(`${slugifiedName}.wplite.app`);
   const [connectedDomains, setConnectedDomains] = useState([
     {
+      id: `${slugifiedName}.wplite.app`,
       domain: `${slugifiedName}.wplite.app`,
       type: 'default',
       ssl: true,
       status: 'active',
       isPrimary: true,
+      connectedAt: '2026-01-01',
     },
   ]);
-  const [showDnsPanel, setShowDnsPanel] = useState(null);
+  const [dnsOpenFor, setDnsOpenFor] = useState(null);
 
   function handleSearch() {
     if (!searchQuery.trim()) return;
@@ -65,11 +70,13 @@ export function DomainsPage({ bootstrap, pushNotice }) {
 
   function handleRegister(result) {
     const newDomain = {
+      id: result.domain,
       domain: result.domain,
       type: 'registered',
       ssl: true,
       status: 'provisioning',
       isPrimary: false,
+      connectedAt: new Date().toISOString().split('T')[0],
     };
     setConnectedDomains((prev) => [...prev, newDomain]);
     setSearchResults((prev) => prev.filter((r) => r.domain !== result.domain));
@@ -94,6 +101,123 @@ export function DomainsPage({ bootstrap, pushNotice }) {
     setConnectedDomains((prev) => prev.filter((d) => d.domain !== domain));
     pushNotice({ status: 'info', message: `${domain} has been disconnected.` });
   }
+
+  const fields = useMemo(() => [
+    {
+      id: 'domain',
+      label: 'Domain',
+      enableGlobalSearch: true,
+      enableSorting: true,
+      enableHiding: false,
+      getValue: ({ item }) => item.domain,
+      render: ({ item }) => (
+        <div className="domain-cell">
+          <strong className="row-title">{item.domain}</strong>
+          {item.isPrimary && <span className="status-badge status-badge--publish">Primary</span>}
+        </div>
+      ),
+    },
+    {
+      id: 'type',
+      label: 'Type',
+      type: 'text',
+      enableSorting: true,
+      elements: [
+        { value: 'default', label: 'Default' },
+        { value: 'registered', label: 'Registered' },
+        { value: 'mapped', label: 'Mapped' },
+      ],
+      filterBy: {},
+      getValue: ({ item }) => item.type,
+      render: ({ item }) => <span className="domain-type-cell">{toTitleCase(item.type)}</span>,
+    },
+    {
+      id: 'ssl',
+      label: 'SSL',
+      enableSorting: false,
+      getValue: ({ item }) => (item.ssl ? 'Active' : '—'),
+      render: ({ item }) => item.ssl ? (
+        <span className="domain-ssl-cell"><Locked size={16} /> Active</span>
+      ) : (
+        <span className="domain-ssl-cell domain-ssl-cell--none">—</span>
+      ),
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'text',
+      enableSorting: true,
+      elements: [
+        { value: 'active', label: 'Active' },
+        { value: 'provisioning', label: 'Provisioning' },
+        { value: 'error', label: 'Error' },
+      ],
+      filterBy: {},
+      getValue: ({ item }) => item.status,
+      render: ({ item }) => {
+        if (item.status === 'active') {
+          return <span className="domain-status domain-status--active"><CheckmarkFilled size={14} /> Active</span>;
+        }
+        if (item.status === 'provisioning') {
+          return <span className="domain-status domain-status--pending"><Spinner className="domain-status__spinner" /> Provisioning</span>;
+        }
+        if (item.status === 'error') {
+          return <span className="domain-status domain-status--error"><WarningAlt size={14} /> Error</span>;
+        }
+        return <span>{item.status}</span>;
+      },
+    },
+    {
+      id: 'connectedAt',
+      label: 'Connected',
+      type: 'datetime',
+      enableSorting: true,
+      getValue: ({ item }) => item.connectedAt,
+    },
+  ], []);
+
+  const actions = useMemo(() => [
+    {
+      id: 'set-primary',
+      label: 'Set primary',
+      isPrimary: false,
+      isEligible: (item) => !item.isPrimary && item.status === 'active',
+      callback: (items) => handleSetPrimary(items[0].domain),
+    },
+    {
+      id: 'view-dns',
+      label: 'View DNS',
+      isPrimary: true,
+      callback: (items) => setDnsOpenFor(items[0].domain),
+    },
+    {
+      id: 'disconnect',
+      label: 'Disconnect',
+      isPrimary: false,
+      isEligible: (item) => item.type !== 'default',
+      callback: (items) => handleRemoveDomain(items[0].domain),
+    },
+  ], []);
+
+  const [view, setView] = useState({
+    type: 'table',
+    perPage: 20,
+    page: 1,
+    sort: { field: 'domain', direction: 'asc' },
+    fields: ['type', 'ssl', 'status', 'connectedAt'],
+    titleField: 'domain',
+    layout: {},
+    filters: [],
+    search: '',
+  });
+
+  const deferredDomains = useDeferredValue(connectedDomains);
+  const processed = useMemo(
+    () => filterSortAndPaginate(deferredDomains, view, fields),
+    [deferredDomains, view, fields]
+  );
+
+  const dnsDomain = connectedDomains.find((d) => d.domain === dnsOpenFor);
 
   return (
     <div className="screen">
@@ -157,137 +281,91 @@ export function DomainsPage({ bootstrap, pushNotice }) {
       </Card>
 
       <Card className="surface-card">
-        <CardHeader>
-          <h2>Connected Domains</h2>
-        </CardHeader>
-        <CardBody style={{ padding: 0 }}>
-          <table className="core-list-table">
-            <thead>
-              <tr>
-                <th>Domain</th>
-                <th>Type</th>
-                <th>SSL</th>
-                <th>Status</th>
-                <th style={{ width: 180 }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {connectedDomains.map((d) => (
-                <Fragment key={d.domain}>
-                  <tr>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <strong className="row-title">{d.domain}</strong>
-                        {d.isPrimary && (
-                          <span className="status-badge status-badge--publish">Primary</span>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ textTransform: 'capitalize' }}>{d.type}</td>
-                    <td>
-                      {d.ssl ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#15803d' }}>
-                          <Locked size={16} /> Active
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--wp-admin-text-muted)' }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      {d.status === 'active' && (
-                        <span className="domain-status domain-status--active">
-                          <CheckmarkFilled size={14} /> Active
-                        </span>
-                      )}
-                      {d.status === 'provisioning' && (
-                        <span className="domain-status domain-status--pending">
-                          <Spinner style={{ width: 14, height: 14 }} /> Provisioning
-                        </span>
-                      )}
-                      {d.status === 'error' && (
-                        <span className="domain-status domain-status--error">
-                          <WarningAlt size={14} /> Error
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {!d.isPrimary && d.status === 'active' && (
-                          <Button variant="tertiary" size="compact" onClick={() => handleSetPrimary(d.domain)}>
-                            Set Primary
-                          </Button>
-                        )}
-                        <Button
-                          variant="tertiary"
-                          size="compact"
-                          onClick={() => setShowDnsPanel(showDnsPanel === d.domain ? null : d.domain)}
-                        >
-                          DNS
-                        </Button>
-                        {d.type !== 'default' && (
-                          <Button
-                            variant="tertiary"
-                            size="compact"
-                            isDestructive
-                            onClick={() => handleRemoveDomain(d.domain)}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {showDnsPanel === d.domain && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 0 }}>
-                        <div className="dns-panel">
-                          <h3>DNS Records</h3>
-                          <p className="field-hint">Point your domain to this site by adding these records at your registrar.</p>
-                          <table className="dns-records-table">
-                            <thead>
-                              <tr>
-                                <th>Type</th>
-                                <th>Name</th>
-                                <th>Value</th>
-                                <th>TTL</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <td><code>A</code></td>
-                                <td><code>@</code></td>
-                                <td><code>76.76.21.21</code></td>
-                                <td>3600</td>
-                              </tr>
-                              <tr>
-                                <td><code>CNAME</code></td>
-                                <td><code>www</code></td>
-                                <td><code>cname.wplite.app</code></td>
-                                <td>3600</td>
-                              </tr>
-                              <tr>
-                                <td><code>TXT</code></td>
-                                <td><code>@</code></td>
-                                <td><code>wplite-verify={slugifiedName}</code></td>
-                                <td>3600</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+        <CardHeader><h2>Connected Domains</h2></CardHeader>
+        <CardBody>
+          <DataViews
+            data={processed.data}
+            fields={fields}
+            view={view}
+            onChangeView={setView}
+            getItemId={(item) => item.id}
+            paginationInfo={processed.paginationInfo}
+            actions={actions}
+            defaultLayouts={{ table: {} }}
+            search
+            empty={
+              <div className="empty-state">
+                <h2>No connected domains</h2>
+                <p>Register or map a domain to get started.</p>
+              </div>
+            }
+          >
+            <div className="dataviews-shell">
+              <div className="dataviews-toolbar">
+                <DataViews.Search label="Search domains" />
+                <DataViews.FiltersToggle />
+                <div className="dataviews-toolbar__spacer" />
+                <DataViews.ViewConfig />
+              </div>
+              <DataViews.FiltersToggled />
+              <DataViews.Layout className="dataviews-layout" />
+              <div className="dataviews-footer">
+                <span>{processed.paginationInfo.totalItems} domains</span>
+                <DataViews.Pagination />
+              </div>
+            </div>
+          </DataViews>
         </CardBody>
       </Card>
+
+      {dnsDomain && (
+        <Card className="surface-card">
+          <CardHeader>
+            <h2>DNS Records — {dnsDomain.domain}</h2>
+            <Button variant="tertiary" size="compact" onClick={() => setDnsOpenFor(null)}>Close</Button>
+          </CardHeader>
+          <CardBody>
+            <div className="dns-panel">
+              <p className="field-hint">Point your domain to this site by adding these records at your registrar.</p>
+              <table className="dns-records-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Value</th>
+                    <th>TTL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>A</code></td>
+                    <td><code>@</code></td>
+                    <td><code>76.76.21.21</code></td>
+                    <td>3600</td>
+                  </tr>
+                  <tr>
+                    <td><code>CNAME</code></td>
+                    <td><code>www</code></td>
+                    <td><code>cname.wplite.app</code></td>
+                    <td>3600</td>
+                  </tr>
+                  <tr>
+                    <td><code>TXT</code></td>
+                    <td><code>@</code></td>
+                    <td><code>wplite-verify={slugifiedName}</code></td>
+                    <td>3600</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       <Card className="surface-card">
         <CardHeader><h2>Email Forwarding</h2></CardHeader>
         <CardBody>
-          <p className="field-hint" style={{ marginBottom: 12 }}>
+          <p className="field-hint email-forwarding__hint">
             Forward emails from your custom domain to an existing email address.
           </p>
           <div className="email-forwarding-row">
@@ -310,7 +388,7 @@ export function DomainsPage({ bootstrap, pushNotice }) {
               Add Rule
             </Button>
           </div>
-          <p className="field-hint" style={{ marginTop: 8 }}>
+          <p className="field-hint email-forwarding__footnote">
             Email forwarding will be available once a custom domain is active.
           </p>
         </CardBody>
@@ -325,7 +403,7 @@ export function ApiPage({ bootstrap }) {
   const singletons = bootstrap?.singletons ?? [];
   const [appPassword, setAppPassword] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedEntity, setSelectedEntity] = useState(models[0]?.id ?? '');
+  const [selectedEntity, setSelectedEntity] = useState(models[0]?.id ?? singletons[0]?.id ?? '');
   const [language, setLanguage] = useState('javascript');
   const [copied, setCopied] = useState(null);
   const siteUrl = window.location.origin;
@@ -565,6 +643,99 @@ def delete_${selectedEntity}(entity_id):
     ...singletons.map((s) => ({ label: `${s.label} (singleton)`, value: s.id })),
   ];
 
+  // Endpoints table → DataViews (static).
+  const endpointRows = useMemo(() => {
+    const rows = [];
+    rows.push({
+      id: 'bootstrap',
+      method: 'GET',
+      path: '/wp-json/portfolio/v1/bootstrap',
+      description: 'Full app state (models, records, settings)',
+      resource: 'core',
+    });
+    models.forEach((m) => {
+      const singular = m.singularLabel?.toLowerCase() || m.id;
+      rows.push(
+        { id: `coll-list-${m.id}`, method: 'GET', path: `/wp-json/portfolio/v1/collection/${m.id}`, description: `List all ${m.label.toLowerCase()}`, resource: m.label },
+        { id: `coll-create-${m.id}`, method: 'POST', path: `/wp-json/portfolio/v1/collection/${m.id}`, description: `Create ${singular}`, resource: m.label },
+        { id: `coll-get-${m.id}`, method: 'GET', path: `/wp-json/portfolio/v1/collection/${m.id}/:id`, description: `Get single ${singular}`, resource: m.label },
+        { id: `coll-upd-${m.id}`, method: 'POST', path: `/wp-json/portfolio/v1/collection/${m.id}/:id`, description: `Update ${singular}`, resource: m.label },
+        { id: `coll-del-${m.id}`, method: 'DELETE', path: `/wp-json/portfolio/v1/collection/${m.id}/:id`, description: `Delete ${singular}`, resource: m.label },
+      );
+    });
+    singletons.forEach((s) => {
+      rows.push(
+        { id: `sing-get-${s.id}`, method: 'GET', path: `/wp-json/portfolio/v1/singleton/${s.id}`, description: `Get ${s.label.toLowerCase()} settings`, resource: s.label },
+        { id: `sing-upd-${s.id}`, method: 'POST', path: `/wp-json/portfolio/v1/singleton/${s.id}`, description: `Update ${s.label.toLowerCase()} settings`, resource: s.label },
+      );
+    });
+    return rows;
+  }, [models, singletons]);
+
+  const endpointFields = useMemo(() => [
+    {
+      id: 'method',
+      label: 'Method',
+      type: 'text',
+      enableSorting: true,
+      elements: [
+        { value: 'GET', label: 'GET' },
+        { value: 'POST', label: 'POST' },
+        { value: 'DELETE', label: 'DELETE' },
+      ],
+      filterBy: {},
+      getValue: ({ item }) => item.method,
+      render: ({ item }) => (
+        <span className={`api-method api-method--${item.method.toLowerCase()}`}>{item.method}</span>
+      ),
+    },
+    {
+      id: 'path',
+      label: 'Endpoint',
+      enableGlobalSearch: true,
+      enableSorting: false,
+      getValue: ({ item }) => item.path,
+      render: ({ item }) => <code>{item.path}</code>,
+    },
+    {
+      id: 'description',
+      label: 'Description',
+      enableGlobalSearch: true,
+      getValue: ({ item }) => item.description,
+    },
+    {
+      id: 'resource',
+      label: 'Resource',
+      type: 'text',
+      enableSorting: true,
+      filterBy: {},
+      elements: useMemo(() => {
+        const set = new Set();
+        set.add('core');
+        models.forEach((m) => set.add(m.label));
+        singletons.forEach((s) => set.add(s.label));
+        return Array.from(set).map((v) => ({ value: v, label: v }));
+      }, []),
+      getValue: ({ item }) => item.resource,
+    },
+  ], [models, singletons]);
+
+  const [endpointView, setEndpointView] = useState({
+    type: 'table',
+    perPage: 50,
+    page: 1,
+    sort: { field: 'method', direction: 'asc' },
+    fields: ['method', 'path', 'description', 'resource'],
+    layout: {},
+    filters: [],
+    search: '',
+  });
+
+  const endpointProcessed = useMemo(
+    () => filterSortAndPaginate(endpointRows, endpointView, endpointFields),
+    [endpointRows, endpointView, endpointFields]
+  );
+
   return (
     <div className="screen">
       <header className="screen-header">
@@ -580,7 +751,7 @@ def delete_${selectedEntity}(entity_id):
       <Card className="surface-card">
         <CardHeader><h2>Authentication</h2></CardHeader>
         <CardBody>
-          <p className="field-hint" style={{ marginBottom: 12 }}>
+          <p className="field-hint api-auth__hint">
             Use an application password to authenticate API requests. This password is scoped to your user account.
           </p>
           <div className="api-auth-row">
@@ -613,151 +784,124 @@ def delete_${selectedEntity}(entity_id):
       </Card>
 
       <Card className="surface-card">
-        <CardHeader>
-          <h2>API Operations</h2>
-          <div className="api-controls">
+        <CardHeader><h2>API Operations</h2></CardHeader>
+        <CardBody>
+          <div className="api-operations-controls">
             <SelectControl
+              label="Entity"
+              hideLabelFromVision
               value={selectedEntity}
               options={entityOptions}
               onChange={setSelectedEntity}
               __next40pxDefaultSize
               __nextHasNoMarginBottom
             />
-            <div className="api-lang-tabs">
-              <button
-                className={`api-lang-tab ${language === 'javascript' ? 'is-active' : ''}`}
-                onClick={() => setLanguage('javascript')}
-              >
-                JavaScript
-              </button>
-              <button
-                className={`api-lang-tab ${language === 'python' ? 'is-active' : ''}`}
-                onClick={() => setLanguage('python')}
-              >
-                Python
-              </button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardBody style={{ display: 'grid', gap: 16 }}>
-          {fields.length > 0 && (
-            <div className="api-fields-ref">
-              <strong>Available fields:</strong>{' '}
-              <span>{fields.map((f) => f.id).join(', ')}</span>
-            </div>
-          )}
-
-          <div className="api-snippet-group">
-            <div className="api-snippet-header">
-              <h3>Read</h3>
-              <Button
-                variant="tertiary"
-                size="compact"
-                icon={<Copy size={16} />}
-                onClick={() => copyToClipboard(readSnippet, 'read')}
-              >
-                {copied === 'read' ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-            <pre className="api-code-block"><code>{readSnippet}</code></pre>
+            <ToggleGroupControl
+              label="Language"
+              hideLabelFromVision
+              value={language}
+              onChange={(v) => v && setLanguage(v)}
+              isBlock
+              __next40pxDefaultSize
+              __nextHasNoMarginBottom
+            >
+              <ToggleGroupControlOption value="javascript" label="JavaScript" />
+              <ToggleGroupControlOption value="python" label="Python" />
+            </ToggleGroupControl>
           </div>
 
-          <div className="api-snippet-group">
-            <div className="api-snippet-header">
-              <h3>Write</h3>
-              <Button
-                variant="tertiary"
-                size="compact"
-                icon={<Copy size={16} />}
-                onClick={() => copyToClipboard(writeSnippet, 'write')}
-              >
-                {copied === 'write' ? 'Copied' : 'Copy'}
-              </Button>
-            </div>
-            <pre className="api-code-block"><code>{writeSnippet}</code></pre>
-          </div>
+          <div className="api-operations-body">
+            {fields.length > 0 && (
+              <div className="api-fields-ref">
+                <strong>Available fields:</strong>{' '}
+                <span>{fields.map((f) => f.id).join(', ')}</span>
+              </div>
+            )}
 
-          {deleteSnippet && (
             <div className="api-snippet-group">
               <div className="api-snippet-header">
-                <h3>Delete</h3>
+                <h3>Read</h3>
                 <Button
                   variant="tertiary"
                   size="compact"
                   icon={<Copy size={16} />}
-                  onClick={() => copyToClipboard(deleteSnippet, 'delete')}
+                  onClick={() => copyToClipboard(readSnippet, 'read')}
                 >
-                  {copied === 'delete' ? 'Copied' : 'Copy'}
+                  {copied === 'read' ? 'Copied' : 'Copy'}
                 </Button>
               </div>
-              <pre className="api-code-block"><code>{deleteSnippet}</code></pre>
+              <pre className="api-code-block"><code>{readSnippet}</code></pre>
             </div>
-          )}
+
+            <div className="api-snippet-group">
+              <div className="api-snippet-header">
+                <h3>Write</h3>
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  icon={<Copy size={16} />}
+                  onClick={() => copyToClipboard(writeSnippet, 'write')}
+                >
+                  {copied === 'write' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <pre className="api-code-block"><code>{writeSnippet}</code></pre>
+            </div>
+
+            {deleteSnippet && (
+              <div className="api-snippet-group">
+                <div className="api-snippet-header">
+                  <h3>Delete</h3>
+                  <Button
+                    variant="tertiary"
+                    size="compact"
+                    icon={<Copy size={16} />}
+                    onClick={() => copyToClipboard(deleteSnippet, 'delete')}
+                  >
+                    {copied === 'delete' ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                <pre className="api-code-block"><code>{deleteSnippet}</code></pre>
+              </div>
+            )}
+          </div>
         </CardBody>
       </Card>
 
       <Card className="surface-card">
         <CardHeader><h2>Endpoints Reference</h2></CardHeader>
         <CardBody>
-          <table className="core-list-table">
-            <thead>
-              <tr>
-                <th>Method</th>
-                <th>Endpoint</th>
-                <th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span className="api-method api-method--get">GET</span></td>
-                <td><code>/wp-json/portfolio/v1/bootstrap</code></td>
-                <td>Full app state (models, records, settings)</td>
-              </tr>
-              {models.map((m) => (
-                <Fragment key={m.id}>
-                  <tr>
-                    <td><span className="api-method api-method--get">GET</span></td>
-                    <td><code>/wp-json/portfolio/v1/collection/{m.id}</code></td>
-                    <td>List all {m.label.toLowerCase()}</td>
-                  </tr>
-                  <tr>
-                    <td><span className="api-method api-method--post">POST</span></td>
-                    <td><code>/wp-json/portfolio/v1/collection/{m.id}</code></td>
-                    <td>Create {m.singularLabel?.toLowerCase() || m.id}</td>
-                  </tr>
-                  <tr>
-                    <td><span className="api-method api-method--get">GET</span></td>
-                    <td><code>/wp-json/portfolio/v1/collection/{m.id}/:id</code></td>
-                    <td>Get single {m.singularLabel?.toLowerCase() || m.id}</td>
-                  </tr>
-                  <tr>
-                    <td><span className="api-method api-method--post">POST</span></td>
-                    <td><code>/wp-json/portfolio/v1/collection/{m.id}/:id</code></td>
-                    <td>Update {m.singularLabel?.toLowerCase() || m.id}</td>
-                  </tr>
-                  <tr>
-                    <td><span className="api-method api-method--delete">DELETE</span></td>
-                    <td><code>/wp-json/portfolio/v1/collection/{m.id}/:id</code></td>
-                    <td>Delete {m.singularLabel?.toLowerCase() || m.id}</td>
-                  </tr>
-                </Fragment>
-              ))}
-              {singletons.map((s) => (
-                <Fragment key={s.id}>
-                  <tr>
-                    <td><span className="api-method api-method--get">GET</span></td>
-                    <td><code>/wp-json/portfolio/v1/singleton/{s.id}</code></td>
-                    <td>Get {s.label.toLowerCase()} settings</td>
-                  </tr>
-                  <tr>
-                    <td><span className="api-method api-method--post">POST</span></td>
-                    <td><code>/wp-json/portfolio/v1/singleton/{s.id}</code></td>
-                    <td>Update {s.label.toLowerCase()} settings</td>
-                  </tr>
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+          <DataViews
+            data={endpointProcessed.data}
+            fields={endpointFields}
+            view={endpointView}
+            onChangeView={setEndpointView}
+            getItemId={(item) => item.id}
+            paginationInfo={endpointProcessed.paginationInfo}
+            defaultLayouts={{ table: {} }}
+            search
+            empty={
+              <div className="empty-state">
+                <h2>No endpoints</h2>
+                <p>Define a collection or singleton to expose endpoints.</p>
+              </div>
+            }
+          >
+            <div className="dataviews-shell">
+              <div className="dataviews-toolbar">
+                <DataViews.Search label="Search endpoints" />
+                <DataViews.FiltersToggle />
+                <div className="dataviews-toolbar__spacer" />
+                <DataViews.ViewConfig />
+              </div>
+              <DataViews.FiltersToggled />
+              <DataViews.Layout className="dataviews-layout" />
+              <div className="dataviews-footer">
+                <span>{endpointProcessed.paginationInfo.totalItems} endpoints</span>
+                <DataViews.Pagination />
+              </div>
+            </div>
+          </DataViews>
         </CardBody>
       </Card>
     </div>
@@ -850,45 +994,47 @@ export function LogsPage() {
         </div>
       </header>
 
-      <div className="logs-toolbar">
-        <TextControl
-          placeholder="Filter logs..."
-          value={filter}
-          onChange={setFilter}
-          __next40pxDefaultSize
-          __nextHasNoMarginBottom
-        />
-        <span className="logs-count">{filteredLogs.length} lines</span>
-      </div>
-
       <Card className="surface-card">
-        <CardBody style={{ padding: 0 }}>
-          {loading ? (
-            <div className="skeleton-logs">
-              {Array.from({ length: 15 }, (_, i) => (
-                <div key={i} className="skeleton-log-line">
-                  <SkeletonBox height={14} style={{ width: 30 }} />
-                  <SkeletonBox height={14} style={{ width: `${40 + (i % 5) * 12}%` }} />
-                </div>
-              ))}
+        <CardBody className="logs-card-body">
+          <div className="dataviews-shell">
+            <div className="dataviews-toolbar">
+              <TextControl
+                placeholder="Filter logs..."
+                value={filter}
+                onChange={setFilter}
+                __next40pxDefaultSize
+                __nextHasNoMarginBottom
+              />
+              <div className="dataviews-toolbar__spacer" />
+              <span className="logs-count">{filteredLogs.length} lines</span>
             </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="empty-state">
-              <Debug size={32} style={{ color: 'var(--wp-admin-text-muted)' }} />
-              <h2>No log entries</h2>
-              <p>{filter ? 'No entries match your filter.' : 'The error log is empty — your site is running clean.'}</p>
-            </div>
-          ) : (
-            <div className="logs-viewer">
-              {filteredLogs.map((line, index) => (
-                <div key={index} className={`log-line log-line--${getLineLevel(line)}`}>
-                  <span className="log-line__number">{index + 1}</span>
-                  <span className="log-line__text">{line}</span>
-                </div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
-          )}
+            {loading ? (
+              <div className="skeleton-logs">
+                {Array.from({ length: 15 }, (_, i) => (
+                  <div key={i} className="skeleton-log-line">
+                    <SkeletonBox height={14} style={{ width: 30 }} />
+                    <SkeletonBox height={14} style={{ width: `${40 + (i % 5) * 12}%` }} />
+                  </div>
+                ))}
+              </div>
+            ) : filteredLogs.length === 0 ? (
+              <div className="empty-state">
+                <Debug size={32} className="empty-state__icon" />
+                <h2>No log entries</h2>
+                <p>{filter ? 'No entries match your filter.' : 'The error log is empty — your site is running clean.'}</p>
+              </div>
+            ) : (
+              <div className="logs-viewer">
+                {filteredLogs.map((line, index) => (
+                  <div key={index} className={`log-line log-line--${getLineLevel(line)}`}>
+                    <span className="log-line__number">{index + 1}</span>
+                    <span className="log-line__text">{line}</span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            )}
+          </div>
         </CardBody>
       </Card>
     </div>
@@ -911,7 +1057,7 @@ function BrandIcon({ id, size = 24 }) {
   const icon = BRAND_ICONS[id];
   if (!icon) return <Integration size={size} />;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={`#${icon.hex}`} role="img">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={`#${icon.hex}`} role="img" className="integration-brand-icon">
       <path d={icon.path} />
     </svg>
   );
@@ -976,58 +1122,252 @@ const INTEGRATIONS_CATALOG = [
   },
 ];
 
+function IntegrationConfigModal({ integration, initialConfig, isConnected, onSave, onClose }) {
+  const [draft, setDraft] = useState(() => {
+    const seed = {};
+    integration.configFields.forEach((f) => {
+      seed[f] = initialConfig?.[f] ?? '';
+    });
+    return seed;
+  });
+
+  function handleSave() {
+    onSave(draft);
+  }
+
+  return (
+    <div className="integration-config-modal">
+      <p className="field-hint">{integration.description}</p>
+      <div className="integration-config-fields">
+        {integration.configFields.map((field) => (
+          <TextControl
+            key={field}
+            label={toTitleCase(field.replace(/_/g, ' '))}
+            value={draft[field] ?? ''}
+            onChange={(v) => setDraft((prev) => ({ ...prev, [field]: v }))}
+            __next40pxDefaultSize
+            __nextHasNoMarginBottom
+          />
+        ))}
+      </div>
+      <div className="integration-config-modal__footer">
+        <Button variant="tertiary" onClick={onClose}>Cancel</Button>
+        <Button variant="primary" onClick={handleSave}>
+          {isConnected ? 'Save Changes' : 'Connect'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function IntegrationsPage({ pushNotice }) {
   const [connected, setConnected] = useState([
     { integrationId: 'google-analytics', config: { measurement_id: 'G-XXXXXXXXXX' }, connectedAt: '2026-03-10' },
   ]);
-  const [configuring, setConfiguring] = useState(null);
-  const [configDraft, setConfigDraft] = useState({});
-  const [filterCategory, setFilterCategory] = useState('all');
 
-  const categories = useMemo(() => {
-    const cats = new Set(INTEGRATIONS_CATALOG.map((i) => i.category));
-    return ['all', ...Array.from(cats).sort()];
+  const connectedMap = useMemo(() => {
+    const m = new Map();
+    connected.forEach((c) => m.set(c.integrationId, c));
+    return m;
+  }, [connected]);
+
+  // Flatten catalog into rows including status/connectedAt for DataViews.
+  const rows = useMemo(() => {
+    return INTEGRATIONS_CATALOG.map((integration) => {
+      const conn = connectedMap.get(integration.id);
+      return {
+        ...integration,
+        status: conn ? 'connected' : 'available',
+        connectedAt: conn?.connectedAt ?? null,
+        config: conn?.config ?? null,
+      };
+    });
+  }, [connectedMap]);
+
+  const categoryElements = useMemo(() => {
+    const cats = Array.from(new Set(INTEGRATIONS_CATALOG.map((i) => i.category))).sort();
+    return cats.map((c) => ({ value: c, label: c }));
   }, []);
 
-  const connectedIds = new Set(connected.map((c) => c.integrationId));
-
-  const filtered = filterCategory === 'all'
-    ? INTEGRATIONS_CATALOG
-    : INTEGRATIONS_CATALOG.filter((i) => i.category === filterCategory);
-
-  function handleConnect(integration) {
-    setConfiguring(integration.id);
-    setConfigDraft(Object.fromEntries(integration.configFields.map((f) => [f, ''])));
-  }
-
-  function handleSaveConfig(integration) {
-    const hasEmpty = integration.configFields.some((f) => !configDraft[f]?.trim());
+  function handleConnect(integration, draft) {
+    const hasEmpty = integration.configFields.some((f) => !String(draft[f] ?? '').trim());
     if (hasEmpty) {
       pushNotice({ status: 'warning', message: 'Please fill in all fields.' });
-      return;
+      return false;
     }
     setConnected((prev) => [
-      ...prev,
+      ...prev.filter((c) => c.integrationId !== integration.id),
       {
         integrationId: integration.id,
-        config: { ...configDraft },
+        config: { ...draft },
         connectedAt: new Date().toISOString().split('T')[0],
       },
     ]);
-    setConfiguring(null);
-    setConfigDraft({});
     pushNotice({ status: 'success', message: `${integration.name} connected successfully.` });
+    return true;
   }
 
-  function handleDisconnect(integrationId) {
-    const integration = INTEGRATIONS_CATALOG.find((i) => i.id === integrationId);
-    setConnected((prev) => prev.filter((c) => c.integrationId !== integrationId));
-    if (configuring === integrationId) {
-      setConfiguring(null);
-      setConfigDraft({});
+  function handleSaveConfig(integration, draft) {
+    const hasEmpty = integration.configFields.some((f) => !String(draft[f] ?? '').trim());
+    if (hasEmpty) {
+      pushNotice({ status: 'warning', message: 'Please fill in all fields.' });
+      return false;
     }
-    pushNotice({ status: 'info', message: `${integration?.name || 'Integration'} disconnected.` });
+    setConnected((prev) => prev.map((c) =>
+      c.integrationId === integration.id ? { ...c, config: { ...draft } } : c
+    ));
+    pushNotice({ status: 'success', message: `${integration.name} updated.` });
+    return true;
   }
+
+  function handleDisconnect(integrationIds) {
+    const ids = Array.isArray(integrationIds) ? integrationIds : [integrationIds];
+    setConnected((prev) => prev.filter((c) => !ids.includes(c.integrationId)));
+    const label = ids.length === 1
+      ? (INTEGRATIONS_CATALOG.find((i) => i.id === ids[0])?.name || 'Integration')
+      : `${ids.length} integrations`;
+    pushNotice({ status: 'info', message: `${label} disconnected.` });
+  }
+
+  const fields = useMemo(() => [
+    {
+      id: 'name',
+      label: 'Service',
+      enableGlobalSearch: true,
+      enableSorting: true,
+      enableHiding: false,
+      getValue: ({ item }) => item.name,
+      render: ({ item }) => (
+        <div className="integration-service-cell">
+          <span className="integration-service-cell__icon"><BrandIcon id={item.id} size={24} /></span>
+          <div className="integration-service-cell__meta">
+            <strong className="row-title">{item.name}</strong>
+            <span className="integration-service-cell__description">{item.description}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'category',
+      label: 'Category',
+      type: 'text',
+      enableSorting: true,
+      elements: categoryElements,
+      filterBy: {},
+      getValue: ({ item }) => item.category,
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      type: 'text',
+      enableSorting: true,
+      elements: [
+        { value: 'connected', label: 'Connected' },
+        { value: 'available', label: 'Available' },
+      ],
+      filterBy: {},
+      getValue: ({ item }) => item.status,
+      render: ({ item }) => (
+        item.status === 'connected'
+          ? <span className="integration-status integration-status--connected"><CheckmarkFilled size={14} /> Connected</span>
+          : <span className="integration-status integration-status--available">Available</span>
+      ),
+    },
+    {
+      id: 'connectedAt',
+      label: 'Connected at',
+      type: 'datetime',
+      enableSorting: true,
+      getValue: ({ item }) => item.connectedAt,
+      render: ({ item }) => item.connectedAt
+        ? <span>{item.connectedAt}</span>
+        : <span className="integration-muted">—</span>,
+    },
+  ], [categoryElements]);
+
+  const actions = useMemo(() => [
+    {
+      id: 'connect',
+      label: 'Connect',
+      isPrimary: true,
+      icon: <Add size={16} />,
+      isEligible: (item) => item.status !== 'connected',
+      RenderModal: ({ items, closeModal }) => {
+        const integration = items[0];
+        return (
+          <IntegrationConfigModal
+            integration={integration}
+            initialConfig={null}
+            isConnected={false}
+            onClose={closeModal}
+            onSave={(draft) => {
+              if (handleConnect(integration, draft)) {
+                closeModal();
+              }
+            }}
+          />
+        );
+      },
+      modalHeader: (items) => `Connect ${items[0]?.name}`,
+      modalSize: 'medium',
+    },
+    {
+      id: 'configure',
+      label: 'Configure',
+      isPrimary: true,
+      isEligible: (item) => item.status === 'connected',
+      RenderModal: ({ items, closeModal }) => {
+        const integration = items[0];
+        return (
+          <IntegrationConfigModal
+            integration={integration}
+            initialConfig={integration.config}
+            isConnected
+            onClose={closeModal}
+            onSave={(draft) => {
+              if (handleSaveConfig(integration, draft)) {
+                closeModal();
+              }
+            }}
+          />
+        );
+      },
+      modalHeader: (items) => `Configure ${items[0]?.name}`,
+      modalSize: 'medium',
+    },
+    {
+      id: 'disconnect',
+      label: 'Disconnect',
+      isPrimary: false,
+      supportsBulk: true,
+      isEligible: (item) => item.status === 'connected',
+      callback: (items) => handleDisconnect(items.map((i) => i.id)),
+    },
+  ], []);
+
+  const [view, setView] = useState({
+    type: 'table',
+    perPage: 25,
+    page: 1,
+    sort: { field: 'name', direction: 'asc' },
+    fields: ['category', 'status', 'connectedAt'],
+    titleField: 'name',
+    mediaField: 'name',
+    descriptionField: 'description',
+    layout: {},
+    filters: [],
+    search: '',
+  });
+
+  const [selection, setSelection] = useState([]);
+
+  const deferredRows = useDeferredValue(rows);
+  const processed = useMemo(
+    () => filterSortAndPaginate(deferredRows, view, fields),
+    [deferredRows, view, fields]
+  );
+
+  const connectedCount = connected.length;
 
   return (
     <div className="screen">
@@ -1036,181 +1376,50 @@ export function IntegrationsPage({ pushNotice }) {
           <p className="eyebrow">Workspace</p>
           <h1>Integrations</h1>
           <p className="screen-header__lede">
-            Connect third-party services to extend your site's capabilities.
+            {connectedCount > 0
+              ? `${connectedCount} connected — ${INTEGRATIONS_CATALOG.length} available`
+              : 'Connect third-party services to extend your site\'s capabilities.'}
           </p>
         </div>
       </header>
 
-      {connected.length > 0 && (
-        <Card className="surface-card">
-          <CardHeader><h2>Connected</h2></CardHeader>
-          <CardBody style={{ padding: 0 }}>
-            <table className="core-list-table">
-              <thead>
-                <tr>
-                  <th>Service</th>
-                  <th>Category</th>
-                  <th>Connected</th>
-                  <th style={{ width: 180 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {connected.map((conn) => {
-                  const integration = INTEGRATIONS_CATALOG.find((i) => i.id === conn.integrationId);
-                  if (!integration) return null;
-                  return (
-                    <Fragment key={conn.integrationId}>
-                      <tr>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <BrandIcon id={integration.id} size={20} />
-                            <strong className="row-title">{integration.name}</strong>
-                          </div>
-                        </td>
-                        <td style={{ color: 'var(--wp-admin-text-muted)' }}>{integration.category}</td>
-                        <td>
-                          <span className="domain-status domain-status--active">
-                            <CheckmarkFilled size={14} /> {conn.connectedAt}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <Button
-                              variant="tertiary"
-                              size="compact"
-                              onClick={() => {
-                                if (configuring === conn.integrationId) {
-                                  setConfiguring(null);
-                                } else {
-                                  setConfiguring(conn.integrationId);
-                                  setConfigDraft({ ...conn.config });
-                                }
-                              }}
-                            >
-                              Configure
-                            </Button>
-                            <Button
-                              variant="tertiary"
-                              size="compact"
-                              isDestructive
-                              onClick={() => handleDisconnect(conn.integrationId)}
-                            >
-                              Disconnect
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                      {configuring === conn.integrationId && (
-                        <tr>
-                          <td colSpan={4} style={{ padding: 0 }}>
-                            <div className="dns-panel">
-                              <h3>Configuration</h3>
-                              <div className="integration-config-fields">
-                                {integration.configFields.map((field) => (
-                                  <TextControl
-                                    key={field}
-                                    label={toTitleCase(field.replace(/_/g, ' '))}
-                                    value={configDraft[field] ?? conn.config[field] ?? ''}
-                                    onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field]: v }))}
-                                    __next40pxDefaultSize
-                                    __nextHasNoMarginBottom
-                                  />
-                                ))}
-                              </div>
-                              <div style={{ marginTop: 12 }}>
-                                <Button variant="primary" size="compact" onClick={() => {
-                                  setConnected((prev) => prev.map((c) =>
-                                    c.integrationId === conn.integrationId ? { ...c, config: { ...configDraft } } : c
-                                  ));
-                                  setConfiguring(null);
-                                  pushNotice({ status: 'success', message: `${integration.name} updated.` });
-                                }}>
-                                  Save Changes
-                                </Button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </CardBody>
-        </Card>
-      )}
-
       <Card className="surface-card">
-        <CardHeader>
-          <h2>Available Integrations</h2>
-        </CardHeader>
         <CardBody>
-          <div className="integration-filters">
-            {categories.map((cat) => (
-              <Button
-                key={cat}
-                variant={filterCategory === cat ? 'primary' : 'secondary'}
-                size="compact"
-                onClick={() => setFilterCategory(cat)}
-              >
-                {cat === 'all' ? 'All' : cat}
-              </Button>
-            ))}
-          </div>
-
-          <div className="integration-grid">
-            {filtered.map((integration) => {
-              const isConnected = connectedIds.has(integration.id);
-              const isConfiguring = configuring === integration.id && !isConnected;
-              return (
-                <div key={integration.id} className={`integration-card${isConnected ? ' is-connected' : ''}`}>
-                  <div className="integration-card__header">
-                    <span className="integration-card__icon"><BrandIcon id={integration.id} size={28} /></span>
-                    <div>
-                      <strong className="integration-card__name">{integration.name}</strong>
-                      <span className="integration-card__category">{integration.category}</span>
-                    </div>
-                  </div>
-                  <p className="integration-card__description">{integration.description}</p>
-                  {isConfiguring ? (
-                    <div className="integration-card__config">
-                      {integration.configFields.map((field) => (
-                        <TextControl
-                          key={field}
-                          label={toTitleCase(field.replace(/_/g, ' '))}
-                          value={configDraft[field] ?? ''}
-                          onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field]: v }))}
-                          __next40pxDefaultSize
-                          __nextHasNoMarginBottom
-                        />
-                      ))}
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                        <Button variant="primary" size="compact" onClick={() => handleSaveConfig(integration)}>
-                          Connect
-                        </Button>
-                        <Button variant="tertiary" size="compact" onClick={() => { setConfiguring(null); setConfigDraft({}); }}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="integration-card__footer">
-                      {isConnected ? (
-                        <span className="domain-status domain-status--active">
-                          <CheckmarkFilled size={14} /> Connected
-                        </span>
-                      ) : (
-                        <Button variant="secondary" size="compact" onClick={() => handleConnect(integration)}>
-                          <Add size={16} /> Connect
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <DataViews
+            data={processed.data}
+            fields={fields}
+            view={view}
+            onChangeView={setView}
+            getItemId={(item) => item.id}
+            selection={selection}
+            onChangeSelection={setSelection}
+            paginationInfo={processed.paginationInfo}
+            actions={actions}
+            defaultLayouts={{ table: {}, grid: {} }}
+            search
+            empty={
+              <div className="empty-state">
+                <h2>No integrations</h2>
+                <p>No services match your current filters.</p>
+              </div>
+            }
+          >
+            <div className="dataviews-shell">
+              <div className="dataviews-toolbar">
+                <DataViews.Search label="Search integrations" />
+                <DataViews.FiltersToggle />
+                <div className="dataviews-toolbar__spacer" />
+                <DataViews.ViewConfig />
+                <DataViews.LayoutSwitcher />
+              </div>
+              <DataViews.FiltersToggled />
+              <DataViews.Layout className="dataviews-layout" />
+              <div className="dataviews-footer">
+                <span>{processed.paginationInfo.totalItems} services</span>
+                <DataViews.Pagination />
+              </div>
+            </div>
+          </DataViews>
         </CardBody>
       </Card>
     </div>

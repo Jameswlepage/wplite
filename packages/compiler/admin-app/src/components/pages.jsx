@@ -470,95 +470,80 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
       documentLabel="Page"
       themeJson={themeJson}
       themeCss={themeCss}
+      wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
+      wpAdminTemplateUrl={templatePreviewDiagnostics.unsupported.length > 0 && templateMarkup ? '/wp-admin/site-editor.php' : undefined}
       documentSidebar={
-        <div className="native-editor__document-panels">
-          <div className="sidebar-section">
-            <div className="sidebar-section__label">Summary</div>
-            <div className="sidebar-section__body">
-              <div className="inline-field-grid">
-                <TextControl
-                  label="Slug"
-                  value={draft.slug ?? ''}
-                  onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
-                  __next40pxDefaultSize
-                />
-                <SelectControl
-                  label="Status"
-                  value={draft.postStatus ?? 'draft'}
-                  options={[
-                    { value: 'draft', label: 'Draft' },
-                    { value: 'publish', label: 'Published' },
-                    { value: 'pending', label: 'Pending Review' },
-                    { value: 'private', label: 'Private' },
-                  ]}
-                  onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
-                  __next40pxDefaultSize
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="sidebar-section">
-            <div className="sidebar-section__label">Page attributes</div>
-            <div className="sidebar-section__body">
-              <div className="inline-field-grid">
-                <SelectControl
-                  label="Parent"
-                  value={String(draft.parent ?? 0)}
-                  options={parentOptions}
-                  onChange={(value) => setDraft((current) => ({ ...current, parent: Number(value || 0) }))}
-                  __next40pxDefaultSize
-                />
-                <TextControl
-                  label="Menu Order"
-                  type="number"
-                  value={String(draft.menuOrder ?? 0)}
-                  onChange={(value) => setDraft((current) => ({ ...current, menuOrder: Number(value || 0) }))}
-                  __next40pxDefaultSize
-                />
-              </div>
-
+        <>
+          <PanelBody title="Summary" initialOpen={true}>
+            <div className="inline-field-grid">
+              <TextControl
+                label="Slug"
+                value={draft.slug ?? ''}
+                onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
+                __next40pxDefaultSize
+              />
               <SelectControl
-                label="Template"
-                value={draft.template ?? ''}
-                options={templateOptions}
-                onChange={(value) => setDraft((current) => ({ ...current, template: value }))}
+                label="Status"
+                value={draft.postStatus ?? 'draft'}
+                options={[
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'publish', label: 'Published' },
+                  { value: 'pending', label: 'Pending Review' },
+                  { value: 'private', label: 'Private' },
+                ]}
+                onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
                 __next40pxDefaultSize
               />
             </div>
-          </div>
+          </PanelBody>
+
+          <PanelBody title="Page attributes" initialOpen={true}>
+            <div className="inline-field-grid">
+              <SelectControl
+                label="Parent"
+                value={String(draft.parent ?? 0)}
+                options={parentOptions}
+                onChange={(value) => setDraft((current) => ({ ...current, parent: Number(value || 0) }))}
+                __next40pxDefaultSize
+              />
+              <TextControl
+                label="Menu Order"
+                type="number"
+                value={String(draft.menuOrder ?? 0)}
+                onChange={(value) => setDraft((current) => ({ ...current, menuOrder: Number(value || 0) }))}
+                __next40pxDefaultSize
+              />
+            </div>
+
+            <SelectControl
+              label="Template"
+              value={draft.template ?? ''}
+              options={templateOptions}
+              onChange={(value) => setDraft((current) => ({ ...current, template: value }))}
+              __next40pxDefaultSize
+            />
+          </PanelBody>
 
           {!isNew ? (
-            <div className="sidebar-section">
-              <div className="sidebar-section__label">Details</div>
-              <div className="sidebar-section__body">
-                <div className="editor-meta">
-                  <span>ID: {draft.id}</span>
-                  <span>Updated: {formatDateTime(draft.modified)}</span>
-                </div>
-                {draft.routeId === bootstrap?.site?.postsPage ? (
-                  <p className="field-hint">
-                    This route is assigned as the posts page, so WordPress renders the archive
-                    template instead of the page body.
-                  </p>
-                ) : null}
-                {!usesTemplatePreview && templateMarkup ? (
-                  <p className="field-hint">
-                    This template includes site-editor blocks like navigation, query loops, or
-                    template parts. The app editor is editing page content only for now.
-                  </p>
-                ) : null}
+            <PanelBody title="Details" initialOpen={true}>
+              <div className="editor-meta">
+                <span>ID: {draft.id}</span>
+                <span>Updated: {formatDateTime(draft.modified)}</span>
               </div>
-            </div>
+              {draft.routeId === bootstrap?.site?.postsPage ? (
+                <p className="field-hint">
+                  This route is assigned as the posts page, so WordPress renders the archive
+                  template instead of the page body.
+                </p>
+              ) : null}
+            </PanelBody>
           ) : null}
-        </div>
+        </>
       }
       blockSidebarFooter={!isNew ? (
-        <div className="sidebar-section">
-          <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
-            Delete
-          </Button>
-        </div>
+        <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
+          Delete
+        </Button>
       ) : null}
     />
   );

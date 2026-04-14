@@ -99,8 +99,12 @@ export function getTemplatePreviewDiagnostics(templateMarkup) {
   const blockNames = [...collectBlockNames(blocksFromContent(templateMarkup))];
   const unsupported = blockNames.filter((name) => TEMPLATE_PREVIEW_UNSUPPORTED_BLOCKS.has(name));
 
+  // Unsupported blocks (core/query, core/post-template, etc.) cannot be rendered
+  // inside the editor iframe, but we can still show the rest of the template
+  // chrome (header/footer/template-parts/patterns) by stripping those blocks
+  // during preview assembly. See stripUnsupportedPreviewBlocks().
   return {
-    compatible: unsupported.length === 0,
+    compatible: true,
     blockNames,
     unsupported,
   };
@@ -108,6 +112,29 @@ export function getTemplatePreviewDiagnostics(templateMarkup) {
 
 export function isTemplatePreviewCompatible(templateMarkup) {
   return getTemplatePreviewDiagnostics(templateMarkup).compatible;
+}
+
+function stripUnsupportedPreviewBlocks(blocks) {
+  const output = [];
+  for (const block of blocks ?? []) {
+    if (!block?.name) {
+      continue;
+    }
+
+    if (TEMPLATE_PREVIEW_UNSUPPORTED_BLOCKS.has(block.name)) {
+      // Hoist any compatible inner blocks so nested template-parts or
+      // surrounding chrome survive (e.g. wrapping group inside a query).
+      const innerBlocks = stripUnsupportedPreviewBlocks(block.innerBlocks ?? []);
+      output.push(...innerBlocks);
+      continue;
+    }
+
+    output.push({
+      ...block,
+      innerBlocks: stripUnsupportedPreviewBlocks(block.innerBlocks ?? []),
+    });
+  }
+  return output;
 }
 
 function appendClassName(existing, next) {
@@ -323,7 +350,9 @@ export function buildEditorPreviewBlocks({
     siteTagline,
   });
 
-  return lockTemplatePreviewBlocks(blocksFromContent(previewMarkup));
+  return lockTemplatePreviewBlocks(
+    stripUnsupportedPreviewBlocks(blocksFromContent(previewMarkup))
+  );
 }
 
 function findContentSlotBlocks(blocks) {

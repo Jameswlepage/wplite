@@ -15,6 +15,7 @@ import {
 import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
 import { collectionPathForModel, toTitleCase } from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
+import { NotificationCenter, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
 import { MediaPage, MediaEditorPage } from './media.jsx';
@@ -137,6 +138,13 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
 export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsByModel, singletonData, setSingletonData }) {
   const [notices, setNotices] = useState([]);
   const [dashWidgetConfig, setDashWidgetConfig] = useState(null);
+  const {
+    notifications,
+    archiveNotification,
+    markAllRead,
+    markNonErrorsRead,
+    clearAll: clearAllNotifications,
+  } = useNotificationArchive();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -168,13 +176,26 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     setMobileOpen(false);
   }
 
+  function dismissNotice(id) {
+    setNotices((current) => current.filter((n) => n.id !== id));
+  }
+
   function pushNotice(notice) {
     const id = Date.now() + Math.random();
     setNotices((current) => [...current, { id, ...notice }]);
-  }
-
-  function dismissNotice(id) {
-    setNotices((current) => current.filter((n) => n.id !== id));
+    // Mirror to the persistent notification archive so users have a
+    // "what happened recently" surface alongside the transient Snackbar.
+    archiveNotification({
+      id,
+      status: notice?.status,
+      message: notice?.message,
+      timestamp: Date.now(),
+    });
+    if (notice?.status !== 'error') {
+      setTimeout(() => {
+        dismissNotice(id);
+      }, 4000);
+    }
   }
 
   function toggleGroup(id) {
@@ -243,15 +264,26 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
         <div className="sidebar__brand">
           <div className="sidebar__brand-row">
             <button
-              className="sidebar__site-icon"
+              className={`sidebar__site-icon${!sidebarCollapsed && !bootstrap.site.icon_url ? ' sidebar__site-icon--placeholder' : ''}`}
               type="button"
-              onClick={sidebarCollapsed ? toggleSidebar : undefined}
-              title={sidebarCollapsed ? 'Expand sidebar' : undefined}
-              style={sidebarCollapsed ? { cursor: 'pointer' } : { cursor: 'default' }}
+              onClick={
+                sidebarCollapsed
+                  ? toggleSidebar
+                  : () => navigate('/settings/site')
+              }
+              title={
+                sidebarCollapsed
+                  ? 'Expand sidebar'
+                  : bootstrap.site.icon_url ? 'Change site icon' : 'Add a site icon'
+              }
             >
-              {sidebarCollapsed
-                ? <OpenPanelLeft size={18} />
-                : (bootstrap.site.title || 'S')[0].toUpperCase()}
+              {sidebarCollapsed ? (
+                <OpenPanelLeft size={18} />
+              ) : bootstrap.site.icon_url ? (
+                <img src={bootstrap.site.icon_url} alt="" />
+              ) : (
+                (bootstrap.site.title || 'S')[0].toUpperCase()
+              )}
             </button>
             {!sidebarCollapsed && (
               <div className="sidebar__brand-text">
@@ -336,9 +368,16 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
                 ))}
               </nav>
             </div>
+            <div className="main-panel__topbar-actions">
+              <NotificationCenter
+                notifications={notifications}
+                onMarkAllRead={markAllRead}
+                onClearAll={clearAllNotifications}
+                onOpen={markNonErrorsRead}
+              />
+            </div>
           </div>
           <div className="main-panel__content">
-            <NoticeStack notices={notices} onDismiss={dismissNotice} />
             <Routes>
               <Route
                 path="/"
@@ -429,6 +468,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
           </div>
         </main>
       </div>
+      <NoticeStack notices={notices} onDismiss={dismissNotice} />
     </div>
   );
 }

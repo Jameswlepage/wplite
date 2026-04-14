@@ -308,86 +308,70 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         documentLabel={documentLabel}
         themeJson={bootstrap.themeJson}
         themeCss={bootstrap.themeCss}
+        wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}
+        wpAdminTemplateUrl={templatePreviewDiagnostics.unsupported.length > 0 && templateMarkup ? '/wp-admin/site-editor.php' : undefined}
         documentSidebar={
-          <div className="native-editor__document-panels">
-            <div className="sidebar-section">
-              <div className="sidebar-section__label">Summary</div>
-              <div className="sidebar-section__body">
-                <div className="inline-field-grid">
-                  <TextControl
-                    label="Slug"
-                    value={draft.slug ?? ''}
-                    onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
-                    __next40pxDefaultSize
-                  />
-                  <SelectControl
-                    label="Status"
-                    value={draft.postStatus ?? 'draft'}
-                    options={[
-                      { value: 'draft', label: 'Draft' },
-                      { value: 'publish', label: 'Published' },
-                      { value: 'pending', label: 'Pending Review' },
-                      { value: 'private', label: 'Private' },
-                    ]}
-                    onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
-                    __next40pxDefaultSize
-                  />
-                </div>
-
-                {model.supports?.includes('excerpt') ? (
-                  <TextareaControl
-                    label="Excerpt"
-                    value={draft.excerpt ?? ''}
-                    onChange={(value) => {
-                      setDraft((current) => ({ ...current, excerpt: value }));
-                      setBlocks((current) => syncTemplatePreviewBlocks(current, { title: draft.title, excerpt: value }));
-                    }}
-                    rows={3}
-                  />
-                ) : null}
+          <>
+            <PanelBody title="Summary" initialOpen={true}>
+              <div className="inline-field-grid">
+                <TextControl
+                  label="Slug"
+                  value={draft.slug ?? ''}
+                  onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
+                  __next40pxDefaultSize
+                />
+                <SelectControl
+                  label="Status"
+                  value={draft.postStatus ?? 'draft'}
+                  options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'publish', label: 'Published' },
+                    { value: 'pending', label: 'Pending Review' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
+                  __next40pxDefaultSize
+                />
               </div>
-            </div>
+
+              {model.supports?.includes('excerpt') ? (
+                <TextareaControl
+                  label="Excerpt"
+                  value={draft.excerpt ?? ''}
+                  onChange={(value) => {
+                    setDraft((current) => ({ ...current, excerpt: value }));
+                    setBlocks((current) => syncTemplatePreviewBlocks(current, { title: draft.title, excerpt: value }));
+                  }}
+                  rows={3}
+                />
+              ) : null}
+            </PanelBody>
 
             {metaFields.length > 0 ? (
-              <div className="sidebar-section">
-                <div className="sidebar-section__label">Fields</div>
-                <div className="sidebar-section__body">
-                  <DataForm
-                    data={draft}
-                    fields={metaFields}
-                    form={form}
-                    onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
-                  />
-                </div>
-              </div>
+              <PanelBody title="Fields" initialOpen={true}>
+                <DataForm
+                  data={draft}
+                  fields={metaFields}
+                  form={form}
+                  onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
+                />
+              </PanelBody>
             ) : null}
 
             {existing?.id ? (
-              <div className="sidebar-section">
-                <div className="sidebar-section__label">Details</div>
-                <div className="sidebar-section__body">
-                  <div className="editor-meta">
-                    <span>ID: {existing.id}</span>
-                    <span>Updated: {formatDateTime(existing.modified)}</span>
-                  </div>
-                  {!usesTemplatePreview && templateMarkup ? (
-                    <p className="field-hint">
-                      This entry template includes site-editor blocks like navigation, query
-                      loops, or template parts. The app editor is editing post content only for
-                      now.
-                    </p>
-                  ) : null}
+              <PanelBody title="Details" initialOpen={true}>
+                <div className="editor-meta">
+                  <span>ID: {existing.id}</span>
+                  <span>Updated: {formatDateTime(existing.modified)}</span>
                 </div>
-              </div>
+              </PanelBody>
             ) : null}
-          </div>
+          </>
         }
         blockSidebarFooter={existing ? (
-          <div className="sidebar-section">
-            <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
-              Delete
-            </Button>
-          </div>
+          <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
+            Delete
+          </Button>
         ) : null}
       />
     );

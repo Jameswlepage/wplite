@@ -1,0 +1,194 @@
+/* ── Responsive ── */
+/* ── Mobile hamburger button (hidden on desktop) ── */
+.mobile-menu-btn {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: var(--wp-admin-text-muted);
+  padding: 4px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Mobile overlay ── */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ── Tablet: sidebar as overlay drawer ── */
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+  }
+
+  .app-shell.sidebar-mobile-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+  }
+
+  .app-shell.sidebar-mobile-open .sidebar-overlay {
+    display: block;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .sidebar__collapse-btn {
+    display: none;
+  }
+
+  .canvas-frame {
+    height: 100vh;
+  }
+
+  .hero-panel__grid,
+  .app-overview,
+  .dashboard-grid,
+  .dash-canvas,
+  .docs-grid,
+  .docs-two-column,
+  .workspace-split,
+  .settings-layout,
+  .editor-grid,
+  .native-editor__layout,
+  .concept-grid,
+  .inline-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .screen-header {
+    flex-direction: column;
+  }
+
+  .native-editor__topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .native-editor__topbar-center {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .counter-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .welcome-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ── Phone: tighter spacing ── */
+@media (max-width: 600px) {
+  .app-shell.is-editor-route .main-panel__topbar {
+    display: flex;
+  }
+
+  .main-panel__content {
+    padding: 12px;
+  }
+
+  .app-shell.is-editor-route .main-panel__content {
+    padding: 0;
+  }
+
+  .main-panel__topbar {
+    padding: 10px 12px;
+  }
+
+  .canvas-frame {
+    padding: 8px;
+  }
+
+  .app-shell.is-editor-route .canvas-frame {
+    padding: 8px;
+  }
+
+  .screen-header h1 {
+    font-size: 20px;
+  }
+
+  .counter-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .counter-card {
+    padding: 14px;
+  }
+
+  .counter-card__value {
+    font-size: 22px;
+  }
+
+  .dash-canvas {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .dash-widget[data-span="full"] {
+    grid-column: 1;
+  }
+
+  .welcome-card {
+    padding: 16px;
+  }
+
+  .core-list-table th,
+  .core-list-table td {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .app-overview__brand {
+    grid-template-columns: 1fr;
+  }
+
+  .app-logo-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+  }
+
+  .app-overview__hero h1 {
+    font-size: 1.4rem;
+  }
+
+  .dataviews-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .dataviews-toolbar .components-search-control {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+

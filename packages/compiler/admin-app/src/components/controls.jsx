@@ -4,6 +4,7 @@ import {
   Modal,
   Notice,
   SearchControl,
+  SnackbarList,
   Spinner,
   TextControl,
 } from '@wordpress/components';
@@ -184,18 +185,28 @@ export function ImageControl({ data, field, onChange }) {
           title={field.label || 'Select image'}
           onRequestClose={() => setLibraryOpen(false)}
           className="media-picker-modal"
+          size="large"
+          __experimentalHideHeader={false}
         >
           <div className="media-picker-modal__toolbar">
             <SearchControl
               className="media-picker-modal__search"
               label="Search images"
+              placeholder="Search by name or alt text"
               value={query}
               onChange={setQuery}
               __nextHasNoMarginBottom
             />
-            <Button variant="secondary" isBusy={uploading} onClick={() => fileRef.current?.click()}>
-              Upload Image
-            </Button>
+            <div className="media-picker-modal__toolbar-meta">
+              {filteredItems.length > 0 && (
+                <span className="media-picker-modal__count">
+                  {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+                </span>
+              )}
+              <Button variant="primary" isBusy={uploading} onClick={() => fileRef.current?.click()}>
+                Upload
+              </Button>
+            </div>
           </div>
 
           {libraryError ? (
@@ -212,9 +223,15 @@ export function ImageControl({ data, field, onChange }) {
             <div className="media-picker-modal__layout">
               <div className="media-picker-modal__library">
                 {filteredItems.length === 0 ? (
-                  <div className="empty-state">
-                    <h2>No images found</h2>
-                    <p>Upload a new image or refine your search.</p>
+                  <div className="media-picker-modal__empty-grid">
+                    <div className="media-picker-modal__empty-icon">
+                      <Image size={28} />
+                    </div>
+                    <h3>{query ? 'No matches' : 'Your library is empty'}</h3>
+                    <p>{query ? 'Try a different search term.' : 'Upload your first image to get started.'}</p>
+                    <Button variant="primary" onClick={() => fileRef.current?.click()}>
+                      Upload an image
+                    </Button>
                   </div>
                 ) : (
                   <div className="media-grid">
@@ -224,14 +241,18 @@ export function ImageControl({ data, field, onChange }) {
                         type="button"
                         className={item.id === selectedId ? 'media-tile is-selected' : 'media-tile'}
                         onClick={() => setSelectedId(item.id)}
+                        onDoubleClick={() => {
+                          setSelectedId(item.id);
+                          onChange(field.setValue({ item: data, value: item.id }));
+                          setPreviewItem(item);
+                          setLibraryOpen(false);
+                        }}
+                        title={getMediaLabel(item)}
                       >
                         <div className="media-tile__preview">
-                          <img src={getMediaPreviewUrl(item)} alt={item.alt_text || ''} />
+                          <img src={getMediaPreviewUrl(item)} alt={item.alt_text || ''} loading="lazy" />
                         </div>
-                        <div className="media-tile__meta">
-                          <strong>{getMediaLabel(item)}</strong>
-                          <span>{item.mime_type}</span>
-                        </div>
+                        <div className="media-tile__name">{getMediaLabel(item)}</div>
                       </button>
                     ))}
                   </div>
@@ -240,27 +261,39 @@ export function ImageControl({ data, field, onChange }) {
 
               <aside className="media-picker-modal__inspector">
                 {selectedItem ? (
-                  <div className="media-picker-modal__inspector-card">
+                  <div className="media-inspector">
                     <div className="media-inspector__preview">
                       <img src={selectedItem.source_url} alt={selectedItem.alt_text || ''} />
                     </div>
-                    <div className="media-picker-modal__meta">
-                      <strong>{getMediaLabel(selectedItem)}</strong>
-                      <span>{selectedItem.mime_type}</span>
-                      <span>{formatDateTime(selectedItem.modified || selectedItem.date)}</span>
+                    <div className="media-inspector__details">
+                      <h3 className="media-inspector__title">{getMediaLabel(selectedItem)}</h3>
+                      <dl className="media-inspector__meta">
+                        <div><dt>Type</dt><dd>{selectedItem.mime_type || '—'}</dd></div>
+                        <div><dt>Uploaded</dt><dd>{formatDateTime(selectedItem.date)}</dd></div>
+                        {selectedItem.media_details?.width && (
+                          <div><dt>Dimensions</dt><dd>{selectedItem.media_details.width} × {selectedItem.media_details.height}</dd></div>
+                        )}
+                        {selectedItem.media_details?.filesize && (
+                          <div><dt>Size</dt><dd>{Math.round(selectedItem.media_details.filesize / 1024)} KB</dd></div>
+                        )}
+                        {selectedItem.alt_text && (
+                          <div><dt>Alt text</dt><dd>{selectedItem.alt_text}</dd></div>
+                        )}
+                      </dl>
                     </div>
-                    <div className="stacked-actions">
-                      <Button variant="primary" onClick={handleChooseSelected}>
-                        Use Image
+                    <div className="media-inspector__footer">
+                      <Button variant="tertiary" size="small" href={selectedItem.source_url} target="_blank">
+                        Open original
                       </Button>
-                      <Button variant="secondary" href={selectedItem.source_url} target="_blank">
-                        Open File
+                      <Button variant="primary" onClick={handleChooseSelected}>
+                        Use this image
                       </Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="media-picker-modal__empty">
-                    <p>Select an image to preview and use it here.</p>
+                  <div className="media-inspector media-inspector--empty">
+                    <div className="media-inspector__empty-icon"><Image size={22} /></div>
+                    <p>Select an image to preview its details.</p>
                   </div>
                 )}
               </aside>
@@ -318,16 +351,21 @@ export function RepeaterControl({ data, field, onChange }) {
   );
 }
 
-/* ── Notice Stack ── */
+/* ── Notice Stack (Snackbar) ── */
 export function NoticeStack({ notices, onDismiss }) {
-  if (notices.length === 0) return null;
+  const mapped = useMemo(
+    () => notices.map((notice) => ({
+      id: notice.id,
+      status: notice.status,
+      content: notice.message,
+      explicitDismiss: notice.status === 'error',
+    })),
+    [notices]
+  );
+  if (mapped.length === 0) return null;
   return (
-    <div className="notice-stack">
-      {notices.map((notice) => (
-        <Notice key={notice.id} status={notice.status} isDismissible onRemove={() => onDismiss(notice.id)}>
-          <p>{notice.message}</p>
-        </Notice>
-      ))}
+    <div className="wplite-snackbar-region">
+      <SnackbarList notices={mapped} onRemove={onDismiss} />
     </div>
   );
 }

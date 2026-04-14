@@ -1,17 +1,25 @@
-import React, { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
   Card,
   CardBody,
   CardHeader,
+  SelectControl,
   TextControl,
   TextareaControl,
 } from '@wordpress/components';
-import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
+import {
+  Video,
+  Music,
+  DocumentPdf,
+  Document,
+  CloudUpload,
+  Upload,
+  Copy,
+} from '@carbon/icons-react';
 import {
   decodeRenderedText,
-  formatDate,
   formatDateTime,
   normalizeMediaRecord,
   wpApiFetch,
@@ -19,13 +27,23 @@ import {
 import { CarbonIcon } from '../lib/icons.jsx';
 import { SkeletonBox } from './skeletons.jsx';
 
-function getMimeIcon(mimeType) {
-  if (!mimeType) return '📄';
+/* ── Mime helpers (Carbon icons, no emoji) ── */
+function getMimeIconComponent(mimeType) {
+  if (!mimeType) return Document;
   if (mimeType.startsWith('image/')) return null;
-  if (mimeType.startsWith('video/')) return '🎬';
-  if (mimeType.startsWith('audio/')) return '🎵';
-  if (mimeType.includes('pdf')) return '📕';
-  return '📄';
+  if (mimeType.startsWith('video/')) return Video;
+  if (mimeType.startsWith('audio/')) return Music;
+  if (mimeType.includes('pdf')) return DocumentPdf;
+  return Document;
+}
+
+function getMimeBucket(mimeType) {
+  if (!mimeType) return 'other';
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (mimeType.includes('pdf') || mimeType.includes('msword') || mimeType.includes('officedocument') || mimeType.includes('text/')) return 'document';
+  return 'other';
 }
 
 function getThumb(item) {
@@ -57,8 +75,11 @@ function UploadDropZone({ onUpload, children }) {
     >
       {dragOver && (
         <div className="media-dropzone__overlay">
-          <CarbonIcon name="Image" size={32} />
-          <span>Drop files to upload</span>
+          <div className="media-dropzone__overlay-inner">
+            <Upload size={40} />
+            <strong>Drop files to upload</strong>
+            <span>Release to add to the Media Library</span>
+          </div>
         </div>
       )}
       {children}
@@ -72,8 +93,8 @@ export function MediaPage({ pushNotice }) {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  const [viewMode, setViewMode] = useState('grid');
   const [search, setSearch] = useState('');
+  const [mimeFilter, setMimeFilter] = useState('all');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -111,78 +132,16 @@ export function MediaPage({ pushNotice }) {
     }
   }, [navigate, pushNotice]);
 
-  // Filter by search
+  // Filter by search + mime bucket
   const filtered = useMemo(() => {
-    if (!search.trim()) return media;
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return media.filter((item) => {
+      if (mimeFilter !== 'all' && getMimeBucket(item.mime_type) !== mimeFilter) return false;
+      if (!q) return true;
       const title = getTitle(item).toLowerCase();
       return title.includes(q) || (item.mime_type || '').includes(q);
     });
-  }, [media, search]);
-
-  // DataViews fields for table mode
-  const fields = useMemo(() => [
-    {
-      id: 'title',
-      label: 'File',
-      enableGlobalSearch: true,
-      enableSorting: true,
-      enableHiding: false,
-      getValue: ({ item }) => getTitle(item),
-      render: ({ item }) => {
-        const thumb = getThumb(item);
-        const icon = getMimeIcon(item.mime_type);
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="media-list-thumb">
-              {icon ? <span style={{ fontSize: '18px' }}>{icon}</span> : <img src={thumb} alt="" />}
-            </div>
-            <strong>{getTitle(item)}</strong>
-          </div>
-        );
-      },
-    },
-    {
-      id: 'mime_type',
-      label: 'Type',
-      type: 'text',
-      enableSorting: true,
-      getValue: ({ item }) => item.mime_type,
-      render: ({ item }) => <span style={{ color: 'var(--wp-admin-text-muted)', fontSize: '12px' }}>{item.mime_type}</span>,
-    },
-    {
-      id: 'filesize',
-      label: 'Size',
-      enableSorting: true,
-      getValue: ({ item }) => item.media_details?.filesize ?? 0,
-      render: ({ item }) => <span style={{ color: 'var(--wp-admin-text-muted)' }}>{formatFileSize(item.media_details?.filesize)}</span>,
-    },
-    {
-      id: 'date',
-      label: 'Uploaded',
-      type: 'datetime',
-      enableSorting: true,
-      getValue: ({ item }) => item.date,
-    },
-  ], []);
-
-  const [tableView, setTableView] = useState({
-    type: 'table',
-    search: '',
-    page: 1,
-    perPage: 25,
-    fields: ['title', 'mime_type', 'filesize', 'date'],
-    filters: [],
-    sort: { field: 'date', direction: 'desc' },
-    layout: {},
-  });
-
-  const deferredMedia = useDeferredValue(media);
-  const tableProcessed = useMemo(
-    () => filterSortAndPaginate(deferredMedia, tableView, fields),
-    [deferredMedia, tableView, fields]
-  );
+  }, [media, search, mimeFilter]);
 
   return (
     <div className="screen">
@@ -190,14 +149,24 @@ export function MediaPage({ pushNotice }) {
         <div>
           <p className="eyebrow">Media</p>
           <h1>Media Library</h1>
-          <p className="screen-header__lede">{media.length} file{media.length !== 1 ? 's' : ''}</p>
+          <p className="screen-header__lede">
+            {media.length} file{media.length !== 1 ? 's' : ''} in your library.
+          </p>
         </div>
         <div className="screen-header__actions">
-          <Button variant="secondary" onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}>
-            {viewMode === 'grid' ? 'List View' : 'Grid View'}
-          </Button>
-          <input ref={fileInputRef} type="file" multiple hidden onChange={(e) => { doUpload(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
-          <Button variant="primary" isBusy={isUploading} onClick={() => fileInputRef.current?.click()}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(e) => { doUpload(Array.from(e.target.files ?? [])); e.target.value = ''; }}
+          />
+          <Button
+            variant="primary"
+            isBusy={isUploading}
+            onClick={() => fileInputRef.current?.click()}
+            icon={<Upload size={16} />}
+          >
             Upload Files
           </Button>
         </div>
@@ -222,90 +191,96 @@ export function MediaPage({ pushNotice }) {
         ) : media.length === 0 ? (
           <Card className="surface-card">
             <CardBody>
-              <div className="media-upload-empty" onClick={() => fileInputRef.current?.click()}>
-                <CarbonIcon name="Image" size={32} />
-                <strong>Drop files here or click to upload</strong>
-                <span>Supports images, videos, documents, and audio</span>
+              <div className="empty-state media-upload-empty" onClick={() => fileInputRef.current?.click()}>
+                <CloudUpload size={48} className="empty-state__icon" />
+                <h2>Your media library is empty</h2>
+                <p>Drag files here or click to upload images, videos, audio, and documents.</p>
+                <Button
+                  variant="primary"
+                  icon={<Upload size={16} />}
+                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                >
+                  Upload Files
+                </Button>
               </div>
             </CardBody>
           </Card>
-        ) : viewMode === 'grid' ? (
+        ) : (
           <Fragment>
             <div className="media-toolbar">
-              <div className="media-toolbar__search">
-                <input
-                  type="text"
-                  placeholder="Search media..."
+              <div className="media-toolbar__filters">
+                <TextControl
+                  placeholder="Search media…"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="media-toolbar__input"
+                  onChange={setSearch}
+                  className="media-toolbar__search"
+                  __next40pxDefaultSize
+                  __nextHasNoMarginBottom
+                  hideLabelFromVision
+                  label="Search media"
+                />
+                <SelectControl
+                  value={mimeFilter}
+                  onChange={setMimeFilter}
+                  options={[
+                    { label: 'All types', value: 'all' },
+                    { label: 'Images', value: 'image' },
+                    { label: 'Videos', value: 'video' },
+                    { label: 'Audio', value: 'audio' },
+                    { label: 'Documents', value: 'document' },
+                  ]}
+                  __next40pxDefaultSize
+                  __nextHasNoMarginBottom
+                  hideLabelFromVision
+                  label="Filter by type"
                 />
               </div>
-              <span className="media-toolbar__count">{filtered.length} file{filtered.length !== 1 ? 's' : ''}</span>
+              <span className="media-toolbar__count">
+                {filtered.length} {filtered.length === 1 ? 'file' : 'files'}
+                {filtered.length !== media.length ? ` of ${media.length}` : ''}
+              </span>
             </div>
-            <div className="media-grid">
-              {filtered.map((item) => {
-                const thumb = getThumb(item);
-                const icon = getMimeIcon(item.mime_type);
-                return (
-                  <button
-                    key={item.id}
-                    className="media-tile"
-                    onClick={() => navigate(`/media/${item.id}`)}
-                    type="button"
-                  >
-                    <div className="media-tile__preview">
-                      {icon ? (
-                        <span style={{ fontSize: '36px' }}>{icon}</span>
-                      ) : (
-                        <img src={thumb} alt={item.alt_text || ''} />
-                      )}
-                    </div>
-                    <div className="media-tile__meta">
-                      <strong>{getTitle(item)}</strong>
-                      <span>{item.mime_type}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Fragment>
-        ) : (
-          <Card className="surface-card">
-            <CardBody>
-              <DataViews
-                data={tableProcessed.data}
-                fields={fields}
-                view={tableView}
-                onChangeView={setTableView}
-                getItemId={(item) => String(item.id)}
-                paginationInfo={tableProcessed.paginationInfo}
-                onClickItem={(item) => navigate(`/media/${item.id}`)}
-                isItemClickable={() => true}
-                defaultLayouts={{ table: {} }}
-                search
-                empty={
+            {filtered.length === 0 ? (
+              <Card className="surface-card">
+                <CardBody>
                   <div className="empty-state">
-                    <h2>No results</h2>
-                    <p>Try adjusting your search.</p>
+                    <h2>No files match</h2>
+                    <p>Try adjusting your search or filter.</p>
+                    <Button variant="secondary" onClick={() => { setSearch(''); setMimeFilter('all'); }}>
+                      Clear filters
+                    </Button>
                   </div>
-                }
-              >
-                <div className="dataviews-shell">
-                  <div className="dataviews-toolbar">
-                    <DataViews.Search label="Search media" />
-                    <div className="dataviews-toolbar__spacer" />
-                    <DataViews.ViewConfig />
-                  </div>
-                  <DataViews.Layout className="dataviews-layout" />
-                  <div className="dataviews-footer">
-                    <span>{tableProcessed.paginationInfo.totalItems} files</span>
-                    <DataViews.Pagination />
-                  </div>
-                </div>
-              </DataViews>
-            </CardBody>
-          </Card>
+                </CardBody>
+              </Card>
+            ) : (
+              <div className="media-grid">
+                {filtered.map((item) => {
+                  const thumb = getThumb(item);
+                  const IconComp = getMimeIconComponent(item.mime_type);
+                  return (
+                    <button
+                      key={item.id}
+                      className="media-tile"
+                      onClick={() => navigate(`/media/${item.id}`)}
+                      type="button"
+                    >
+                      <div className="media-tile__preview">
+                        {IconComp ? (
+                          <IconComp size={36} className="media-tile__mime-icon" />
+                        ) : (
+                          <img src={thumb} alt={item.alt_text || ''} loading="lazy" />
+                        )}
+                      </div>
+                      <div className="media-tile__meta">
+                        <strong className="media-tile__name" title={getTitle(item)}>{getTitle(item)}</strong>
+                        <span className="media-tile__mime">{item.mime_type}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </Fragment>
         )}
       </UploadDropZone>
     </div>
@@ -360,7 +335,7 @@ export function MediaEditorPage({ pushNotice }) {
   }
 
   async function handleDelete() {
-    if (!draft?.id || !window.confirm(`Delete ${draft.title || 'this file'}?`)) return;
+    if (!draft?.id || !window.confirm(`Delete ${draft.title || 'this file'}? This cannot be undone.`)) return;
     setIsDeleting(true);
     try {
       await wpApiFetch(`wp/v2/media/${draft.id}?force=true`, { method: 'DELETE' });
@@ -392,7 +367,7 @@ export function MediaEditorPage({ pushNotice }) {
     );
   }
 
-  const icon = getMimeIcon(item.mime_type);
+  const IconComp = getMimeIconComponent(item.mime_type);
   const dimensions = item.media_details?.width && item.media_details?.height
     ? `${item.media_details.width} × ${item.media_details.height}` : null;
 
@@ -414,7 +389,11 @@ export function MediaEditorPage({ pushNotice }) {
           <Card className="surface-card">
             <CardBody>
               <div className="media-editor__preview">
-                {icon ? <span style={{ fontSize: '64px' }}>{icon}</span> : <img src={item.source_url} alt={draft.altText || ''} />}
+                {IconComp ? (
+                  <IconComp size={72} className="media-editor__preview-icon" />
+                ) : (
+                  <img src={item.source_url} alt={draft.altText || ''} />
+                )}
               </div>
             </CardBody>
           </Card>
@@ -422,10 +401,10 @@ export function MediaEditorPage({ pushNotice }) {
             <CardHeader><h2>Details</h2></CardHeader>
             <CardBody>
               <div className="settings-field-group">
-                <TextControl label="Title" value={draft.title} onChange={(v) => setDraft((c) => ({ ...c, title: v }))} __next40pxDefaultSize />
-                <TextControl label="Alt Text" value={draft.altText} onChange={(v) => setDraft((c) => ({ ...c, altText: v }))} help="Describes the image for screen readers and search engines." __next40pxDefaultSize />
-                <TextareaControl label="Caption" value={draft.caption} onChange={(v) => setDraft((c) => ({ ...c, caption: v }))} rows={2} />
-                <TextareaControl label="Description" value={draft.description} onChange={(v) => setDraft((c) => ({ ...c, description: v }))} rows={3} />
+                <TextControl label="Title" value={draft.title} onChange={(v) => setDraft((c) => ({ ...c, title: v }))} __next40pxDefaultSize __nextHasNoMarginBottom />
+                <TextControl label="Alt Text" value={draft.altText} onChange={(v) => setDraft((c) => ({ ...c, altText: v }))} help="Describes the image for screen readers and search engines." __next40pxDefaultSize __nextHasNoMarginBottom />
+                <TextareaControl label="Caption" value={draft.caption} onChange={(v) => setDraft((c) => ({ ...c, caption: v }))} rows={2} __nextHasNoMarginBottom />
+                <TextareaControl label="Description" value={draft.description} onChange={(v) => setDraft((c) => ({ ...c, description: v }))} rows={3} __nextHasNoMarginBottom />
               </div>
             </CardBody>
           </Card>
@@ -436,27 +415,62 @@ export function MediaEditorPage({ pushNotice }) {
             <CardHeader><h2>File Info</h2></CardHeader>
             <CardBody>
               <dl className="settings-info__list">
-                <dt>File Name</dt><dd>{item.source_url?.split('/').pop() || '—'}</dd>
-                <dt>Type</dt><dd>{item.mime_type}</dd>
-                {dimensions && <Fragment><dt>Dimensions</dt><dd>{dimensions}</dd></Fragment>}
-                <dt>Size</dt><dd>{formatFileSize(item.media_details?.filesize)}</dd>
-                <dt>Uploaded</dt><dd>{formatDateTime(item.date)}</dd>
-                <dt>ID</dt><dd>{item.id}</dd>
+                <dt>File Name</dt>
+                <dd>{item.source_url?.split('/').pop() || '—'}</dd>
+                <dt>Type</dt>
+                <dd>{item.mime_type}</dd>
+                {dimensions && (
+                  <Fragment>
+                    <dt>Dimensions</dt>
+                    <dd>{dimensions}</dd>
+                  </Fragment>
+                )}
+                <dt>Size</dt>
+                <dd>{formatFileSize(item.media_details?.filesize)}</dd>
+                <dt>Uploaded</dt>
+                <dd>{formatDateTime(item.date)}</dd>
+                <dt>ID</dt>
+                <dd>{item.id}</dd>
               </dl>
             </CardBody>
           </Card>
           <Card className="surface-card">
+            <CardHeader><h2>File URL</h2></CardHeader>
             <CardBody>
-              <div className="settings-field-group">
-                <label className="media-url-label">File URL</label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input type="text" readOnly value={draft.sourceUrl} onClick={(e) => e.target.select()} className="media-url-input" />
-                  <Button variant="secondary" size="compact" onClick={copyUrl}>{copySuccess ? 'Copied' : 'Copy'}</Button>
-                </div>
+              <div className="media-editor__url">
+                <TextControl
+                  label="File URL"
+                  hideLabelFromVision
+                  value={draft.sourceUrl}
+                  readOnly
+                  onChange={() => {}}
+                  onClick={(e) => e.target.select?.()}
+                  __next40pxDefaultSize
+                  __nextHasNoMarginBottom
+                />
+                <Button
+                  variant="secondary"
+                  onClick={copyUrl}
+                  icon={<Copy size={16} />}
+                  __next40pxDefaultSize
+                >
+                  {copySuccess ? 'Copied' : 'Copy'}
+                </Button>
               </div>
-              <div style={{ display: 'grid', gap: '6px', marginTop: '12px' }}>
-                <Button variant="secondary" href={draft.sourceUrl} target="_blank">Open Original</Button>
-                <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>Delete File</Button>
+              <div className="media-editor__actions">
+                <Button variant="secondary" href={draft.sourceUrl} target="_blank" rel="noreferrer">
+                  Open Original
+                </Button>
+              </div>
+              <div className="media-editor__danger">
+                <Button
+                  variant="tertiary"
+                  isDestructive
+                  isBusy={isDeleting}
+                  onClick={handleDelete}
+                >
+                  Delete File
+                </Button>
               </div>
             </CardBody>
           </Card>

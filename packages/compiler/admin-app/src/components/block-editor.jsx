@@ -1,20 +1,101 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BlockBreadcrumb,
   BlockCanvas,
   BlockEditorKeyboardShortcuts,
   BlockEditorProvider,
-  Inserter,
   BlockInspector,
+  BlockToolbar,
+  BlockTools,
+  Inserter,
 } from '@wordpress/block-editor';
 import {
   Button,
+  DropdownMenu,
+  PanelBody,
   Popover,
   TabPanel,
 } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
+import { CarbonIcon } from '../lib/icons.jsx';
 import { buildBlockEditorSettings, buildCanvasStyles } from '../lib/blocks.jsx';
+
+/* ── Icon wrappers for WP Button/DropdownMenu icon props ── */
+const BackIcon = () => <CarbonIcon name="ArrowLeft" size={20} />;
+const AddIcon = () => <CarbonIcon name="Add" size={20} />;
+const OverflowIcon = () => <CarbonIcon name="OverflowMenuVertical" size={20} />;
+const LaunchIcon = () => <CarbonIcon name="Launch" size={16} />;
+const SidebarCloseIcon = () => <CarbonIcon name="SidePanelClose" size={20} />;
+const SidebarOpenIcon = () => <CarbonIcon name="SidePanelOpen" size={20} />;
+
+/* ── Inline title widget for the topbar center ── */
+function TopbarTitle({ title, placeholder, onChange }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(title ?? '');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(title ?? '');
+  }, [title, editing]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  function commit() {
+    const next = draft;
+    setEditing(false);
+    if (next !== title) {
+      onChange?.(next);
+    }
+  }
+
+  function cancel() {
+    setDraft(title ?? '');
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        className="native-editor__title-input"
+        type="text"
+        value={draft}
+        placeholder={placeholder}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commit();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+      />
+    );
+  }
+
+  const hasTitle = Boolean(title);
+  const display = hasTitle ? title : (placeholder || 'Add title');
+
+  return (
+    <button
+      type="button"
+      className={`native-editor__title-display${hasTitle ? '' : ' is-placeholder'}`}
+      onClick={() => setEditing(true)}
+      title={display}
+    >
+      {display}
+    </button>
+  );
+}
 
 /* ── Native Block Editor Frame ── */
 export function NativeBlockEditorFrame({
@@ -37,7 +118,36 @@ export function NativeBlockEditorFrame({
   blockSidebarFooter = null,
   themeJson,
   themeCss,
+  wpAdminUrl,
+  wpAdminTemplateUrl,
 }) {
+  const moreActionsControls = [];
+  if (viewUrl) {
+    moreActionsControls.push({
+      title: 'View on site',
+      icon: LaunchIcon,
+      onClick: () => {
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+      },
+    });
+  }
+  if (wpAdminUrl) {
+    moreActionsControls.push({
+      title: 'Open in wp-admin',
+      onClick: () => {
+        window.open(wpAdminUrl, '_blank', 'noopener,noreferrer');
+      },
+    });
+  }
+  if (wpAdminTemplateUrl) {
+    moreActionsControls.push({
+      title: 'Edit template in wp-admin',
+      onClick: () => {
+        window.open(wpAdminTemplateUrl, '_blank', 'noopener,noreferrer');
+      },
+    });
+  }
+
   const selectedBlockId = useSelect(
     (select) => select(blockEditorStore).getSelectedBlockClientId(),
     []
@@ -72,94 +182,115 @@ export function NativeBlockEditorFrame({
         <BlockEditorKeyboardShortcuts />
         <header className="native-editor__topbar">
           <div className="native-editor__topbar-leading">
-            <Button variant="tertiary" onClick={onBack}>
-              {backLabel}
-            </Button>
-          </div>
-          <div className="native-editor__topbar-center">
+            <Button
+              className="native-editor__back"
+              icon={BackIcon}
+              label={backLabel || 'Back'}
+              showTooltip
+              onClick={onBack}
+            />
+            <div className="native-editor__topbar-divider" aria-hidden="true" />
             <Inserter
+              position="bottom right"
+              rootClientId={undefined}
               isAppender={false}
               toggleProps={{
-                variant: 'tertiary',
+                icon: AddIcon,
                 label: 'Add block',
+                showTooltip: true,
+                className: 'native-editor__inserter-toggle',
               }}
             />
-            <div className="native-editor__breadcrumb">
-              <BlockBreadcrumb rootLabelText={documentLabel} />
-            </div>
           </div>
+
+          <div className="native-editor__topbar-center">
+            {showTitleInput ? (
+              <TopbarTitle
+                title={title}
+                placeholder={titlePlaceholder}
+                onChange={onChangeTitle}
+              />
+            ) : null}
+          </div>
+
           <div className="native-editor__topbar-actions">
             <Button
-              variant="tertiary"
-              onClick={() => setSidebarOpen((v) => !v)}
-              label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-              icon={
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <line x1="15" y1="3" x2="15" y2="21" />
-                </svg>
-              }
-            />
-            {viewUrl ? (
-              <Button variant="secondary" href={viewUrl} target="_blank">
-                View on Site
-              </Button>
-            ) : null}
-            <Button variant="primary" isBusy={isPrimaryBusy} onClick={onPrimaryAction}>
+              variant="primary"
+              className="native-editor__save"
+              isBusy={isPrimaryBusy}
+              onClick={onPrimaryAction}
+            >
               {primaryActionLabel}
             </Button>
+            <Button
+              className="native-editor__sidebar-toggle"
+              isPressed={sidebarOpen}
+              onClick={() => setSidebarOpen((v) => !v)}
+              label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+              showTooltip
+              icon={sidebarOpen ? SidebarCloseIcon : SidebarOpenIcon}
+            />
+            {moreActionsControls.length > 0 ? (
+              <DropdownMenu
+                className="native-editor__more-actions"
+                icon={OverflowIcon}
+                label="More actions"
+                controls={moreActionsControls}
+              />
+            ) : null}
           </div>
         </header>
 
         <div className={`native-editor__layout${sidebarOpen ? '' : ' native-editor__layout--no-sidebar'}`}>
           <section className="native-editor__main">
-            <div className="native-editor__canvas-shell">
-              {showTitleInput ? (
-                <input
-                  className="native-editor__title"
-                  type="text"
-                  placeholder={titlePlaceholder}
-                  value={title}
-                  onChange={(event) => onChangeTitle(event.target.value)}
-                />
-              ) : null}
-              <div className="native-editor__canvas">
-                <BlockCanvas height="100%" styles={canvasStyles} />
+            <BlockTools className="native-editor__block-tools">
+              <div className="native-editor__block-toolbar">
+                <BlockToolbar hideDragHandle />
               </div>
-            </div>
+              <div className="native-editor__canvas-shell">
+                <div className="native-editor__canvas">
+                  <BlockCanvas height="100%" styles={canvasStyles} />
+                </div>
+              </div>
+            </BlockTools>
+            <footer className="native-editor__footer">
+              <BlockBreadcrumb rootLabelText={documentLabel} />
+            </footer>
           </section>
 
-          {sidebarOpen ? <aside className="native-editor__sidebar">
-            <TabPanel
-              className="native-editor__inspector-tabs"
-              activeClass="is-active"
-              initialTabName={inspectorTab}
-              onSelect={setInspectorTab}
-              tabs={[
-                { name: 'document', title: documentLabel },
-                { name: 'block', title: 'Block' },
-              ]}
-            >
-              {(tab) => (
-                <div className="native-editor__inspector-panel">
-                  {tab.name === 'document' ? (
-                    <div className="native-editor__document-sidebar">
-                      {documentSidebar}
-                    </div>
-                  ) : (
-                    <div className="native-editor__block-sidebar">
-                      <BlockInspector />
-                      {blockSidebarFooter ? (
-                        <div className="native-editor__sidebar-footer">
-                          {blockSidebarFooter}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              )}
-            </TabPanel>
-          </aside> : null}
+          {sidebarOpen ? (
+            <aside className="native-editor__sidebar">
+              <TabPanel
+                className="native-editor__inspector-tabs"
+                activeClass="is-active"
+                initialTabName={inspectorTab}
+                onSelect={setInspectorTab}
+                tabs={[
+                  { name: 'document', title: documentLabel },
+                  { name: 'block', title: 'Block' },
+                ]}
+              >
+                {(tab) => (
+                  <div className="native-editor__inspector-panel">
+                    {tab.name === 'document' ? (
+                      <div className="native-editor__document-sidebar">
+                        {documentSidebar}
+                      </div>
+                    ) : (
+                      <div className="native-editor__block-sidebar">
+                        <BlockInspector />
+                        {blockSidebarFooter ? (
+                          <PanelBody title="Actions" initialOpen={true}>
+                            {blockSidebarFooter}
+                          </PanelBody>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabPanel>
+            </aside>
+          ) : null}
         </div>
       </div>
       <Popover.Slot />

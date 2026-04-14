@@ -1,0 +1,65 @@
+/* ── Notices (Snackbar) ── */
+.wplite-snackbar-region {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 100000;
+  pointer-events: none;
+}
+
+.wplite-snackbar-region .components-snackbar-list {
+  pointer-events: none;
+}
+
+.wplite-snackbar-region .components-snackbar {
+  pointer-events: auto;
+}
+
+/* ── Screen layouts ── */
+.screen {
+  display: grid;
+  gap: 20px;
+}
+
+/* ── Screen header ── */
+.screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--wp-admin-border);
+}
+
+.screen-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  line-height: 1.3;
+  color: var(--wp-admin-text);
+}
+
+.screen-header__lede {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--wp-admin-text-muted);
+  line-height: 1.5;
+}
+
+.screen-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wp-admin-accent);
+}
+

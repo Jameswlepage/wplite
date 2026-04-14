@@ -206,6 +206,58 @@ export function createEmptySingleton() {
   return {};
 }
 
+function hashSeed(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seededRandom(seed) {
+  let state = seed || 1;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function deriveTrafficSeries(seedStr, days = 30, base = 120, variance = 0.6) {
+  const rand = seededRandom(hashSeed(seedStr));
+  const series = [];
+  let momentum = 0;
+  for (let i = 0; i < days; i++) {
+    momentum = momentum * 0.7 + (rand() - 0.5) * variance;
+    const weekend = [0, 6].includes((new Date().getDay() + i) % 7) ? 0.75 : 1;
+    const value = Math.max(5, Math.round(base * weekend * (1 + momentum)));
+    series.push(value);
+  }
+  return series;
+}
+
+function sumSeries(arr) {
+  return arr.reduce((s, n) => s + n, 0);
+}
+
+function deltaPct(series) {
+  if (series.length < 14) return 0;
+  const mid = Math.floor(series.length / 2);
+  const prev = sumSeries(series.slice(0, mid)) || 1;
+  const curr = sumSeries(series.slice(mid));
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+export function deriveActionVerb(record) {
+  if (!record.modified || !record.created) return 'Updated';
+  try {
+    const created = new Date(record.created).getTime();
+    const modified = new Date(record.modified).getTime();
+    if (Math.abs(modified - created) < 60_000) return 'Created';
+  } catch {}
+  return 'Updated';
+}
+
 export function deriveDashboard({ recordsByModel, singletonData, bootstrap }) {
   const projectRecords = recordsByModel.project ?? [];
   const inquiryRecords = [...(recordsByModel.inquiry ?? [])].sort((l, r) =>
@@ -238,24 +290,54 @@ export function deriveDashboard({ recordsByModel, singletonData, bootstrap }) {
     for (const record of recordsByModel[model.id] ?? []) {
       recentActivity.push({
         id: `${model.id}-${record.id}`,
+        recordId: record.id,
         title: record.title || '(Untitled)',
         modelLabel: model.label,
         modelId: model.id,
         modified: record.modified,
+        action: deriveActionVerb(record),
       });
     }
   }
-  // Also include posts
-  for (const record of postRecords) {
-    recentActivity.push({
-      id: `post-${record.id}`,
-      title: record.title || '(Untitled)',
-      modelLabel: 'Posts',
-      modelId: 'post',
-      modified: record.modified,
-    });
-  }
   recentActivity.sort((a, b) => (b.modified ?? '').localeCompare(a.modified ?? ''));
+
+  // Mock analytics — deterministic per-site so numbers feel real but reproducible
+  const siteSeed = bootstrap.site?.title || 'wplite';
+  const visitorsSeries = deriveTrafficSeries(`${siteSeed}::visitors`, 30, 140);
+  const sessionsSeries = deriveTrafficSeries(`${siteSeed}::sessions`, 30, 210);
+  const visitors = sumSeries(visitorsSeries);
+  const sessions = sumSeries(sessionsSeries);
+  const avgSessionSec = 90 + (hashSeed(siteSeed) % 240);
+  const bounceRate = 32 + (hashSeed(`${siteSeed}::bounce`) % 30);
+
+  // Top content leaderboard — views seeded per record
+  const trackable = [];
+  for (const model of bootstrap.models) {
+    if (model.type !== 'collection' && model.id !== 'post') continue;
+    for (const record of recordsByModel[model.id] ?? []) {
+      const viewsSeries = deriveTrafficSeries(`${siteSeed}::${model.id}::${record.id}`, 30, 18, 0.9);
+      trackable.push({
+        id: `${model.id}-${record.id}`,
+        recordId: record.id,
+        modelId: model.id,
+        modelLabel: model.label,
+        title: record.title || '(Untitled)',
+        views: sumSeries(viewsSeries),
+        trend: deltaPct(viewsSeries),
+      });
+    }
+  }
+  const topContent = trackable.sort((a, b) => b.views - a.views).slice(0, 6);
+
+  const referrers = [
+    { source: 'Direct', share: 38 + (hashSeed(`${siteSeed}::r0`) % 12) },
+    { source: 'Google', share: 24 + (hashSeed(`${siteSeed}::r1`) % 10) },
+    { source: 'Instagram', share: 12 + (hashSeed(`${siteSeed}::r2`) % 8) },
+    { source: 'LinkedIn', share: 8 + (hashSeed(`${siteSeed}::r3`) % 6) },
+    { source: 'Other', share: 4 + (hashSeed(`${siteSeed}::r4`) % 6) },
+  ];
+  const refTotal = referrers.reduce((s, r) => s + r.share, 0);
+  for (const r of referrers) r.share = Math.round((r.share / refTotal) * 100);
 
   return {
     totalPosts: postRecords.length,
@@ -265,7 +347,19 @@ export function deriveDashboard({ recordsByModel, singletonData, bootstrap }) {
     totalCollections: bootstrap.models.filter((m) => m.type === 'collection').length,
     recentInquiries: inquiryRecords.slice(0, 5),
     collectionBreakdown,
-    recentActivity: recentActivity.slice(0, 10),
+    recentActivity: recentActivity.slice(0, 12),
+    analytics: {
+      visitors,
+      visitorsSeries,
+      visitorsTrend: deltaPct(visitorsSeries),
+      sessions,
+      sessionsSeries,
+      sessionsTrend: deltaPct(sessionsSeries),
+      avgSessionSec,
+      bounceRate,
+      topContent,
+      referrers,
+    },
   };
 }
 
