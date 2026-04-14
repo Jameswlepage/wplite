@@ -52,6 +52,12 @@ Examples:
 
 For those cases, `/app` can show a preview shell in the editor while still saving only the real content slot.
 
+That preview should stay honest about what is being edited:
+
+- the editor owns post or page content
+- the theme still owns layout, navigation, template parts, and query context
+- a preview shell is only a shell, not a replacement for real template editing
+
 ## Incompatible Template Context
 
 Some template blocks require real Site Editor or frontend entity context.
@@ -92,9 +98,11 @@ The intended flow is:
 The current flow is strongest for:
 
 - collection markdown content
-- route-backed page body content
+- route-backed page body content when `content.collections.page.sync` is enabled for that site
 - singleton/settings JSON
 - structured model fields and taxonomies
+
+Not every site uses the same sync mode. For example, `sites/portfolio` syncs page bodies from `content/pages/*.md`, while `sites/kanso` keeps `page.sync` off and treats routes as page shells plus template assignment.
 
 ## What Still Needs A Dedicated Editor
 
@@ -112,10 +120,15 @@ That is the missing piece for true Site Editor parity.
 If you are authoring a site in this repo today:
 
 - use `app/routes/*.json` for page structure and template assignment
-- use `content/pages/*.md` for page body content
+- only use `content/pages/*.md` on sites that actually enable page sync
 - use `content/<collection>/*.md` for editor-backed content
 - keep template logic in `theme/templates`, `theme/parts`, and `theme/patterns`
+- keep menus in `app/menus/*.json` and render them through native navigation blocks
+- prefer native WordPress post blocks and post-meta bindings before inventing site-specific theme glue
+- treat duplicated literals in templates as debt when the same value already exists in `app/` or `content/`
 - do not expect query-driven or entity-driven templates to behave like ordinary page content in the current `/app` editor
+
+If the site needs a cleaner way for native WordPress theme files to consume modeled data, the preferred fix is to improve the compiler/runtime bridge instead of moving more logic into the site.
 
 ## Goal State
 

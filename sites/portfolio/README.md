@@ -9,6 +9,7 @@ It demonstrates:
 - a generated `/app` admin
 - a WordPress block theme frontend
 - push/pull flow between files and WordPress
+- a sync-enabled page model that uses `content/pages/*.md`
 
 ## Structure
 
@@ -21,7 +22,7 @@ It demonstrates:
 - `app/routes/*.json`  
   Route-backed pages and template assignment.
 - `content/pages/*.md`  
-  Page body content that round-trips with the page editor.
+  Page body content that round-trips with the page editor because this site has `content.collections.page.sync = true`.
 - `content/<collection>/*.md`  
   Collection content that compiles into native Gutenberg block markup.
 - `theme/`  
@@ -64,4 +65,9 @@ The main content controls live in `app/site.json`:
 
 ## Notes
 
-This example is intentionally more minimal than `sites/kanso`. It is the cleaner reference if you want to understand the file contract before looking at the more visually opinionated example site.
+This example is intentionally more minimal than `sites/kanso`. It is the cleaner reference if you want to understand the current file contract before looking at the more visually opinionated example site.
+
+Use `sites/portfolio` when you want the clearest example of the current source model.
+Use `sites/kanso` when you want to inspect the more editorial theme direction and the remaining compiler/native-WordPress gaps.
+
+For the canonical source schema, see [`../../docs/schema/README.md`](../../docs/schema/README.md).

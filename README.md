@@ -1,19 +1,19 @@
 # wplite
 
-`wplite` is a flat, schema-first layer for building WordPress sites.
+`wplite` is a flat, schema-first authoring layer for building normal WordPress sites in code.
 
 You define a site in files:
 
 - `app/` for schema, routes, menus, and settings surfaces
 - `content/` for markdown and singleton data
-- `theme/` for the block theme
-- `blocks/` for dynamic runtime blocks
-- `admin/` for generated admin overrides
+- `theme/` for the native block theme
+- `blocks/` for public runtime blocks when core blocks are not enough
+- `admin/` for optional admin view/form overrides
 
 The compiler turns that into:
 
 - a generated WordPress plugin/runtime
-- a generated block theme
+- a generated block theme mount
 - generated admin schema for `/app`
 - a local WordPress instance that can be seeded, watched, and pulled back into files
 
@@ -22,11 +22,15 @@ The compiler turns that into:
 - [`packages/compiler`](./packages/compiler)  
   The `wp-light` CLI, compiler, generated runtime bridge, and custom `/app` admin.
 - [`sites/portfolio`](./sites/portfolio)  
-  A portfolio example focused on collections, markdown content, and a lighter block theme.
+  A cleaner reference site focused on the core file contract, collection content, and sync-enabled page bodies.
 - [`sites/kanso`](./sites/kanso)  
-  A design-studio example with a more editorial visual system and page-driven block content.
+  A more editorial design-studio example that also exposes current compiler gaps around native WordPress theme data access.
 - [`docs/architecture.md`](./docs/architecture.md)  
   The overall system model.
+- [`docs/flat-site-contract.md`](./docs/flat-site-contract.md)  
+  The native-WordPress contract: what belongs in a site, what belongs in the compiler, and what counts as legacy debt.
+- [`docs/schema/`](./docs/schema)  
+  The file-by-file source schema reference, including an AI-ready prompt for scaffolding new sites.
 - [`docs/editor-and-sync.md`](./docs/editor-and-sync.md)  
   How the `/app` editor, Gutenberg, templates, and push/pull flow work today.
 
@@ -44,6 +48,8 @@ It treats WordPress as:
 - media
 
 And it replaces the visible management layer with an opinionated app at `/app` that is generated from the file-based schema.
+
+The key constraint is that the public frontend should still look like a normal WordPress block theme. When a site needs extra glue to expose modeled data to that theme, the preferred fix is to improve the compiler rather than to make the site source more bespoke.
 
 ## Repo Layout
 
@@ -154,9 +160,11 @@ Each site follows the same structure:
 - `theme/`  
   Block theme templates, template parts, patterns, `theme.json`, and CSS.
 - `blocks/`  
-  Dynamic blocks for runtime data or frontend interactions.
+  Public runtime blocks for data or interactions the native block set cannot express cleanly.
 - `admin/*.json`  
   Optional DataViews/DataForm overrides.
+
+The intended contract for that source tree is documented in [`docs/flat-site-contract.md`](./docs/flat-site-contract.md).
 
 ## `/app` Admin
 
@@ -206,4 +214,4 @@ The important pieces are real and working:
 - custom `/app` admin
 - push/pull content flow between files and WordPress
 
-The main unfinished area is full Site Editor parity inside `/app`.
+The main unfinished areas are full Site Editor parity inside `/app` and a better compiler-owned bridge for exposing modeled site data to native WordPress theme files without site-local duplication.
