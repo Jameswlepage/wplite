@@ -42,7 +42,19 @@ function portfolio_light_get_compiled_generated_at() {
 
 function portfolio_light_get_site_config() {
 \t$compiled = portfolio_light_get_compiled_site();
-\treturn $compiled['site'] ?? [];
+\t$base = $compiled['site'] ?? [];
+\t$canonical = [
+\t\t'title'       => get_bloginfo( 'name' ),
+\t\t'tagline'     => get_bloginfo( 'description' ),
+\t\t'url'         => home_url( '/' ),
+\t\t'language'    => get_bloginfo( 'language' ),
+\t\t'locale'      => get_locale(),
+\t\t'iconId'      => (int) get_option( 'site_icon', 0 ),
+\t\t'iconUrl'     => function_exists( 'get_site_icon_url' ) ? get_site_icon_url( 512 ) : '',
+\t\t'adminEmail'  => get_option( 'admin_email' ),
+\t\t'timezone'    => wp_timezone_string(),
+\t];
+\treturn array_merge( $base, array_filter( $canonical, fn( $v ) => $v !== null && $v !== '' ) );
 }
 
 function portfolio_light_get_builtin_post_model() {
@@ -200,6 +212,92 @@ function portfolio_light_get_theme_css() {
 \t\treturn '';
 \t}
 \treturn (string) file_get_contents( $path );
+}
+
+function portfolio_light_get_editor_bundle() {
+\t// Swallow any stray PHP notices/warnings from WP core during this call.
+\t// get_block_editor_settings() can emit notices when called outside of the
+\t// usual admin request lifecycle (e.g. deprecated-argument warnings, or
+\t// missing globals). Without output-buffering, those bytes land in front of
+\t// our JSON response and break JSON.parse on the client.
+\tob_start();
+\t$previous_error_level = error_reporting();
+\terror_reporting( $previous_error_level & ~E_WARNING & ~E_NOTICE & ~E_DEPRECATED & ~E_USER_WARNING & ~E_USER_NOTICE & ~E_USER_DEPRECATED );
+
+\ttry {
+\t\t$global_stylesheet = '';
+\t\tif ( function_exists( 'wp_get_global_stylesheet' ) ) {
+\t\t\ttry {
+\t\t\t\t$global_stylesheet = (string) wp_get_global_stylesheet( [ 'variables', 'presets', 'styles', 'base-layout-styles' ] );
+\t\t\t} catch ( \\Throwable $e ) {
+\t\t\t\t$global_stylesheet = '';
+\t\t\t}
+\t\t}
+
+\t\t$theme = wp_get_theme();
+\t\t$theme_stylesheet_uri = get_stylesheet_uri();
+\t\t$theme_stylesheet_version = '';
+\t\t$stylesheet_path = get_stylesheet_directory() . '/style.css';
+\t\tif ( file_exists( $stylesheet_path ) ) {
+\t\t\t$theme_stylesheet_version = (string) filemtime( $stylesheet_path );
+\t\t}
+
+\t\t// Enumerate every registered block so the admin-app can stub any that
+\t\t// aren't on the client yet — prevents "classic/freeform" recovery UI
+\t\t// for site/plugin blocks the editor hasn't registered client-side.
+\t\t$block_types = [];
+\t\tif ( class_exists( 'WP_Block_Type_Registry' ) ) {
+\t\t\t$block_registry = WP_Block_Type_Registry::get_instance();
+\t\t\tforeach ( $block_registry->get_all_registered() as $name => $block_type ) {
+\t\t\t\t$block_types[] = [
+\t\t\t\t\t'name'            => $name,
+\t\t\t\t\t'title'           => $block_type->title ?? $name,
+\t\t\t\t\t'category'        => $block_type->category ?? 'widgets',
+\t\t\t\t\t'icon'            => $block_type->icon ?? null,
+\t\t\t\t\t'description'     => $block_type->description ?? '',
+\t\t\t\t\t'keywords'        => (array) ( $block_type->keywords ?? [] ),
+\t\t\t\t\t'apiVersion'      => (int) ( $block_type->api_version ?? 2 ),
+\t\t\t\t\t'attributes'      => (object) ( $block_type->attributes ?? [] ),
+\t\t\t\t\t'supports'        => (object) ( $block_type->supports ?? [] ),
+\t\t\t\t\t'usesContext'     => (array) ( $block_type->uses_context ?? [] ),
+\t\t\t\t\t'providesContext' => (object) ( $block_type->provides_context ?? [] ),
+\t\t\t\t\t'parent'          => $block_type->parent ?? null,
+\t\t\t\t\t'ancestor'        => $block_type->ancestor ?? null,
+\t\t\t\t\t'example'         => $block_type->example ?? null,
+\t\t\t\t\t'isDynamic'       => is_callable( $block_type->render_callback ?? null ),
+\t\t\t\t];
+\t\t\t}
+\t\t}
+
+\t\t// Fetch the full editor-settings array WP would use for a post editor.
+\t\t// This gives us __unstableResolvedAssets (iframe <link>/<style> HTML),
+\t\t// colors, gradients, fontSizes, and the complete styles[] array the
+\t\t// default block editor would render with.
+\t\t$editor_settings = [];
+\t\tif ( class_exists( 'WP_Block_Editor_Context' ) && function_exists( 'get_block_editor_settings' ) ) {
+\t\t\ttry {
+\t\t\t\t$context = new WP_Block_Editor_Context( [ 'name' => 'core/edit-post' ] );
+\t\t\t\t$editor_settings = get_block_editor_settings( [], $context );
+\t\t\t} catch ( \\Throwable $e ) {
+\t\t\t\t$editor_settings = [];
+\t\t\t}
+\t\t}
+
+\t\treturn [
+\t\t\t'globalStylesheet'       => $global_stylesheet,
+\t\t\t'themeStylesheetUrl'     => $theme_stylesheet_uri,
+\t\t\t'themeStylesheetVersion' => $theme_stylesheet_version,
+\t\t\t'themeName'              => $theme->get( 'Name' ),
+\t\t\t'blockTypes'             => $block_types,
+\t\t\t'editorSettings'         => $editor_settings,
+\t\t];
+\t} finally {
+\t\terror_reporting( $previous_error_level );
+\t\t// Discard whatever stray output WP core wrote into our buffer.
+\t\tif ( ob_get_level() > 0 ) {
+\t\t\tob_end_clean();
+\t\t}
+\t}
 }
 
 function portfolio_light_get_admin_schema( $name, $suffix ) {

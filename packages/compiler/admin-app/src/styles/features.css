@@ -140,15 +140,126 @@
   padding: 0;
 }
 
-.logs-card-body > .dataviews-shell > .dataviews-toolbar {
-  padding: 10px 12px;
+/* ── Logs: Gutenberg-minimal. White, gray, hairlines, no filled badges. ── */
+.logs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--wp-admin-border);
+  background: transparent;
 }
 
-.logs-card-body .dataviews-toolbar .components-base-control {
+.logs-filter-input {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 320px;
+  min-width: 240px;
+  max-width: 560px;
+  height: 32px;
+  padding: 0 30px 0 30px;
+  background: #fff;
+  border: 1px solid var(--wp-admin-border);
+  border-radius: 4px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.logs-filter-input:focus-within {
+  border-color: var(--wp-admin-theme-color, #3858e9);
+  box-shadow: 0 0 0 1px var(--wp-admin-theme-color, #3858e9);
+}
+
+.logs-filter-input__icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--wp-admin-text-muted);
+  pointer-events: none;
+}
+
+.logs-filter-input__field {
   flex: 1;
-  margin-bottom: 0;
-  max-width: 420px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--wp-admin-text);
+  padding: 0;
+}
+
+.logs-filter-input__clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  border-radius: 3px;
+  color: var(--wp-admin-text-muted);
+  cursor: pointer;
+}
+
+.logs-filter-input__clear:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--wp-admin-text);
+}
+
+.logs-level-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Plain text chips — no dots, no filled backgrounds. Light hover/active. */
+.logs-level-chip.components-button,
+.logs-level-chip.components-button:hover,
+.logs-level-chip.components-button:focus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+  border-radius: 4px;
+  color: var(--wp-admin-text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.logs-level-chip.components-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--wp-admin-text);
+}
+
+.logs-level-chip.components-button.is-pressed,
+.logs-level-chip.components-button.is-pressed:hover,
+.logs-level-chip.components-button.is-pressed:focus {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--wp-admin-text);
+  box-shadow: none;
+}
+
+.logs-level-chip__dot {
+  display: none;
+}
+
+.logs-level-chip__count {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--wp-admin-text-muted);
+  opacity: 0.8;
 }
 
 .logs-count {
@@ -160,59 +271,111 @@
 .logs-viewer {
   max-height: 70vh;
   overflow-y: auto;
-  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.5;
+  background: #fff;
 }
 
-.log-line {
-  display: flex;
+.log-entry {
+  display: grid;
+  grid-template-columns: 44px 140px 1fr;
+  align-items: baseline;
   gap: 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 8px 16px;
+  border-bottom: 1px solid #f1f1f1;
 }
 
-.log-line:last-of-type {
+.logs-viewer--no-numbers .log-entry {
+  grid-template-columns: 140px 1fr;
+}
+
+.log-entry:last-of-type {
   border-bottom: none;
 }
 
-.log-line__number {
-  flex-shrink: 0;
-  width: 48px;
-  padding: 4px 8px;
+.log-entry__bar {
+  display: none;
+}
+
+.log-entry__number {
   text-align: right;
+  padding-right: 12px;
+  font-size: 11px;
   color: var(--wp-admin-text-muted);
-  background: var(--wp-admin-surface);
+  font-variant-numeric: tabular-nums;
   user-select: none;
-  border-right: 1px solid var(--wp-admin-border);
+  opacity: 0.5;
 }
 
-.log-line__text {
-  flex: 1;
-  padding: 4px 12px;
-  white-space: pre-wrap;
-  word-break: break-all;
+.log-entry__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-right: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Severity: tiny uppercase label only, color-coded via text — no filled pill. */
+.log-entry__level {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wp-admin-text-muted);
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.log-entry__level--fatal,
+.log-entry__level--error { color: #b91c1c; }
+.log-entry__level--warning { color: #b45309; }
+.log-entry__level--notice { color: var(--wp-admin-text-muted); }
+.log-entry__level--info { color: var(--wp-admin-text-muted); }
+
+.log-entry__timestamp {
+  font-size: 11px;
+  color: var(--wp-admin-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.8;
+}
+
+.log-entry__body {
+  min-width: 0;
+}
+
+.log-entry__message {
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
   color: var(--wp-admin-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
 }
 
-.log-line--error .log-line__text {
-  color: #dc2626;
-  background: #fef2f2;
+.log-entry__source {
+  font-weight: 500;
+  color: inherit;
+  margin-right: 6px;
 }
 
-.log-line--fatal .log-line__text {
-  color: #991b1b;
-  background: #fee2e2;
-  font-weight: 600;
-}
-
-.log-line--warning .log-line__text {
-  color: #d97706;
-  background: #fffbeb;
-}
-
-.log-line--notice .log-line__text {
-  color: #6b7280;
-  background: #f9fafb;
+/* Continuation lines: just indented muted monospace, no box/background. */
+.log-entry__continuation {
+  margin: 4px 0 0;
+  padding: 0 0 0 12px;
+  background: transparent;
+  border-left: 1px solid #ececec;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--wp-admin-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  border-radius: 0;
 }
 
 /* ── Domains Page ── */
@@ -447,8 +610,145 @@
   white-space: nowrap;
 }
 
+/* Square, centered brand icon container. Explicit size + aspect-ratio + SVG
+   constraints so all 8 brand SVGs render as a consistent 28x28 square. */
 .integration-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.integration-brand-icon svg {
   display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ── Table (list) layout ── */
+
+/* Media / icon cell: centered square, fixed width. */
+.dataviews-view-table__cell[data-field-id="media"],
+.dataviews-view-table tbody td:has(> .integration-brand-icon),
+.dataviews-view-table tbody td:has(.integration-brand-icon) {
+  width: 48px;
+}
+
+.dataviews-view-table__cell[data-field-id="media"] .dataviews-view-table__cell-content-wrapper,
+.dataviews-view-table tbody td:has(.integration-brand-icon) .dataviews-view-table__cell-content-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Name cell: force the title + description stack to be left-aligned. DataViews'
+   default flex centering cascades deeply; nuke it at every level. */
+.dataviews-view-table__cell[data-field-id="name"],
+.dataviews-view-table__cell[data-field-id="name"] > *,
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper,
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content,
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-field,
+.dataviews-view-table__cell[data-field-id="name"] [class*="primary"],
+.dataviews-view-table__cell[data-field-id="name"] [class*="title"],
+.dataviews-view-table__cell[data-field-id="name"] [class*="field-value"] {
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  align-self: flex-start !important;
+}
+
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper,
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px;
+  white-space: normal;
+}
+
+/* Everything inside the name cell should behave as a block-level left-aligned
+   element, overriding DataViews' inline-flex defaults. */
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper > *,
+.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content > * {
+  display: block;
+  width: 100%;
+  margin-left: 0;
+  margin-right: auto;
+  text-align: left !important;
+}
+
+/* ── Grid layout ──
+   The upstream CSS paints a 1px inset box-shadow inside
+   .dataviews-view-grid__media::after and the media cell also has its own
+   border-radius + background; combined with our prior aspect-ratio override
+   that sat atop the outer card border, this produced a visible doubled
+   border (outer card border + inner media pseudo-border). Remove the inner
+   pseudo-border and consolidate: one outer card frame, flush media with
+   clean internal spacing, icon centered. */
+
+.dataviews-view-grid .dataviews-view-grid__card {
+  border: 1px solid var(--wp-admin-border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Kill the inset pseudo-border that caused the doubled border effect. */
+.dataviews-view-grid .dataviews-view-grid__card .dataviews-view-grid__media::after {
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+/* Media slot: tight fixed height, no aspect-ratio (which was making the slot
+   absurdly tall for a 64px icon). Flush to card edges. */
+.dataviews-view-grid .dataviews-view-grid__media,
+.dataviews-view-grid .dataviews-view-grid__card-media {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: auto !important;
+  width: 100%;
+  height: 96px;
+  min-height: 96px;
+  max-height: 96px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--wp-admin-border);
+  border-radius: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Brand icon inside grid card: proportional, not oversized. */
+.dataviews-view-grid .dataviews-view-grid__media .integration-brand-icon,
+.dataviews-view-grid .dataviews-view-grid__card-media .integration-brand-icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* The text body of each card needs its own padding since the card itself
+   is now flush (padding: 0). */
+.dataviews-view-grid .dataviews-view-grid__fields {
+  padding: 12px 14px;
+  box-sizing: border-box;
+}
+
+.dataviews-view-list__media {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
 }
 
 .integration-status {

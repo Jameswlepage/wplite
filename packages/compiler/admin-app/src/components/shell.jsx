@@ -15,7 +15,7 @@ import {
 import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
 import { collectionPathForModel, toTitleCase } from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
-import { NotificationCenter, useNotificationArchive } from './notifications.jsx';
+import { NotificationBell, SidekickPanel, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
 import { MediaPage, MediaEditorPage } from './media.jsx';
@@ -163,6 +163,40 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
   });
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidekickOpen, setSidekickOpen] = useState(() => {
+    try {
+      return window.localStorage.getItem('wplite-sidekick-open') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [sidekickTab, setSidekickTab] = useState(() => {
+    try {
+      return window.localStorage.getItem('wplite-sidekick-tab') || 'notifications';
+    } catch {
+      return 'notifications';
+    }
+  });
+
+  function toggleSidekick() {
+    setSidekickOpen((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem('wplite-sidekick-open', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }
+
+  function closeSidekick() {
+    setSidekickOpen(false);
+    try { window.localStorage.setItem('wplite-sidekick-open', '0'); } catch {}
+  }
+
+  function handleSidekickTabChange(name) {
+    setSidekickTab(name);
+    try { window.localStorage.setItem('wplite-sidekick-tab', name); } catch {}
+  }
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   function toggleSidebar() {
     setSidebarCollapsed((prev) => {
@@ -247,18 +281,21 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     }));
   }, [location.pathname]);
   const isEditorRoute = useMemo(() => {
-    const editorPaths = new Set([
+    const editorPaths = [
       '/pages',
       ...bootstrap.models
         .filter((model) => model?.supports?.includes('editor'))
         .map((model) => collectionPathForModel(model)),
-    ]);
+    ];
 
-    return Array.from(editorPaths).some((path) => location.pathname.startsWith(`${path}/`));
+    return editorPaths.some((path) => {
+      const rest = location.pathname.slice(path.length).replace(/\/+$/, '');
+      return location.pathname.startsWith(path) && rest.length > 1 && rest.startsWith('/');
+    });
   }, [bootstrap.models, location.pathname]);
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${singletonData.profile?.color_scheme && singletonData.profile.color_scheme !== 'default' ? ` color-scheme-${singletonData.profile.color_scheme}` : ''}`}>
+    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${sidekickOpen ? ' sidekick-open' : ''}${singletonData.profile?.color_scheme && singletonData.profile.color_scheme !== 'default' ? ` color-scheme-${singletonData.profile.color_scheme}` : ''}`}>
       <div className="sidebar-overlay" onClick={closeMobileSidebar} />
       <aside className="sidebar">
         <div className="sidebar__brand">
@@ -266,16 +303,8 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
             <button
               className={`sidebar__site-icon${!sidebarCollapsed && !bootstrap.site.icon_url ? ' sidebar__site-icon--placeholder' : ''}`}
               type="button"
-              onClick={
-                sidebarCollapsed
-                  ? toggleSidebar
-                  : () => navigate('/settings/site')
-              }
-              title={
-                sidebarCollapsed
-                  ? 'Expand sidebar'
-                  : bootstrap.site.icon_url ? 'Change site icon' : 'Add a site icon'
-              }
+              onClick={toggleSidebar}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {sidebarCollapsed ? (
                 <OpenPanelLeft size={18} />
@@ -369,11 +398,10 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
               </nav>
             </div>
             <div className="main-panel__topbar-actions">
-              <NotificationCenter
-                notifications={notifications}
-                onMarkAllRead={markAllRead}
-                onClearAll={clearAllNotifications}
-                onOpen={markNonErrorsRead}
+              <NotificationBell
+                unreadCount={unreadCount}
+                isOpen={sidekickOpen}
+                onClick={toggleSidekick}
               />
             </div>
           </div>
@@ -414,7 +442,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
                 }
               />
               <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} themeJson={bootstrap.themeJson} themeCss={bootstrap.themeCss} />} />
+              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
               <Route path="/media/:mediaId" element={<MediaEditorPage pushNotice={pushNotice} />} />
               <Route path="/users" element={<UsersPage pushNotice={pushNotice} />} />
@@ -468,6 +496,16 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
           </div>
         </main>
       </div>
+      <SidekickPanel
+        open={sidekickOpen}
+        onClose={closeSidekick}
+        activeTab={sidekickTab}
+        onTabChange={handleSidekickTabChange}
+        notifications={notifications}
+        onMarkAllRead={markAllRead}
+        onClearAll={clearAllNotifications}
+        onOpen={markNonErrorsRead}
+      />
       <NoticeStack notices={notices} onDismiss={dismissNotice} />
     </div>
   );

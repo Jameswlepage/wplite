@@ -296,7 +296,7 @@ export function SingletonEditorPage({ bootstrap, singletonData, setSingletonData
 
   const fields = useMemo(() => {
     if (!schema || !pseudoModel) return [];
-    return buildFieldDefinitions({ schema, model: pseudoModel, recordsByModel: {}, includeContentField: true, ImageControl, RepeaterControl });
+    return buildFieldDefinitions({ schema, model: pseudoModel, recordsByModel: {}, includeContentField: true, ImageControl, RepeaterControl, canonical: bootstrap.site });
   }, [pseudoModel, schema, singletonData]);
 
   const form = useMemo(() => {

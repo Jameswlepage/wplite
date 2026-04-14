@@ -151,6 +151,19 @@ body.portfolio-light-admin-app {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Force every heading inside the admin shell to use the system font stack.
+   Theme-supplied serif/display fonts must never leak into /app. */
+body.portfolio-light-admin-app h1,
+body.portfolio-light-admin-app h2,
+body.portfolio-light-admin-app h3,
+body.portfolio-light-admin-app h4,
+body.portfolio-light-admin-app h5,
+body.portfolio-light-admin-app h6,
+body.portfolio-light-admin-app .components-panel__body-title,
+body.portfolio-light-admin-app .screen-header .eyebrow {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif !important;
+}
+
 a {
   color: var(--wp-admin-accent);
   text-decoration: none;

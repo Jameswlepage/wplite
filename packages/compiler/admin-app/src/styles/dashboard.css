@@ -155,8 +155,8 @@
 .welcome-card h2 {
   margin: 0 0 4px;
   font-size: 20px;
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 600;
   color: var(--wp-admin-text);
 }
 
@@ -768,8 +768,8 @@
 .welcome-hero__title {
   margin: 4px 0 2px;
   font-size: 22px;
-  font-weight: 700;
-  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   color: var(--wp-admin-text);
   line-height: 1.2;
 }
@@ -1382,6 +1382,12 @@
 /* ── Block-widget host (dashboard blocks) ── */
 .block-widget-host {
   min-height: 80px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.dash-widget[data-span="full"] .block-widget-host {
+  max-height: 520px;
 }
 
 .site-pulse__tabs {

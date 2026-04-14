@@ -48,9 +48,18 @@ export function compileNavigationTemplate(source, menuItems, siteSchema) {
     models: siteSchema.models ?? [],
   });
 
-  return source.replace(
-    /<!-- wp:navigation [\s\S]*?\/-->/,
-    navigationMarkup
+  // Match wp:navigation block comments. The attr JSON allows one level of
+  // nesting (e.g. {"layout":{"type":"flex"}}), which a lazy [\s\S]*? would
+  // mis-truncate at the first inner `}`.
+  const attrs = '(?:\\s+\\{(?:[^{}]|\\{[^{}]*\\})*\\})?';
+  const selfClosing = new RegExp(`<!--\\s+wp:navigation${attrs}\\s*\\/-->`, 'g');
+  const openClose = new RegExp(
+    `<!--\\s+wp:navigation${attrs}\\s*-->[\\s\\S]*?<!--\\s+\\/wp:navigation\\s+-->`,
+    'g'
   );
+
+  return source
+    .replace(openClose, navigationMarkup)
+    .replace(selfClosing, navigationMarkup);
 }
 

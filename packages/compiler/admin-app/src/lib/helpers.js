@@ -67,6 +67,21 @@ export function normalizeOption(value) {
   return { value, label: toTitleCase(value) };
 }
 
+export function resolveCanonicalValue(source, canonical = {}) {
+  switch (source) {
+    case 'site.title':       return canonical.title;
+    case 'site.description': return canonical.tagline;
+    case 'site.url':         return canonical.url;
+    case 'site.language':    return canonical.language;
+    case 'site.icon':        return canonical.iconId;
+    case 'site.icon_url':    return canonical.iconUrl;
+    case 'site.admin_email': return canonical.adminEmail;
+    case 'site.locale':      return canonical.locale;
+    case 'site.timezone':    return canonical.timezone;
+    default:                 return null;
+  }
+}
+
 export function getModelByCollectionPath(models, collectionPath) {
   return models.find((m) => collectionPathForModel(m).slice(1) === collectionPath) ?? null;
 }
@@ -78,7 +93,7 @@ export function getRelationLabel(recordsByModel, target, value) {
   return match?.title || '';
 }
 
-export function buildFieldDefinitions({ schema, model, recordsByModel, includeContentField, ImageControl, RepeaterControl }) {
+export function buildFieldDefinitions({ schema, model, recordsByModel, includeContentField, ImageControl, RepeaterControl, canonical = {} }) {
   const filterable = new Set(schema.view?.filters ?? []);
   return (schema.fields ?? [])
     .filter((field) => {
@@ -87,9 +102,19 @@ export function buildFieldDefinitions({ schema, model, recordsByModel, includeCo
       return true;
     })
     .map((field) => {
+      const inheritedValue = field.inheritsFrom
+        ? resolveCanonicalValue(field.inheritsFrom, canonical)
+        : null;
+      const inheritedHint =
+        field.inheritsFrom && inheritedValue !== null && inheritedValue !== undefined && inheritedValue !== ''
+          ? `Inherits from ${field.inheritsFrom}: ${inheritedValue}`
+          : null;
+      const description = [field.help, inheritedHint].filter(Boolean).join(' — ');
+
       const baseField = {
         id: field.id,
         label: field.label,
+        description: description || undefined,
         enableGlobalSearch: ['title', 'excerpt'].includes(field.id),
         enableSorting: !['repeater', 'array', 'richtext'].includes(field.type),
         enableHiding: field.id !== 'title',
@@ -156,10 +181,19 @@ export function buildFieldDefinitions({ schema, model, recordsByModel, includeCo
 
 export function buildFormConfig(schema, fieldIds) {
   const included = new Set(fieldIds);
-  const fields = (schema.form?.children ?? [])
-    .map((section) => transformFormNode(section, included, true))
-    .filter(Boolean);
-  return { layout: { type: 'regular', labelPosition: 'top' }, fields };
+  const flatFields = [];
+  collectFormFieldIds(schema.form?.children ?? [], included, flatFields);
+  return { layout: { type: 'regular', labelPosition: 'top' }, fields: flatFields };
+}
+
+function collectFormFieldIds(nodes, included, output) {
+  for (const node of nodes) {
+    if (typeof node === 'string') {
+      if (included.has(node)) output.push(node);
+      continue;
+    }
+    if (node?.children) collectFormFieldIds(node.children, included, output);
+  }
 }
 
 export function transformFormNode(node, included, isTopLevel = false) {
@@ -444,6 +478,21 @@ export function getStatusBadgeClass(status) {
   return `status-badge ${map[status] || ''}`;
 }
 
+function extractRawField(field, { fieldLabel, itemLabel } = {}) {
+  if (field == null) return '';
+  if (typeof field === 'string') return field;
+  if (typeof field?.raw === 'string') return field.raw;
+  if (typeof field?.rendered === 'string') {
+    if (typeof console !== 'undefined') {
+      console.warn(
+        `[wplite] REST response for ${itemLabel ?? 'record'} is missing ${fieldLabel ?? 'field'}.raw — falling back to rendered HTML. Likely cause: the request did not apply context=edit, or the current user lacks edit permissions. Parsed blocks will be recovered from HTML and may appear as classic/freeform blocks.`
+      );
+    }
+    return field.rendered;
+  }
+  return '';
+}
+
 export function normalizePageRecord(page) {
   return {
     id: page.id,
@@ -451,7 +500,7 @@ export function normalizePageRecord(page) {
     slug: page.slug ?? '',
     routeId: page.portfolioRouteId ?? '',
     postStatus: page.status ?? 'draft',
-    content: page.content?.raw ?? page.content?.rendered ?? '',
+    content: extractRawField(page.content, { fieldLabel: 'content', itemLabel: `page ${page.id}` }),
     excerpt: page.excerpt?.raw ?? decodeRenderedText(page.excerpt?.rendered) ?? '',
     parent: page.parent ?? 0,
     template: page.template ?? '',

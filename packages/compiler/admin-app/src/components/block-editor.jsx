@@ -7,7 +7,7 @@ import {
   BlockInspector,
   BlockToolbar,
   BlockTools,
-  Inserter,
+  __experimentalLibrary as InserterLibrary,
 } from '@wordpress/block-editor';
 import {
   Button,
@@ -19,11 +19,37 @@ import {
 import { useSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { CarbonIcon } from '../lib/icons.jsx';
-import { buildBlockEditorSettings, buildCanvasStyles } from '../lib/blocks.jsx';
+import { apiFetch } from '../lib/helpers.js';
+import {
+  buildBlockEditorSettings,
+  buildCanvasStyles,
+  registerServerBlockTypes,
+} from '../lib/blocks.jsx';
+
+// Shared across editor mounts so we only pay the REST round-trip once per
+// session. WP's editor settings don't change within a session, and caching
+// also avoids re-registering server block types on every navigation.
+let cachedEditorBundlePromise = null;
+
+function loadEditorBundle() {
+  if (!cachedEditorBundlePromise) {
+    cachedEditorBundlePromise = apiFetch('editor-bundle')
+      .then((bundle) => {
+        registerServerBlockTypes(bundle?.blockTypes ?? []);
+        return bundle;
+      })
+      .catch((error) => {
+        cachedEditorBundlePromise = null;
+        throw error;
+      });
+  }
+  return cachedEditorBundlePromise;
+}
 
 /* ── Icon wrappers for WP Button/DropdownMenu icon props ── */
 const BackIcon = () => <CarbonIcon name="ArrowLeft" size={20} />;
 const AddIcon = () => <CarbonIcon name="Add" size={20} />;
+const CloseIcon = () => <CarbonIcon name="Close" size={16} />;
 const OverflowIcon = () => <CarbonIcon name="OverflowMenuVertical" size={20} />;
 const LaunchIcon = () => <CarbonIcon name="Launch" size={16} />;
 const SidebarCloseIcon = () => <CarbonIcon name="SidePanelClose" size={20} />;
@@ -116,11 +142,25 @@ export function NativeBlockEditorFrame({
   documentLabel = 'Page',
   documentSidebar,
   blockSidebarFooter = null,
-  themeJson,
-  themeCss,
   wpAdminUrl,
   wpAdminTemplateUrl,
 }) {
+  const [editorBundle, setEditorBundle] = useState(null);
+  const [bundleError, setBundleError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadEditorBundle()
+      .then((bundle) => {
+        if (!cancelled) setEditorBundle(bundle);
+      })
+      .catch((error) => {
+        if (!cancelled) setBundleError(error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const moreActionsControls = [];
   if (viewUrl) {
     moreActionsControls.push({
@@ -154,6 +194,18 @@ export function NativeBlockEditorFrame({
   );
   const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [inserterOpen, setInserterOpen] = useState(false);
+
+  useEffect(() => {
+    if (!inserterOpen) return undefined;
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        setInserterOpen(false);
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [inserterOpen]);
 
   useEffect(() => {
     if (selectedBlockId) {
@@ -162,14 +214,30 @@ export function NativeBlockEditorFrame({
   }, [selectedBlockId]);
 
   const canvasStyles = useMemo(
-    () => buildCanvasStyles(themeJson, themeCss),
-    [themeJson, themeCss]
+    () => buildCanvasStyles(editorBundle),
+    [editorBundle]
   );
 
   const editorSettings = useMemo(
-    () => buildBlockEditorSettings(themeJson, themeCss),
-    [themeJson, themeCss]
+    () => buildBlockEditorSettings(editorBundle),
+    [editorBundle]
   );
+
+  if (bundleError) {
+    return (
+      <div className="native-editor native-editor--error">
+        <p>Failed to load editor: {bundleError.message}</p>
+      </div>
+    );
+  }
+
+  if (!editorBundle) {
+    return (
+      <div className="native-editor native-editor--loading">
+        <p>Loading editor…</p>
+      </div>
+    );
+  }
 
   return (
     <BlockEditorProvider
@@ -190,16 +258,13 @@ export function NativeBlockEditorFrame({
               onClick={onBack}
             />
             <div className="native-editor__topbar-divider" aria-hidden="true" />
-            <Inserter
-              position="bottom right"
-              rootClientId={undefined}
-              isAppender={false}
-              toggleProps={{
-                icon: AddIcon,
-                label: 'Add block',
-                showTooltip: true,
-                className: 'native-editor__inserter-toggle',
-              }}
+            <Button
+              className="native-editor__inserter-toggle"
+              icon={AddIcon}
+              label="Add block"
+              showTooltip
+              isPressed={inserterOpen}
+              onClick={() => setInserterOpen((v) => !v)}
             />
           </div>
 
@@ -241,7 +306,27 @@ export function NativeBlockEditorFrame({
           </div>
         </header>
 
-        <div className={`native-editor__layout${sidebarOpen ? '' : ' native-editor__layout--no-sidebar'}`}>
+        <div
+          className={`native-editor__layout${sidebarOpen ? '' : ' native-editor__layout--no-sidebar'}${inserterOpen ? ' native-editor__layout--with-inserter' : ''}`}
+        >
+          {inserterOpen ? (
+            <aside className="native-editor__inserter-panel">
+              <header className="native-editor__inserter-panel-header">
+                <span>Add Block</span>
+                <Button
+                  icon={CloseIcon}
+                  label="Close"
+                  onClick={() => setInserterOpen(false)}
+                />
+              </header>
+              <div className="native-editor__inserter-panel-body">
+                <InserterLibrary
+                  showInserterHelpPanel={false}
+                  onSelect={() => setInserterOpen(false)}
+                />
+              </div>
+            </aside>
+          ) : null}
           <section className="native-editor__main">
             <BlockTools className="native-editor__block-tools">
               <div className="native-editor__block-toolbar">

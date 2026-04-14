@@ -17,6 +17,7 @@ require_once __DIR__ . '/inc/register-post-types.php';
 require_once __DIR__ . '/inc/register-taxonomies.php';
 require_once __DIR__ . '/inc/register-meta.php';
 require_once __DIR__ . '/inc/register-singletons.php';
+require_once __DIR__ . '/inc/register-head.php';
 require_once __DIR__ . '/inc/register-rest.php';
 require_once __DIR__ . '/inc/register-admin-app.php';
 require_once __DIR__ . '/inc/register-login-style.php';

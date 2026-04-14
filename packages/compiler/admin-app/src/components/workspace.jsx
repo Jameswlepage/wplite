@@ -15,8 +15,10 @@ import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
 import {
   Add,
   CheckmarkFilled,
+  Close,
   Copy,
   Debug,
+  Email,
   Integration,
   Locked,
   Renew,
@@ -662,6 +664,14 @@ def delete_${selectedEntity}(entity_id):
     return rows;
   }, [models, singletons]);
 
+  const resourceElements = useMemo(() => {
+    const set = new Set();
+    set.add('core');
+    models.forEach((m) => set.add(m.label));
+    singletons.forEach((s) => set.add(s.label));
+    return Array.from(set).map((v) => ({ value: v, label: v }));
+  }, [models, singletons]);
+
   const endpointFields = useMemo(() => [
     {
       id: 'method',
@@ -699,16 +709,10 @@ def delete_${selectedEntity}(entity_id):
       type: 'text',
       enableSorting: true,
       filterBy: {},
-      elements: useMemo(() => {
-        const set = new Set();
-        set.add('core');
-        models.forEach((m) => set.add(m.label));
-        singletons.forEach((s) => set.add(s.label));
-        return Array.from(set).map((v) => ({ value: v, label: v }));
-      }, []),
+      elements: resourceElements,
       getValue: ({ item }) => item.resource,
     },
-  ], [models, singletons]);
+  ], [resourceElements]);
 
   const [endpointView, setEndpointView] = useState({
     type: 'table',
@@ -899,11 +903,94 @@ def delete_${selectedEntity}(entity_id):
 }
 
 /* ── Logs Page ── */
+
+// Matches a typical PHP debug.log timestamp like `[12-Apr-2026 14:30:05 UTC]`
+const LOG_TIMESTAMP_RE = /^\[(\d{1,2}-[A-Za-z]{3}-\d{4}\s+\d{1,2}:\d{2}:\d{2}(?:\s+[A-Z]{2,5})?)\]\s*/;
+// Matches an explicit severity/source prefix at the start of a line (after timestamp).
+// Covers: PHP Fatal error:, PHP Warning:, PHP Notice:, PHP Parse error:, PHP Deprecated:,
+// WordPress database error, [wplite], [plugin-slug], or a generic "Error:" / "Fatal error:" style.
+const LOG_SOURCE_RE = /^(PHP\s+(?:Fatal error|Parse error|Warning|Notice|Deprecated|Strict Standards)(?:\s*:)?|WordPress database error|Fatal error|Error|Warning|Notice|Deprecated|\[[^\]]+\])\s*:?\s*/;
+
+// Continuation detection — indented text, stack-trace frames (#0 /path), "at ClassName..." lines.
+function isContinuationLine(line) {
+  if (!line) return false;
+  if (/^\s/.test(line)) return true;
+  if (/^#\d+\s/.test(line)) return true;
+  if (/^(thrown|Stack trace|PHP\s+\d+\.\s|at\s+)/i.test(line)) return true;
+  return false;
+}
+
+function detectLevel(line) {
+  if (/fatal\s+error|^\s*Fatal\s+error/i.test(line)) return 'fatal';
+  if (/database error|\bPHP\s+Parse error|\bPHP\s+Error\b|(^|[^a-z])error[:\s]/i.test(line)) return 'error';
+  if (/warning/i.test(line)) return 'warning';
+  if (/notice|deprecated|strict\s+standards/i.test(line)) return 'notice';
+  return 'info';
+}
+
+function parseLogLine(line) {
+  let rest = line ?? '';
+  let timestamp = null;
+  const tsMatch = rest.match(LOG_TIMESTAMP_RE);
+  if (tsMatch) {
+    timestamp = tsMatch[1];
+    rest = rest.slice(tsMatch[0].length);
+  }
+  let source = null;
+  const srcMatch = rest.match(LOG_SOURCE_RE);
+  if (srcMatch) {
+    source = srcMatch[1].replace(/\s*:\s*$/, '');
+    rest = rest.slice(srcMatch[0].length);
+  }
+  return { timestamp, source, message: rest };
+}
+
+// Group raw lines into entries. A line is a new entry when:
+//   * it has a leading timestamp, OR
+//   * it has an explicit PHP/WordPress/[bracket] source prefix and is not a continuation
+// Otherwise it's attached as a continuation to the previous entry.
+function parseLogEntries(rawLines) {
+  const entries = [];
+  rawLines.forEach((raw) => {
+    const hasTs = LOG_TIMESTAMP_RE.test(raw);
+    const continuation = !hasTs && isContinuationLine(raw);
+    if (!hasTs && continuation && entries.length > 0) {
+      entries[entries.length - 1].continuations.push(raw);
+      return;
+    }
+    // If no timestamp and no source prefix and we have a previous entry, treat as continuation
+    const { timestamp, source, message } = parseLogLine(raw);
+    if (!hasTs && !source && entries.length > 0 && raw.trim() !== '') {
+      entries[entries.length - 1].continuations.push(raw);
+      return;
+    }
+    entries.push({
+      raw,
+      timestamp,
+      source,
+      message,
+      level: detectLevel(raw),
+      continuations: [],
+    });
+  });
+  return entries;
+}
+
+const LOG_LEVELS = [
+  { id: 'fatal', label: 'Fatal' },
+  { id: 'error', label: 'Error' },
+  { id: 'warning', label: 'Warning' },
+  { id: 'notice', label: 'Notice' },
+  { id: 'info', label: 'Info' },
+];
+
 export function LogsPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [filter, setFilter] = useState('');
+  const [activeLevels, setActiveLevels] = useState(() => new Set(LOG_LEVELS.map((l) => l.id)));
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
   const logsEndRef = useRef(null);
 
   async function fetchLogs() {
@@ -926,11 +1013,31 @@ export function LogsPage() {
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
+  const entries = useMemo(() => parseLogEntries(logs), [logs]);
+
+  const levelCounts = useMemo(() => {
+    const counts = { fatal: 0, error: 0, warning: 0, notice: 0, info: 0 };
+    entries.forEach((e) => { counts[e.level] = (counts[e.level] ?? 0) + 1; });
+    return counts;
+  }, [entries]);
+
+  const deferredFilter = useDeferredValue(filter);
+
+  const filteredEntries = useMemo(() => {
+    const q = deferredFilter.trim().toLowerCase();
+    return entries.filter((e) => {
+      if (!activeLevels.has(e.level)) return false;
+      if (!q) return true;
+      if (e.raw.toLowerCase().includes(q)) return true;
+      return e.continuations.some((c) => c.toLowerCase().includes(q));
+    });
+  }, [entries, deferredFilter, activeLevels]);
+
   useEffect(() => {
     if (logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs]);
+  }, [filteredEntries.length]);
 
   async function clearLogs() {
     try {
@@ -939,20 +1046,21 @@ export function LogsPage() {
     } catch {}
   }
 
-  const deferredFilter = useDeferredValue(filter);
-  const filteredLogs = useMemo(() => {
-    if (!deferredFilter) return logs;
-    const q = deferredFilter.toLowerCase();
-    return logs.filter((line) => line.toLowerCase().includes(q));
-  }, [logs, deferredFilter]);
-
-  function getLineLevel(line) {
-    if (/fatal error/i.test(line)) return 'fatal';
-    if (/error/i.test(line)) return 'error';
-    if (/warning/i.test(line)) return 'warning';
-    if (/notice|deprecated/i.test(line)) return 'notice';
-    return 'info';
+  function toggleLevel(id) {
+    setActiveLevels((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   }
+
+  function setAllLevels() {
+    setActiveLevels(new Set(LOG_LEVELS.map((l) => l.id)));
+  }
+
+  const allOn = activeLevels.size === LOG_LEVELS.length;
+  const shownCount = filteredEntries.length;
+  const linesLabel = `${shownCount.toLocaleString()} ${shownCount === 1 ? 'line' : 'lines'}`;
 
   return (
     <div className="screen">
@@ -987,16 +1095,62 @@ export function LogsPage() {
       <Card className="surface-card">
         <CardBody className="logs-card-body">
           <div className="dataviews-shell">
-            <div className="dataviews-toolbar">
-              <TextControl
-                placeholder="Filter logs..."
-                value={filter}
-                onChange={setFilter}
-                __next40pxDefaultSize
-                __nextHasNoMarginBottom
-              />
+            <div className="logs-toolbar">
+              <div className="logs-filter-input">
+                <Search size={14} className="logs-filter-input__icon" aria-hidden="true" />
+                <input
+                  type="text"
+                  className="logs-filter-input__field"
+                  placeholder="Filter log entries…"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                {filter && (
+                  <button
+                    type="button"
+                    className="logs-filter-input__clear"
+                    aria-label="Clear filter"
+                    onClick={() => setFilter('')}
+                  >
+                    <Close size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="logs-level-chips" role="group" aria-label="Filter by severity">
+                <Button
+                  variant="tertiary"
+                  size="small"
+                  isPressed={allOn}
+                  onClick={setAllLevels}
+                  className="logs-level-chip logs-level-chip--all"
+                >
+                  All <span className="logs-level-chip__count">{entries.length}</span>
+                </Button>
+                {LOG_LEVELS.map((lvl) => (
+                  <Button
+                    key={lvl.id}
+                    variant="tertiary"
+                    size="small"
+                    isPressed={activeLevels.has(lvl.id)}
+                    onClick={() => toggleLevel(lvl.id)}
+                    className={`logs-level-chip logs-level-chip--${lvl.id}`}
+                  >
+                    <span className={`logs-level-chip__dot logs-level-chip__dot--${lvl.id}`} aria-hidden="true" />
+                    {lvl.label}
+                    <span className="logs-level-chip__count">{levelCounts[lvl.id] ?? 0}</span>
+                  </Button>
+                ))}
+              </div>
               <div className="dataviews-toolbar__spacer" />
-              <span className="logs-count">{filteredLogs.length} lines</span>
+              <Button
+                variant="tertiary"
+                size="small"
+                isPressed={showLineNumbers}
+                onClick={() => setShowLineNumbers((v) => !v)}
+              >
+                #
+              </Button>
+              <span className="logs-count">{linesLabel}</span>
             </div>
             {loading ? (
               <div className="skeleton-logs">
@@ -1007,18 +1161,43 @@ export function LogsPage() {
                   </div>
                 ))}
               </div>
-            ) : filteredLogs.length === 0 ? (
+            ) : filteredEntries.length === 0 ? (
               <div className="empty-state">
                 <Debug size={32} className="empty-state__icon" />
                 <h2>No log entries</h2>
-                <p>{filter ? 'No entries match your filter.' : 'The error log is empty — your site is running clean.'}</p>
+                <p>{filter || !allOn ? 'No entries match your filters.' : 'The error log is empty — your site is running clean.'}</p>
               </div>
             ) : (
-              <div className="logs-viewer">
-                {filteredLogs.map((line, index) => (
-                  <div key={index} className={`log-line log-line--${getLineLevel(line)}`}>
-                    <span className="log-line__number">{index + 1}</span>
-                    <span className="log-line__text">{line}</span>
+              <div className={`logs-viewer${showLineNumbers ? '' : ' logs-viewer--no-numbers'}`}>
+                {filteredEntries.map((entry, index) => (
+                  <div key={index} className={`log-entry log-entry--${entry.level}`}>
+                    <span className="log-entry__bar" aria-hidden="true" />
+                    {showLineNumbers && (
+                      <span className="log-entry__number">{index + 1}</span>
+                    )}
+                    <div className="log-entry__meta">
+                      <span className={`log-entry__level log-entry__level--${entry.level}`}>
+                        {entry.level}
+                      </span>
+                      {entry.timestamp && (
+                        <span className="log-entry__timestamp">{entry.timestamp}</span>
+                      )}
+                    </div>
+                    <div className="log-entry__body">
+                      <div className="log-entry__message">
+                        {entry.source && (
+                          <span className="log-entry__source">{entry.source}</span>
+                        )}
+                        <span className="log-entry__text">
+                          {entry.message || (!entry.source && !entry.timestamp ? entry.raw : '')}
+                        </span>
+                      </div>
+                      {entry.continuations.length > 0 && (
+                        <pre className="log-entry__continuation">
+                          {entry.continuations.join('\n')}
+                        </pre>
+                      )}
+                    </div>
                   </div>
                 ))}
                 <div ref={logsEndRef} />
@@ -1032,24 +1211,79 @@ export function LogsPage() {
 }
 
 /* ── Integrations Page ── */
-const BRAND_ICONS = {
-  'google-analytics': { hex: 'E37400', path: 'M22.84 2.9982v17.9987c.0086 1.6473-1.3197 2.9897-2.967 2.9984a2.9808 2.9808 0 01-.3677-.0208c-1.528-.226-2.6477-1.5558-2.6105-3.1V3.1204c-.0369-1.5458 1.0856-2.8762 2.6157-3.1 1.6361-.1915 3.1178.9796 3.3093 2.6158.014.1201.0208.241.0202.3619zM4.1326 18.0548c-1.6417 0-2.9726 1.331-2.9726 2.9726C1.16 22.6691 2.4909 24 4.1326 24s2.9726-1.3309 2.9726-2.9726-1.331-2.9726-2.9726-2.9726zm7.8728-9.0098c-.0171 0-.0342 0-.0513.0003-1.6495.0904-2.9293 1.474-2.891 3.1256v7.9846c0 2.167.9535 3.4825 2.3505 3.763 1.6118.3266 3.1832-.7152 3.5098-2.327.04-.1974.06-.3983.0593-.5998v-8.9585c.003-1.6474-1.33-2.9852-2.9773-2.9882z' },
-  'stripe': { hex: '635BFF', path: 'M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z' },
-  'cloudflare': { hex: 'F38020', path: 'M16.5088 16.8447c.1475-.5068.0908-.9707-.1553-1.3154-.2246-.3164-.6045-.499-1.0615-.5205l-8.6592-.1123a.1559.1559 0 0 1-.1333-.0713c-.0283-.042-.0351-.0986-.021-.1553.0278-.084.1123-.1484.2036-.1562l8.7359-.1123c1.0351-.0489 2.1601-.8868 2.5537-1.9136l.499-1.3013c.0215-.0561.0293-.1128.0147-.168-.5625-2.5463-2.835-4.4453-5.5499-4.4453-2.5039 0-4.6284 1.6177-5.3876 3.8614-.4927-.3658-1.1187-.5625-1.794-.499-1.2026.119-2.1665 1.083-2.2861 2.2856-.0283.31-.0069.6128.0635.894C1.5683 13.171 0 14.7754 0 16.752c0 .1748.0142.3515.0352.5273.0141.083.0844.1475.1689.1475h15.9814c.0909 0 .1758-.0645.2032-.1553l.12-.4268zm2.7568-5.5634c-.0771 0-.1611 0-.2383.0112-.0566 0-.1054.0415-.127.0976l-.3378 1.1744c-.1475.5068-.0918.9707.1543 1.3164.2256.3164.6055.498 1.0625.5195l1.8437.1133c.0557 0 .1055.0263.1329.0703.0283.043.0351.1074.0214.1562-.0283.084-.1132.1485-.204.1553l-1.921.1123c-1.041.0488-2.1582.8867-2.5527 1.914l-.1406.3585c-.0283.0713.0215.1416.0986.1416h6.5977c.0771 0 .1474-.0489.169-.126.1122-.4082.1757-.837.1757-1.2803 0-2.6025-2.125-4.727-4.7344-4.727' },
-  'github': { hex: '181717', path: 'M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12' },
-  'mailchimp': { hex: 'FFE01B', path: 'M18.824 14.168a2.264 2.264 0 00-.862-.52l-.092-.031c0-.008-.017-.738-.031-1.05-.01-.224-.03-.576-.138-.922-.13-.468-.356-.879-.64-1.143.78-.808 1.267-1.7 1.266-2.462-.003-1.469-1.806-1.914-4.03-.993l-.472.2s-.552-.403-.932-.677C12.612 6.368 12.266 6.254 11.88 6.254c-.376-.001-3.153.015-6.06 7.04-.568.11-1.07.434-1.377.879-.184-.153-.525-.45-.586-.564-.489-.93.534-2.736 1.25-3.758C6.715 7.783 9.197 5.977 10.58 5.977c.107 0 .197.023.27.068.198.121.804.8 1.062 1.108.062.073.152.044.109-.032a18.333 18.333 0 00-.763-1.323c-.082-.127-.222-.272-.418-.384a1.022 1.022 0 00-.532-.147c-1.856 0-5.27 2.539-7.165 6.295-1.4 2.777-1.13 4.925-.224 5.6.25.186.56.165.832-.008.317-.201.783-.6 1.39-1.204a5.266 5.266 0 002.13 1.186c1.69.503 3.834.124 5.384-.872.037-.024.092-.039.145-.019.099.038.222.08.434.137.496.14.79.28.975.462.155.15.22.35.22.598 0 .764-.648 1.512-1.7 1.963-1.072.46-2.42.597-3.616.367-1.38-.266-2.573-.947-3.253-1.857-.03-.04-.08-.045-.104-.01-.024.035-.014.09.017.128.63.801 1.78 1.512 3.123 1.92.877.267 1.8.364 2.697.29a6.108 6.108 0 002.508-.735c.889-.49 1.485-1.167 1.639-1.867.106-.48.015-.937-.25-1.287a2.056 2.056 0 00-.56-.504c.263-.395.268-.747.233-.948-.037-.247-.14-.458-.348-.676-.207-.218-.633-.441-1.229-.609l-.313-.087c-.001-.013-.017-.738-.03-1.05a5.092 5.092 0 00-.138-.922c-.13-.469-.356-.88-.639-1.143.78-.808 1.266-1.7 1.266-2.462-.003-1.469-1.807-1.914-4.031-.993l-.472.2s-.551-.402-.932-.677c-.281-.203-.627-.316-1.012-.317l.002-.002zm-.01 1.002l.04.007c.153.024.25.144.25.36.003.413-.294.985-.791 1.563a1.246 1.246 0 00-.43-.094c-.195 0-.44.082-.71.258-.22-.03-.423-.042-.61-.042-.395 0-.744.059-1.043.16l.001-.001c.29-.37.654-.72 1.05-.98.02-.013.04.002.037.013-.056.1-.162.314-.196.476-.005.024.023.044.044.03.431-.295 1.182-.61 1.84-.65l.039-.003c-.235.117-.5.278-.679.45a.028.028 0 00.022.047c.462.003 1.114.165 1.538.403.029.016.009.072-.024.065-.642-.148-1.694-.259-2.786.007-.974.238-1.72.606-2.263 1zm.015 1.56c.087.01.172.03.251.06.21.088.404.264.486.549.096.331.113.715.124.973.01.253.041.862.052 1.037.024.4.13.457.342.527.119.04.231.069.395.115.495.14.789.28.975.462.11.114.161.234.177.348.058.427-.331.955-1.363 1.433-1.128.523-2.496.656-3.442.551l-.33-.037c-.757-.102-1.189.874-.735 1.545.292.431 1.09.713 1.886.713 1.828 0 3.232-.78 3.756-1.454a.688.688 0 00.042-.06c.025-.038.004-.06-.028-.037-.427.292-2.323 1.452-4.352 1.103 0 0-.246-.04-.472-.128-.179-.07-.553-.241-.599-.626 1.637.505 2.668.028 2.668.028a.05.05 0 00.03-.05.047.047 0 00-.052-.043s-1.341.199-2.609-.265c.138-.449.505-.287 1.06-.242a7.748 7.748 0 002.56-.276c.574-.164 1.328-.489 1.914-.951.197.434.267.912.267.912s.154-.028.281.051c.121.075.21.229.15.628-.124.746-.441 1.352-.974 1.91a4.01 4.01 0 01-1.17.873c-.238.126-.494.234-.763.323-2.01.656-4.067-.065-4.73-1.614a2.49 2.49 0 01-.133-.366c-.283-1.022-.042-2.246.708-3.017.046-.049.093-.107.093-.18 0-.06-.039-.125-.072-.17-.262-.381-1.171-1.029-.989-2.285.131-.9.92-1.536 1.655-1.498.062.003.124.007.187.01.318.02.597.06.858.07.439.02.834-.044 1.301-.433.158-.131.284-.246.498-.282z' },
-  'slack': { hex: '4A154B', path: 'M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.122 2.521a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zm-1.268 0a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zm-2.523 10.122a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zm0-1.268a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z' },
-  'openai': { hex: '412991', path: 'M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 10.68.348 6.048 6.048 0 0 0 4.63 3.28a5.986 5.986 0 0 0-3.998 2.9 6.05 6.05 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 12.87 23.1a6.043 6.043 0 0 0 6.05-2.934 5.99 5.99 0 0 0 4-2.9 6.05 6.05 0 0 0-.743-7.097l.105.553zM12.87 21.645a4.493 4.493 0 0 1-2.887-1.04l.143-.082 4.794-2.769a.778.778 0 0 0 .392-.68v-6.756l2.027 1.17a.072.072 0 0 1 .04.055v5.594a4.512 4.512 0 0 1-4.509 4.508zm-9.694-4.134a4.485 4.485 0 0 1-.537-3.02l.143.085 4.794 2.769a.78.78 0 0 0 .783 0l5.856-3.381v2.34a.072.072 0 0 1-.03.062l-4.85 2.8a4.512 4.512 0 0 1-6.16-1.655zM2.065 7.88a4.485 4.485 0 0 1 2.346-1.973V11.6a.778.778 0 0 0 .392.68l5.856 3.382-2.026 1.17a.072.072 0 0 1-.068.005l-4.85-2.8A4.508 4.508 0 0 1 2.065 7.88zm16.643 3.876l-5.857-3.381 2.027-1.17a.072.072 0 0 1 .068-.005l4.849 2.8a4.506 4.506 0 0 1-.699 8.129v-5.7a.778.778 0 0 0-.388-.673zm2.016-3.035l-.143-.085-4.793-2.77a.78.78 0 0 0-.785 0L9.148 9.249V6.91a.072.072 0 0 1 .03-.062l4.85-2.8a4.506 4.506 0 0 1 6.696 4.673zM8.072 12.862l-2.028-1.17a.072.072 0 0 1-.04-.056V6.044a4.507 4.507 0 0 1 7.395-3.46l-.143.082L8.46 5.435a.778.778 0 0 0-.392.68l.003 6.747zm1.1-2.368l2.608-1.506 2.608 1.506v3.012l-2.608 1.506-2.608-1.506V10.494z' },
-  'smtp': { hex: '757575', path: 'M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z' },
+/* ── Brand marks: square-only. Wikimedia multicolor where a square asset exists,
+     otherwise simple-icons monochrome (24x24 viewBox) filled with the brand hex. ── */
+const BrandGoogleAnalytics = (props) => (
+  // Wikimedia: Google_Analytics_logo_2022.svg — mark bars are in a 48x48 square region.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" {...props}>
+    <path fill="#F9AB00" d="M45.3,41.6c0,3.2-2.6,5.9-5.8,5.9c-0.2,0-0.5,0-0.7,0c-3-0.4-5.2-3.1-5.1-6.1V6.6c-0.1-3,2.1-5.6,5.1-6.1 c3.2-0.4,6.1,1.9,6.5,5.1c0,0.2,0,0.5,0,0.7V41.6z" />
+    <path fill="#E37400" d="M8.6,35.9c3.2,0,5.8,2.6,5.8,5.8c0,3.2-2.6,5.8-5.8,5.8s-5.8-2.6-5.8-5.8c0,0,0,0,0,0 C2.7,38.5,5.4,35.9,8.6,35.9z M23.9,18.2c-3.2,0.2-5.7,2.9-5.7,6.1V40c0,4.2,1.9,6.8,4.6,7.4c3.2,0.6,6.2-1.4,6.9-4.6 c0.1-0.4,0.1-0.8,0.1-1.2V24.1c0-3.2-2.6-5.9-5.8-5.9C24,18.2,23.9,18.2,23.9,18.2z" />
+  </svg>
+);
+
+const BrandMailchimp = (props) => (
+  // simple-icons: mailchimp (Freddie head, monochrome). Brand hex #FFE01B.
+  // Square 24x24 viewBox.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#FFE01B" {...props}>
+    <path d="M7.676 13.703c-.176-.044-.352-.044-.528-.044-.968.132-1.541.924-1.5 2.024.088.968 1.145 1.761 2.113 1.761.132 0 .264 0 .352-.044.968-.176 1.32-1.32 1.188-2.288-.133-.968-.969-1.365-1.625-1.409zm.792 2.816c-.132.176-.264.22-.44.22-.264 0-.572-.22-.572-.572-.044-.176.044-.352.088-.528.044-.22-.044-.44-.22-.572a.623.623 0 00-.44-.088c-.132 0-.264.088-.352.22-.044.088-.088.176-.132.264 0 0 0 .044-.044.044-.044.132-.132.176-.176.176-.044 0-.088-.044-.088-.132-.044-.22 0-.528.308-.88.264-.264.616-.352.924-.264.264.044.528.22.704.484.132.264.088.572-.088.968 0 0-.044.088-.044.088-.044.132-.088.264 0 .352.044.088.176.132.22.132.088 0 .132 0 .176-.044.088 0 .176-.044.22 0 .044.044.044.088 0 .132zM23.335 15.452c0-.704-.396-1.012-.66-1.012 0-.044-.044-.22-.132-.44a4.205 4.205 0 00-.132-.396c.264-.396.264-.792.22-1.012-.044-.264-.176-.484-.396-.704-.22-.264-.704-.484-1.32-.66-.088 0-.308-.088-.352-.088 0-.176-.044-.88-.044-1.145-.044-.704-.088-1.761-.44-2.245-.308-.484-.88-.704-1.584-.704-.132 0-.264 0-.396.044-.264.044-.528.132-.792.264-.528.308-1.01.66-1.761.66h-.132c-.352 0-.704-.044-1.188-.088-.088 0-.132-.044-.22-.044-.044 0-.088 0-.176-.044-1.32-.132-2.288.616-2.552 1.805-.264 1.232.132 2.2.88 3.037-.264.264-.308.572-.308.88.044.264.22.484.264.572-.484.572-.968 1.277-1.188 2.024-.308 1.232-.22 2.332.176 3.389.396.968 1.1 1.85 2.069 2.376.484.264 1.1.396 1.717.396.264 0 .528 0 .792-.044.572-.088 1.1-.264 1.584-.484.484-.22.968-.528 1.453-.924.66-.572 1.232-1.32 1.672-2.2.308-.66.572-1.498.572-2.332 0-.264 0-.396-.044-.484zM9.041 8.25c.484-.572 1.1-1.054 1.672-1.453.044 0 .044 0 .044.044-.044.088-.088.264-.132.352 0 .044.044.088.088.044.352-.22.748-.396 1.145-.528.044 0 .088.044.044.088-.088.088-.176.22-.264.264-.044.044 0 .088.044.088.44-.044.88 0 1.364.088.044 0 .044.088 0 .088-1.364.264-2.728.749-3.917 1.761 0-.044-.044-.044-.088-.044.044-.264.088-.528.176-.792.044-.088 0-.088-.176 0z" />
+  </svg>
+);
+
+const BrandStripe = (props) => (
+  // simple-icons: stripe (monochrome "S" glyph). Brand hex #635BFF. Square 24x24.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#635BFF" {...props}>
+    <path d="M13.479 9.883c-1.626-.604-2.512-1.067-2.512-1.803 0-.622.511-.977 1.425-.977 1.683 0 3.409.645 4.604 1.226l.683-4.204c-.947-.446-2.878-1.182-5.536-1.182-1.9 0-3.482.496-4.611 1.424-1.181.973-1.79 2.386-1.79 4.091 0 3.089 1.895 4.444 4.938 5.566 1.99.709 2.65 1.237 2.65 2.018 0 .759-.648 1.218-1.865 1.218-1.562 0-4.106-.773-5.78-1.762l-.698 4.256c1.443.813 4.083 1.658 6.809 1.658 2.008 0 3.67-.48 4.826-1.398 1.278-.998 1.936-2.484 1.936-4.373 0-3.213-1.903-4.551-5.074-5.697h-.005z" />
+  </svg>
+);
+
+const BrandCloudflare = (props) => (
+  // simple-icons: cloudflare (cloud mark only, monochrome). Brand hex #F38020. Square 24x24.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#F38020" {...props}>
+    <path d="M16.5088 16.8447c.1475-.5068.0908-.9766-.1553-1.3223-.2276-.3164-.6055-.498-1.0654-.5205l-8.6758-.1123a.1777.1777 0 0 1-.1357-.0703.1617.1617 0 0 1-.0166-.1553.2226.2226 0 0 1 .1943-.1494l8.7549-.1133c1.0381-.0469 2.166-.8887 2.5605-1.9209l.5-1.3047c.0224-.0566.0263-.1123.0263-.168-.0009-.03-.005-.0605-.0117-.0908-.5615-2.5439-2.832-4.4395-5.543-4.4395-2.501 0-4.6231 1.6143-5.3799 3.8574a2.5645 2.5645 0 0 0-1.7988-.498c-1.2979.1299-2.3408 1.1729-2.4707 2.4707a2.583 2.583 0 0 0 .0664.9541C.9277 13.4727 0 14.5918 0 15.9307c0 .1123.0068.2236.0205.333a.156.156 0 0 0 .1543.1357h15.9531c.002 0 .0049-.001.0068-.001a.2114.2114 0 0 0 .1904-.1504l.1836-.625Zm2.8321-2.7491c-.0791 0-.168.0029-.2471.0107a.1384.1384 0 0 0-.123.0996l-.3418 1.1787c-.1475.5068-.0908.9756.1553 1.3213.2275.3164.6055.498 1.0654.5205l1.8496.1123c.0557 0 .1045.0263.1357.0703a.1644.1644 0 0 1 .0176.1553.2249.2249 0 0 1-.1943.1484l-1.9219.1123c-1.043.0479-2.166.8896-2.5605 1.9219l-.1397.3594c-.0273.0703.0225.1406.0987.1406h6.6171a.164.164 0 0 0 .1582-.1221 4.7132 4.7132 0 0 0 .1748-1.29c0-2.6057-2.123-4.7256-4.7344-4.7256" />
+  </svg>
+);
+
+const BrandSlack = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127 127" {...props}>
+    <path d="M27.2 80c0 7.3-5.9 13.2-13.2 13.2C6.7 93.2.8 87.3.8 80c0-7.3 5.9-13.2 13.2-13.2h13.2V80zm6.6 0c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2v33c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V80z" fill="#E01E5A" />
+    <path d="M47 27c-7.3 0-13.2-5.9-13.2-13.2C33.8 6.5 39.7.6 47 .6c7.3 0 13.2 5.9 13.2 13.2V27H47zm0 6.7c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H13.9C6.6 60.1.7 54.2.7 46.9c0-7.3 5.9-13.2 13.2-13.2H47z" fill="#36C5F0" />
+    <path d="M99.9 46.9c0-7.3 5.9-13.2 13.2-13.2 7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H99.9V46.9zm-6.6 0c0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V13.8C66.9 6.5 72.8.6 80.1.6c7.3 0 13.2 5.9 13.2 13.2v33.1z" fill="#2EB67D" />
+    <path d="M80.1 99.8c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2-7.3 0-13.2-5.9-13.2-13.2V99.8h13.2zm0-6.6c-7.3 0-13.2-5.9-13.2-13.2 0-7.3 5.9-13.2 13.2-13.2h33.1c7.3 0 13.2 5.9 13.2 13.2 0 7.3-5.9 13.2-13.2 13.2H80.1z" fill="#ECB22E" />
+  </svg>
+);
+
+const BrandGitHub = (props) => (
+  // simple-icons: github (Octocat mark, monochrome). Brand hex #1B1F23. Square 24x24.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#1B1F23" {...props}>
+    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+  </svg>
+);
+
+const BrandOpenAI = (props) => (
+  // simple-icons: openai (spiral mark only, monochrome). Brand hex #0A0A0A. Square 24x24.
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0A0A0A" {...props}>
+    <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.4069-.6813zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" />
+  </svg>
+);
+
+const BRAND_SVGS = {
+  'google-analytics': BrandGoogleAnalytics,
+  mailchimp: BrandMailchimp,
+  stripe: BrandStripe,
+  cloudflare: BrandCloudflare,
+  slack: BrandSlack,
+  github: BrandGitHub,
+  openai: BrandOpenAI,
 };
 
 function BrandIcon({ id, size = 24 }) {
-  const icon = BRAND_ICONS[id];
-  if (!icon) return <Integration size={size} />;
+  if (id === 'smtp') return <Email size={size} />;
+  const Component = BRAND_SVGS[id];
+  if (!Component) return <Integration size={size} />;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={`#${icon.hex}`} role="img" className="integration-brand-icon">
-      <path d={icon.path} />
-    </svg>
+    <span className="integration-brand-icon" aria-hidden="true">
+      <Component width={size} height={size} />
+    </span>
   );
 }
 
@@ -1343,7 +1577,7 @@ export function IntegrationsPage({ pushNotice }) {
   ], []);
 
   const [view, setView] = useState({
-    type: 'table',
+    type: 'grid',
     perPage: 25,
     page: 1,
     sort: { field: 'name', direction: 'asc' },

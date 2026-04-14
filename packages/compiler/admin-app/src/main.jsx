@@ -19,9 +19,17 @@ import { getBlockType } from '@wordpress/blocks';
 import { registerCoreBlocks } from '@wordpress/block-library';
 import '@wordpress/format-library';
 import { Card, CardBody, SlotFillProvider } from '@wordpress/components';
+import wpApiFetch from '@wordpress/api-fetch';
 
-import { appBasePath } from './lib/config.js';
+import { appBasePath, runtimeConfig, wpRestRoot } from './lib/config.js';
 import { apiFetch } from './lib/helpers.js';
+
+if (wpRestRoot) {
+  wpApiFetch.use(wpApiFetch.createRootURLMiddleware(wpRestRoot));
+}
+if (runtimeConfig.nonce) {
+  wpApiFetch.use(wpApiFetch.createNonceMiddleware(runtimeConfig.nonce));
+}
 import { registerRuntimeBlocks } from './lib/blocks.jsx';
 import { AppLoadingSkeleton } from './components/skeletons.jsx';
 import { AppShell } from './components/shell.jsx';

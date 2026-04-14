@@ -5,13 +5,63 @@
   "type": "singleton",
   "storage": "option",
   "fields": {
-    "studio_name": { "type": "text", "label": "Studio Name" },
-    "founder_name": { "type": "text", "label": "Founder" },
-    "founder_role": { "type": "text", "label": "Founder Role" },
-    "philosophy": { "type": "richtext", "label": "Philosophy" },
-    "short_bio": { "type": "richtext", "label": "Short Bio" },
-    "location": { "type": "text", "label": "Location" },
-    "founded_year": { "type": "integer", "label": "Founded" },
-    "avatar": { "type": "image", "label": "Founder Photo" }
+    "organization_type": {
+      "type": "select",
+      "label": "Entity Type",
+      "options": ["Organization", "Person"],
+      "help": "Used for JSON-LD schema.org output."
+    },
+    "display_name": {
+      "type": "text",
+      "label": "Display Name",
+      "inheritsFrom": "site.title",
+      "help": "The name used in JSON-LD. Defaults to the site title — override only if your brand name differs."
+    },
+    "short_bio": {
+      "type": "richtext",
+      "label": "Short Bio",
+      "inheritsFrom": "site.description",
+      "help": "Falls back to the site tagline."
+    },
+    "philosophy": {
+      "type": "richtext",
+      "label": "Philosophy",
+      "help": "Longer about-us narrative. Not emitted in meta tags."
+    },
+    "founder_name": {
+      "type": "text",
+      "label": "Founder"
+    },
+    "founder_role": {
+      "type": "text",
+      "label": "Founder Role"
+    },
+    "founded_year": {
+      "type": "integer",
+      "label": "Founded"
+    },
+    "location": {
+      "type": "text",
+      "label": "Location",
+      "help": "Human-readable locality (e.g. 'New York, NY'). Structured address lives in Contact."
+    },
+    "avatar": {
+      "type": "image",
+      "label": "Founder Photo"
+    },
+    "logo": {
+      "type": "image",
+      "label": "Organization Logo",
+      "inheritsFrom": "site.icon",
+      "help": "Square logo used for JSON-LD + OG image fallback. Falls back to the site icon."
+    },
+    "same_as": {
+      "type": "repeater",
+      "label": "Linked Profiles",
+      "help": "Social/profile URLs emitted as JSON-LD sameAs (Instagram, LinkedIn, etc.).",
+      "item": {
+        "url": { "type": "url", "label": "URL" }
+      }
+    }
   }
 }

@@ -5,9 +5,58 @@
   "type": "singleton",
   "storage": "option",
   "fields": {
-    "email": { "type": "email", "label": "Email" },
-    "phone": { "type": "text", "label": "Phone" },
-    "address": { "type": "text", "label": "Studio Address" },
-    "booking_url": { "type": "url", "label": "Booking URL" }
+    "email": {
+      "type": "email",
+      "label": "Primary Email",
+      "inheritsFrom": "site.admin_email"
+    },
+    "phone": {
+      "type": "text",
+      "label": "Primary Phone"
+    },
+    "booking_url": {
+      "type": "url",
+      "label": "Booking URL"
+    },
+    "address_street": {
+      "type": "text",
+      "label": "Street"
+    },
+    "address_locality": {
+      "type": "text",
+      "label": "City"
+    },
+    "address_region": {
+      "type": "text",
+      "label": "State / Region"
+    },
+    "address_postal": {
+      "type": "text",
+      "label": "Postal Code"
+    },
+    "address_country": {
+      "type": "text",
+      "label": "Country",
+      "placeholder": "US"
+    },
+    "hours": {
+      "type": "repeater",
+      "label": "Hours of Operation",
+      "help": "One row per day or range (e.g. 'Mon — Fri', '09:00 — 18:00 EST').",
+      "item": {
+        "label": { "type": "text", "label": "Days" },
+        "hours": { "type": "text", "label": "Hours" }
+      }
+    },
+    "points": {
+      "type": "repeater",
+      "label": "Contact Points",
+      "help": "Additional ContactPoint entries for JSON-LD (sales, press, support, etc.).",
+      "item": {
+        "type": { "type": "text", "label": "Type" },
+        "email": { "type": "email", "label": "Email" },
+        "phone": { "type": "text", "label": "Phone" }
+      }
+    }
   }
 }

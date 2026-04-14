@@ -5,8 +5,95 @@
   "type": "singleton",
   "storage": "option",
   "fields": {
-    "default_title": { "type": "text", "label": "Default Title" },
-    "meta_description": { "type": "text", "label": "Meta Description" },
-    "og_image": { "type": "image", "label": "OG Image" }
+    "site_title": {
+      "type": "text",
+      "label": "Site Title",
+      "inheritsFrom": "site.title"
+    },
+    "meta_description": {
+      "type": "text",
+      "label": "Default Meta Description",
+      "inheritsFrom": "site.description",
+      "help": "Used on pages that don't declare their own description."
+    },
+    "title_separator": {
+      "type": "text",
+      "label": "Title Separator",
+      "placeholder": "—",
+      "help": "Rendered between the post title and the site title (e.g. 'Post Name — Site Name')."
+    },
+    "title_template_home": {
+      "type": "text",
+      "label": "Home Title Template",
+      "placeholder": "%site_title% — %site_description%",
+      "help": "Available tokens: %site_title%, %site_description%."
+    },
+    "title_template_post": {
+      "type": "text",
+      "label": "Post Title Template",
+      "placeholder": "%post_title% %separator% %site_title%",
+      "help": "Tokens: %post_title%, %site_title%, %separator%."
+    },
+    "title_template_archive": {
+      "type": "text",
+      "label": "Archive Title Template",
+      "placeholder": "%archive_title% %separator% %site_title%",
+      "help": "Tokens: %archive_title%, %site_title%, %separator%."
+    },
+    "canonical_host": {
+      "type": "url",
+      "label": "Canonical Host",
+      "inheritsFrom": "site.url",
+      "help": "Override the canonical URL host (e.g. behind a CDN or custom domain)."
+    },
+    "og_image": {
+      "type": "image",
+      "label": "Default OG Image",
+      "inheritsFrom": "site.icon",
+      "help": "Used when a page doesn't specify its own OG image."
+    },
+    "og_type": {
+      "type": "select",
+      "label": "Default OG Type",
+      "options": ["website", "article", "profile"],
+      "placeholder": "website"
+    },
+    "og_locale": {
+      "type": "text",
+      "label": "OG Locale",
+      "inheritsFrom": "site.locale",
+      "help": "e.g. en_US, fr_FR."
+    },
+    "twitter_card": {
+      "type": "select",
+      "label": "Twitter Card",
+      "options": ["summary", "summary_large_image"],
+      "placeholder": "summary_large_image"
+    },
+    "twitter_handle": {
+      "type": "text",
+      "label": "Twitter @handle",
+      "placeholder": "@yourstudio"
+    },
+    "robots_default": {
+      "type": "select",
+      "label": "Default Robots",
+      "options": ["index,follow", "noindex,follow", "index,nofollow", "noindex,nofollow"],
+      "placeholder": "index,follow"
+    },
+    "noindex_archives": {
+      "type": "boolean",
+      "label": "Noindex Archives",
+      "help": "Excludes category/tag/date archives from search engines."
+    },
+    "noindex_search": {
+      "type": "boolean",
+      "label": "Noindex Internal Search"
+    },
+    "emit_jsonld": {
+      "type": "boolean",
+      "label": "Emit JSON-LD",
+      "help": "Emit schema.org WebSite + Organization/Person JSON-LD in <head>."
+    }
   }
 }

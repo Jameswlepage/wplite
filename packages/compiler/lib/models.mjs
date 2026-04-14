@@ -77,6 +77,22 @@ export function normalizeFieldDescriptor(id, field) {
     descriptor.item = field.item;
   }
 
+  if (field?.inheritsFrom) {
+    descriptor.inheritsFrom = field.inheritsFrom;
+  }
+
+  if (field?.help) {
+    descriptor.help = field.help;
+  }
+
+  if (field?.placeholder) {
+    descriptor.placeholder = field.placeholder;
+  }
+
+  if (field?.hidden) {
+    descriptor.hidden = true;
+  }
+
   return descriptor;
 }
 

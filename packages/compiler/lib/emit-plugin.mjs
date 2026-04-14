@@ -9,6 +9,7 @@ import { phpRegisterPostTypesFile } from './php/register-post-types.mjs';
 import { phpRegisterTaxonomiesFile } from './php/register-taxonomies.mjs';
 import { phpRegisterMetaFile } from './php/register-meta.mjs';
 import { phpRegisterSingletonsFile } from './php/register-singletons.mjs';
+import { phpRegisterHeadFile } from './php/register-head.mjs';
 import { phpRegisterRestFile } from './php/register-rest.mjs';
 import { phpRegisterAdminAppFile } from './php/register-admin-app.mjs';
 import { phpRegisterLoginStyleFile, loginStyleCss } from './php/register-login-style.mjs';
@@ -40,6 +41,7 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
   await writeFile(path.join(incDir, 'register-taxonomies.php'), phpRegisterTaxonomiesFile());
   await writeFile(path.join(incDir, 'register-meta.php'), phpRegisterMetaFile());
   await writeFile(path.join(incDir, 'register-singletons.php'), phpRegisterSingletonsFile());
+  await writeFile(path.join(incDir, 'register-head.php'), phpRegisterHeadFile());
   await writeFile(path.join(incDir, 'register-rest.php'), phpRegisterRestFile());
   await writeFile(path.join(incDir, 'register-admin-app.php'), phpRegisterAdminAppFile());
   await writeFile(path.join(incDir, 'register-login-style.php'), phpRegisterLoginStyleFile());

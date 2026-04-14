@@ -140,19 +140,26 @@
 }
 
 .native-editor__inserter-toggle.components-button.has-icon {
+  width: 36px !important;
+  min-width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 2px;
   background: var(--wp-admin-text, #1e1e1e);
   color: #ffffff;
-  border-radius: 2px;
+  transition: background-color 120ms ease;
 }
 
-.native-editor__inserter-toggle.components-button.has-icon:hover:not(:disabled) {
-  background: #2d2d2d;
+.native-editor__inserter-toggle.components-button.has-icon:hover:not(:disabled),
+.native-editor__inserter-toggle.components-button.has-icon:focus:not(:disabled) {
+  background: #3858e9;
   color: #ffffff;
 }
 
-.native-editor__inserter-toggle.components-button.is-pressed {
-  background: var(--wp-admin-accent, #3858e9);
-  color: #ffffff;
+.native-editor__inserter-toggle.components-button.has-icon svg {
+  fill: currentColor;
+  width: 20px;
+  height: 20px;
 }
 
 .native-editor__layout {
@@ -165,7 +172,47 @@
 }
 
 .native-editor__layout--no-sidebar {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.native-editor__layout--with-inserter {
+  grid-template-columns: 360px minmax(0, 1fr) 300px;
+}
+
+.native-editor__layout--with-inserter.native-editor__layout--no-sidebar {
+  grid-template-columns: 360px minmax(0, 1fr);
+}
+
+.native-editor__inserter-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--wp-admin-border);
+  background: #ffffff;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.native-editor__inserter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid var(--wp-admin-border);
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.native-editor__inserter-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.native-editor__inserter-panel-body .block-editor-inserter__menu {
+  padding: 0;
+  height: auto;
 }
 
 .native-editor__main,
@@ -181,11 +228,33 @@
 }
 
 .native-editor__sidebar {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0;
   border-left: 1px solid var(--wp-admin-border);
   background: #ffffff;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.native-editor__sidebar .native-editor__inspector-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.native-editor__sidebar .components-tab-panel__tabs {
+  flex-shrink: 0;
+}
+
+.native-editor__sidebar .components-tab-panel__tabs-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .native-editor__block-tools {

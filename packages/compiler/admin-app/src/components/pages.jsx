@@ -17,68 +17,9 @@ import {
   normalizePageRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
-import {
-  buildEditorPreviewBlocks,
-  extractContentSlotBlocks,
-  extractTemplatePreviewTitle,
-  getTemplatePreviewDiagnostics,
-  hasContentSlot,
-  syncTemplatePreviewBlocks,
-} from '../lib/blocks.jsx';
+import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
-
-function resolvePageRoute(bootstrap, page) {
-  const routes = bootstrap?.routes ?? [];
-
-  if (page?.routeId) {
-    const explicit = routes.find((route) => route.id === page.routeId);
-    if (explicit) {
-      return explicit;
-    }
-  }
-
-  const slug = String(page?.slug ?? '');
-  const slugMatch = routes.find(
-    (route) => route.type === 'page' && String(route.slug ?? '') === slug
-  );
-
-  if (slugMatch) {
-    return slugMatch;
-  }
-
-  return null;
-}
-
-function resolvePageTemplateMarkup(bootstrap, page) {
-  if (page?.routeId && page.routeId === bootstrap?.site?.postsPage) {
-    return (
-      bootstrap?.editorTemplates?.templates?.home?.markup
-      ?? bootstrap?.editorTemplates?.templates?.index?.markup
-      ?? ''
-    );
-  }
-
-  const route = resolvePageRoute(bootstrap, page);
-  const pageTemplate = String(page?.template ?? '').trim();
-  const normalizedPageTemplate = pageTemplate === 'default' ? '' : pageTemplate;
-
-  if (route) {
-    const routeTemplate = String(route.template ?? 'page').trim();
-
-    if (!normalizedPageTemplate || normalizedPageTemplate === routeTemplate) {
-      return bootstrap?.editorTemplates?.routes?.[route.id]?.markup ?? '';
-    }
-  }
-
-  const namedTemplate = normalizedPageTemplate || 'page';
-
-  return (
-    bootstrap?.editorTemplates?.templates?.[namedTemplate]?.markup
-    ?? bootstrap?.editorTemplates?.postTypes?.page?.markup
-    ?? ''
-  );
-}
 
 /* ── Pages screen using DataViews ── */
 export function PagesPage({ pushNotice }) {
@@ -220,7 +161,8 @@ export function PagesPage({ pushNotice }) {
   );
 }
 
-export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
+export function PageEditorPage({ bootstrap, pushNotice }) {
+  const themeJson = bootstrap?.themeJson ?? null;
   const navigate = useNavigate();
   const { pageId } = useParams();
   const isNew = pageId === 'new';
@@ -270,19 +212,7 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
             modified: '',
           };
           setDraft(nextDraft);
-          const nextTemplateMarkup = resolvePageTemplateMarkup(bootstrap, nextDraft);
-          const nextUsesTemplatePreview = Boolean(nextTemplateMarkup)
-            && getTemplatePreviewDiagnostics(nextTemplateMarkup).compatible;
-          setBlocks(
-            buildEditorPreviewBlocks({
-              templateMarkup: nextUsesTemplatePreview ? nextTemplateMarkup : '',
-              content: '',
-              title: '',
-              excerpt: '',
-              siteTitle: bootstrap?.site?.title ?? '',
-              siteTagline: bootstrap?.site?.tagline ?? '',
-            })
-          );
+          setBlocks([]);
           return;
         }
 
@@ -290,19 +220,7 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
         if (cancelled) return;
         const normalized = normalizePageRecord(page);
         setDraft(normalized);
-        const normalizedTemplateMarkup = resolvePageTemplateMarkup(bootstrap, normalized);
-        const normalizedUsesTemplatePreview = Boolean(normalizedTemplateMarkup)
-          && getTemplatePreviewDiagnostics(normalizedTemplateMarkup).compatible;
-        setBlocks(
-          buildEditorPreviewBlocks({
-            templateMarkup: normalizedUsesTemplatePreview ? normalizedTemplateMarkup : '',
-            content: normalized.content,
-            title: normalized.title,
-            excerpt: normalized.excerpt,
-            siteTitle: bootstrap?.site?.title ?? '',
-            siteTagline: bootstrap?.site?.tagline ?? '',
-          })
-        );
+        setBlocks(blocksFromContent(normalized.content));
       } catch (error) {
         if (!cancelled) {
           pushNotice({ status: 'error', message: `Failed to load page: ${error.message}` });
@@ -318,33 +236,6 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
     };
   }, [bootstrap, isNew, pageId]);
 
-  const templateMarkup = useMemo(
-    () => resolvePageTemplateMarkup(bootstrap, draft),
-    [bootstrap, draft.routeId, draft.slug, draft.template]
-  );
-  const templatePreviewDiagnostics = useMemo(
-    () => getTemplatePreviewDiagnostics(templateMarkup),
-    [templateMarkup]
-  );
-  const usesTemplatePreview = Boolean(templateMarkup) && templatePreviewDiagnostics.compatible;
-
-  useEffect(() => {
-    if (loading) {
-      return;
-    }
-
-    setBlocks((current) =>
-      buildEditorPreviewBlocks({
-        templateMarkup: usesTemplatePreview ? templateMarkup : '',
-        content: serialize(extractContentSlotBlocks(current)),
-        title: draft.title,
-        excerpt: draft.excerpt,
-        siteTitle: bootstrap?.site?.title ?? '',
-        siteTagline: bootstrap?.site?.tagline ?? '',
-      })
-    );
-  }, [bootstrap, draft.excerpt, draft.title, loading, templateMarkup, usesTemplatePreview]);
-
   async function handleSave() {
     setIsSaving(true);
     try {
@@ -355,14 +246,7 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
           title: draft.title,
           slug: draft.slug,
           status: draft.postStatus,
-          content:
-            usesTemplatePreview
-              ? (
-                templateHasContentSlot
-                  ? serialize(extractContentSlotBlocks(blocks))
-                  : serialize(blocks)
-              )
-              : serialize(blocks),
+          content: serialize(blocks),
           parent: Number(draft.parent || 0),
           template: draft.template || '',
           menu_order: Number(draft.menuOrder || 0),
@@ -371,19 +255,7 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
 
       const normalized = normalizePageRecord(payload);
       setDraft(normalized);
-      const normalizedTemplateMarkup = resolvePageTemplateMarkup(bootstrap, normalized);
-      const normalizedUsesTemplatePreview = Boolean(normalizedTemplateMarkup)
-        && getTemplatePreviewDiagnostics(normalizedTemplateMarkup).compatible;
-      setBlocks(
-        buildEditorPreviewBlocks({
-          templateMarkup: normalizedUsesTemplatePreview ? normalizedTemplateMarkup : '',
-          content: normalized.content,
-          title: normalized.title,
-          excerpt: normalized.excerpt,
-          siteTitle: bootstrap?.site?.title ?? '',
-          siteTagline: bootstrap?.site?.tagline ?? '',
-        })
-      );
+      setBlocks(blocksFromContent(normalized.content));
       setPages((current) => {
         const next = [...current];
         const index = next.findIndex((item) => String(item.id) === String(normalized.id));
@@ -417,6 +289,17 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
     }
   }
 
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key === 's') {
+        event.preventDefault();
+        if (!isSaving) handleSave();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
   if (loading) {
     return <EditorSkeleton />;
   }
@@ -434,19 +317,8 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
       label: template.title,
     }))),
   ];
-  const templateHasContentSlot = hasContentSlot(blocks);
-
   function handleBlocksChange(nextBlocks) {
     setBlocks(nextBlocks);
-
-    if (!usesTemplatePreview) {
-      return;
-    }
-
-    const previewTitle = extractTemplatePreviewTitle(nextBlocks);
-    if (previewTitle !== null && previewTitle !== draft.title) {
-      setDraft((current) => ({ ...current, title: previewTitle }));
-    }
   }
 
   return (
@@ -456,9 +328,8 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
       titlePlaceholder="Add page title"
       onChangeTitle={(value) => {
         setDraft((current) => ({ ...current, title: value }));
-        setBlocks((current) => syncTemplatePreviewBlocks(current, { title: value, excerpt: draft.excerpt }));
       }}
-      showTitleInput={!usesTemplatePreview}
+      showTitleInput={true}
       blocks={blocks}
       onChangeBlocks={handleBlocksChange}
       backLabel="Back to Pages"
@@ -468,10 +339,7 @@ export function PageEditorPage({ bootstrap, pushNotice, themeJson, themeCss }) {
       isPrimaryBusy={isSaving}
       viewUrl={draft.link}
       documentLabel="Page"
-      themeJson={themeJson}
-      themeCss={themeCss}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
-      wpAdminTemplateUrl={templatePreviewDiagnostics.unsupported.length > 0 && templateMarkup ? '/wp-admin/site-editor.php' : undefined}
       documentSidebar={
         <>
           <PanelBody title="Summary" initialOpen={true}>

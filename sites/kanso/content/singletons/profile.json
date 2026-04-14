@@ -1,13 +1,16 @@
 {
   "singleton": "profile",
   "data": {
-    "studio_name": "Kanso Studio",
+    "organization_type": "Organization",
+    "philosophy": "<p>We believe the spaces we inhabit shape how we think, rest, and relate. Our work draws equally from the Japanese reverence for natural imperfection and the Scandinavian commitment to democratic comfort. Every project is an exercise in restraint — finding the point where removing one more thing would diminish the whole.</p>",
     "founder_name": "Emi Nakamura",
     "founder_role": "Principal Architect",
-    "philosophy": "<p>We believe the spaces we inhabit shape how we think, rest, and relate. Our work draws equally from the Japanese reverence for natural imperfection and the Scandinavian commitment to democratic comfort. Every project is an exercise in restraint — finding the point where removing one more thing would diminish the whole.</p>",
-    "short_bio": "<p>Emi Nakamura founded Kanso Studio in 2019 after a decade practicing architecture in Tokyo and Copenhagen. Trained at Waseda University and the Royal Danish Academy, she brings a dual perspective to every project — the Japanese instinct for spatial poetry and the Nordic insistence on functional warmth. She leads a small team of architects, material specialists, and craftspeople who share her belief that less, done well, is always enough.</p>",
-    "location": "New York, NY",
     "founded_year": 2019,
-    "avatar": 0
+    "location": "New York, NY",
+    "same_as": [
+      { "url": "https://instagram.com/kansostudio" },
+      { "url": "https://pinterest.com/kansostudio" },
+      { "url": "https://are.na/kansostudio" }
+    ]
   }
 }

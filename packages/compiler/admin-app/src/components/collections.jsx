@@ -23,21 +23,9 @@ import {
   formatDateTime,
   getModelByCollectionPath,
 } from '../lib/helpers.js';
-import {
-  buildEditorPreviewBlocks,
-  blocksFromContent,
-  extractContentSlotBlocks,
-  extractTemplatePreviewExcerpt,
-  extractTemplatePreviewTitle,
-  getTemplatePreviewDiagnostics,
-  syncTemplatePreviewBlocks,
-} from '../lib/blocks.jsx';
+import { blocksFromContent } from '../lib/blocks.jsx';
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
-
-function resolveModelTemplateMarkup(bootstrap, model) {
-  return bootstrap?.editorTemplates?.postTypes?.[model?.postType]?.markup ?? '';
-}
 
 /* ── Collection List Page ── */
 export function CollectionListPage({ bootstrap, recordsByModel }) {
@@ -57,7 +45,7 @@ export function CollectionListPage({ bootstrap, recordsByModel }) {
 
   const fields = useMemo(() => {
     if (!schema || !model) return [];
-    return buildFieldDefinitions({ schema, model, recordsByModel, includeContentField: false, ImageControl, RepeaterControl });
+    return buildFieldDefinitions({ schema, model, recordsByModel, includeContentField: false, ImageControl, RepeaterControl, canonical: bootstrap.site });
   }, [schema, model, recordsByModel]);
 
   const deferredRecords = useDeferredValue(model ? recordsByModel[model.id] ?? [] : []);
@@ -152,9 +140,17 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     setDraft(existing ?? createEmptyRecord(model));
   }, [existing, model]);
 
+  // Reset the block tree when we navigate to a different record so blocks
+  // don't stay stuck on the previous entry's content.
+  useEffect(() => {
+    if (!editorManaged) return;
+    setBlocks(blocksFromContent(existing?.content ?? ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorManaged, existing?.id, existing?.content]);
+
   const fields = useMemo(() => {
     if (!schema || !model) return [];
-    return buildFieldDefinitions({ schema, model, recordsByModel, includeContentField: !editorManaged, ImageControl, RepeaterControl });
+    return buildFieldDefinitions({ schema, model, recordsByModel, includeContentField: !editorManaged, ImageControl, RepeaterControl, canonical: bootstrap.site });
   }, [editorManaged, model, recordsByModel, schema]);
 
   const metaFields = useMemo(
@@ -170,31 +166,6 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
   const documentLabel = model.singularLabel
     || (model.label?.endsWith('s') ? model.label.slice(0, -1) : model.label)
     || 'Entry';
-  const templateMarkup = useMemo(
-    () => resolveModelTemplateMarkup(bootstrap, model),
-    [bootstrap, model]
-  );
-  const templatePreviewDiagnostics = useMemo(
-    () => getTemplatePreviewDiagnostics(templateMarkup),
-    [templateMarkup]
-  );
-  const usesTemplatePreview = Boolean(templateMarkup) && templatePreviewDiagnostics.compatible;
-
-  useEffect(() => {
-    if (!editorManaged || !model) return;
-
-    const sourceRecord = existing ?? createEmptyRecord(model);
-    setBlocks(
-      buildEditorPreviewBlocks({
-        templateMarkup: usesTemplatePreview ? templateMarkup : '',
-        content: sourceRecord.content ?? '',
-        title: sourceRecord.title ?? '',
-        excerpt: sourceRecord.excerpt ?? '',
-        siteTitle: bootstrap?.site?.title ?? '',
-        siteTagline: bootstrap?.site?.tagline ?? '',
-      })
-    );
-  }, [bootstrap, editorManaged, existing, model, templateMarkup, usesTemplatePreview]);
 
   if (!model || !schema || !form) return <Navigate to="/" replace />;
 
@@ -209,9 +180,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
           ...draft,
           ...(editorManaged
             ? {
-              content: usesTemplatePreview
-                ? serialize(extractContentSlotBlocks(blocks))
-                : serialize(blocks),
+              content: serialize(blocks),
             }
             : {}),
         },
@@ -226,19 +195,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       });
       setDraft(payload.item);
       if (editorManaged) {
-        const payloadTemplateMarkup = resolveModelTemplateMarkup(bootstrap, model);
-        const payloadUsesTemplatePreview = Boolean(payloadTemplateMarkup)
-          && getTemplatePreviewDiagnostics(payloadTemplateMarkup).compatible;
-        setBlocks(
-          buildEditorPreviewBlocks({
-            templateMarkup: payloadUsesTemplatePreview ? payloadTemplateMarkup : '',
-            content: payload.item.content ?? '',
-            title: payload.item.title ?? '',
-            excerpt: payload.item.excerpt ?? '',
-            siteTitle: bootstrap?.site?.title ?? '',
-            siteTagline: bootstrap?.site?.tagline ?? '',
-          })
-        );
+        setBlocks(blocksFromContent(payload.item.content ?? ''));
       }
       pushNotice({ status: 'success', message: `${model.singularLabel || model.label} saved.` });
       if (isNew) {
@@ -269,22 +226,20 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     }
   }
 
+  useEffect(() => {
+    function onKeyDown(event) {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key === 's') {
+        event.preventDefault();
+        if (!isSaving) handleSave();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
   if (editorManaged) {
     function handleBlocksChange(nextBlocks) {
       setBlocks(nextBlocks);
-
-      if (!usesTemplatePreview) {
-        return;
-      }
-
-      const previewTitle = extractTemplatePreviewTitle(nextBlocks);
-      const previewExcerpt = extractTemplatePreviewExcerpt(nextBlocks);
-
-      setDraft((current) => ({
-        ...current,
-        ...(previewTitle !== null ? { title: previewTitle } : {}),
-        ...(previewExcerpt !== null ? { excerpt: previewExcerpt } : {}),
-      }));
     }
 
     return (
@@ -294,9 +249,8 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         titlePlaceholder={`Add ${model.singularLabel || model.label} title`}
         onChangeTitle={(value) => {
           setDraft((current) => ({ ...current, title: value }));
-          setBlocks((current) => syncTemplatePreviewBlocks(current, { title: value, excerpt: draft.excerpt }));
         }}
-        showTitleInput={!usesTemplatePreview}
+        showTitleInput={true}
         blocks={blocks}
         onChangeBlocks={handleBlocksChange}
         backLabel={`Back to ${model.label}`}
@@ -306,10 +260,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         isPrimaryBusy={isSaving}
         viewUrl={existing?.link}
         documentLabel={documentLabel}
-        themeJson={bootstrap.themeJson}
-        themeCss={bootstrap.themeCss}
         wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}
-        wpAdminTemplateUrl={templatePreviewDiagnostics.unsupported.length > 0 && templateMarkup ? '/wp-admin/site-editor.php' : undefined}
         documentSidebar={
           <>
             <PanelBody title="Summary" initialOpen={true}>
@@ -340,7 +291,6 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
                   value={draft.excerpt ?? ''}
                   onChange={(value) => {
                     setDraft((current) => ({ ...current, excerpt: value }));
-                    setBlocks((current) => syncTemplatePreviewBlocks(current, { title: draft.title, excerpt: value }));
                   }}
                   rows={3}
                 />

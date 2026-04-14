@@ -59,7 +59,7 @@ add_action( 'rest_api_init', function() {
 
 \t\t\t\tforeach ( $singletons as $singleton ) {
 \t\t\t\t\t$admin_schema['forms'][ $singleton['id'] ] = portfolio_light_get_admin_schema( $singleton['id'], 'form' );
-\t\t\t\t\t$singleton_data[ $singleton['id'] ] = get_option( 'portfolio_singleton_' . $singleton['id'], [] );
+\t\t\t\t\t$singleton_data[ $singleton['id'] ] = portfolio_light_singleton_with_inheritance( $singleton['id'] );
 \t\t\t\t}
 
 \t\t\t\t$page_posts = get_posts(
@@ -95,6 +95,18 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t],
 \t\t\t\t\t200
 \t\t\t\t);
+\t\t\t},
+\t\t]
+\t);
+
+\tregister_rest_route(
+\t\t'portfolio/v1',
+\t\t'/editor-bundle',
+\t\t[
+\t\t\t'methods'             => 'GET',
+\t\t\t'permission_callback' => 'portfolio_light_rest_can_edit',
+\t\t\t'callback'            => function() {
+\t\t\t\treturn new WP_REST_Response( portfolio_light_get_editor_bundle(), 200 );
 \t\t\t},
 \t\t]
 \t);
@@ -264,7 +276,7 @@ add_action( 'rest_api_init', function() {
 
 \t\t\t\t\treturn new WP_REST_Response(
 \t\t\t\t\t\t[
-\t\t\t\t\t\t\t'item' => get_option( 'portfolio_singleton_' . $schema['id'], [] ),
+\t\t\t\t\t\t\t'item' => portfolio_light_singleton_with_inheritance( $schema['id'] ),
 \t\t\t\t\t\t],
 \t\t\t\t\t\t200
 \t\t\t\t\t);
