@@ -1,0 +1,312 @@
+.command-bar-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 280px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--wp-admin-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--wp-admin-surface) 88%, transparent);
+  color: var(--wp-admin-text);
+  cursor: pointer;
+  transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
+}
+
+.command-bar-trigger:hover {
+  border-color: color-mix(in srgb, var(--wp-admin-accent) 25%, var(--wp-admin-border));
+  background: color-mix(in srgb, var(--wp-admin-surface) 94%, var(--wp-admin-accent) 6%);
+}
+
+.command-bar-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wp-admin-accent) 30%, transparent);
+}
+
+.command-bar-trigger__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 13px;
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar-trigger__shortcut {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--wp-admin-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.components-modal__frame.command-bar-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-width: 760px;
+  height: min(78vh, 720px);
+  margin-top: 10vh;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--wp-admin-border) 82%, transparent);
+  background: var(--wp-admin-surface);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+}
+
+.command-bar-modal .components-modal__content {
+  margin-top: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.command-bar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--wp-admin-surface);
+  color: var(--wp-admin-text);
+}
+
+.command-bar__search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--wp-admin-border);
+}
+
+.command-bar__search-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar__input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--wp-admin-text);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  outline: none;
+  padding: 0;
+}
+
+.command-bar__input::placeholder {
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar__results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.command-bar__section + .command-bar__section {
+  margin-top: 2px;
+}
+
+.command-bar__section-header {
+  padding: 10px 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar__section-list {
+  display: grid;
+  gap: 4px;
+}
+
+.command-bar__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: background 90ms ease, color 90ms ease;
+}
+
+.command-bar__item:hover,
+.command-bar__item.is-active {
+  background: color-mix(in srgb, var(--wp-admin-accent) 12%, transparent);
+}
+
+.command-bar__item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--wp-admin-text-muted);
+  flex-shrink: 0;
+}
+
+.command-bar__item.is-active .command-bar__item-icon,
+.command-bar__item:hover .command-bar__item-icon {
+  color: var(--wp-admin-accent);
+}
+
+.command-bar__item-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.command-bar__item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wp-admin-text);
+}
+
+.command-bar__item-subtitle {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--wp-admin-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-bar__item-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wp-admin-text-muted);
+  flex-shrink: 0;
+}
+
+.command-bar__empty {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  text-align: center;
+  padding: 24px;
+}
+
+.command-bar__empty h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.command-bar__empty p {
+  margin: 0;
+  max-width: 420px;
+  color: var(--wp-admin-text-muted);
+  line-height: 1.55;
+}
+
+.command-bar__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--wp-admin-border);
+  background: color-mix(in srgb, var(--wp-admin-canvas-bg) 70%, transparent);
+}
+
+.command-bar__footer-hints {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar__footer-hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.command-bar__footer kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 5px;
+  border: 1px solid var(--wp-admin-border);
+  background: var(--wp-admin-surface);
+  color: var(--wp-admin-text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.command-bar__footer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+}
+
+.command-bar__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--wp-admin-text-muted);
+}
+
+.command-bar__status .components-spinner {
+  margin: 0;
+  width: 14px;
+  height: 14px;
+}
+
+.command-bar__status--error {
+  color: #b32d2e;
+}
+
+@media (max-width: 900px) {
+  .command-bar-trigger {
+    min-width: auto;
+    padding-inline: 10px;
+  }
+
+  .command-bar-trigger__label,
+  .command-bar-trigger__shortcut {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .components-modal__frame.command-bar-modal {
+    width: calc(100vw - 16px);
+    height: min(82vh, 760px);
+    margin-top: 8px;
+  }
+
+  .command-bar__search {
+    padding: 16px;
+  }
+
+  .command-bar__results {
+    padding: 8px;
+  }
+
+  .command-bar__item-subtitle {
+    white-space: normal;
+  }
+
+  .command-bar__footer {
+    align-items: flex-start;
+  }
+}

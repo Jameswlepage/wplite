@@ -25,10 +25,10 @@ function portfolio_light_head_meta_description( $seo, $post ) {
 function portfolio_light_head_title( $seo, $post ) {
 \t$site_title = get_bloginfo( 'name' );
 \t$site_desc  = get_bloginfo( 'description' );
-\t$sep        = $seo['title_separator'] ?: '—';
+\t$sep        = ( $seo['title_separator'] ?? '' ) ?: '—';
 
 \tif ( is_front_page() ) {
-\t\t$tpl = $seo['title_template_home'] ?: '%site_title% — %site_description%';
+\t\t$tpl = ( $seo['title_template_home'] ?? '' ) ?: '%site_title% — %site_description%';
 \t\treturn strtr( $tpl, [
 \t\t\t'%site_title%'       => $site_title,
 \t\t\t'%site_description%' => $site_desc,
@@ -37,7 +37,7 @@ function portfolio_light_head_title( $seo, $post ) {
 \t}
 
 \tif ( $post instanceof WP_Post ) {
-\t\t$tpl = $seo['title_template_post'] ?: '%post_title% %separator% %site_title%';
+\t\t$tpl = ( $seo['title_template_post'] ?? '' ) ?: '%post_title% %separator% %site_title%';
 \t\treturn strtr( $tpl, [
 \t\t\t'%post_title%'       => get_the_title( $post ),
 \t\t\t'%site_title%'       => $site_title,
@@ -61,7 +61,7 @@ function portfolio_light_head_title( $seo, $post ) {
 \t\t} else {
 \t\t\t$archive = $site_title;
 \t\t}
-\t\t$tpl = $seo['title_template_archive'] ?: '%archive_title% %separator% %site_title%';
+\t\t$tpl = ( $seo['title_template_archive'] ?? '' ) ?: '%archive_title% %separator% %site_title%';
 \t\treturn strtr( $tpl, [
 \t\t\t'%archive_title%'    => $archive,
 \t\t\t'%site_title%'       => $site_title,
@@ -226,7 +226,7 @@ add_action( 'wp_head', function() {
 \t$robots      = portfolio_light_head_robots( $seo );
 \t$og_image    = portfolio_light_head_og_image( $seo, $profile, $post );
 \t$og_type     = $seo['og_type'] ?? 'website';
-\t$og_locale   = $seo['og_locale'] ?: ( str_replace( '-', '_', get_bloginfo( 'language' ) ) );
+\t$og_locale   = ( $seo['og_locale'] ?? '' ) ?: ( str_replace( '-', '_', get_bloginfo( 'language' ) ) );
 \t$twitter_card = $seo['twitter_card'] ?? 'summary_large_image';
 \t$twitter_handle = $seo['twitter_handle'] ?? '';
 

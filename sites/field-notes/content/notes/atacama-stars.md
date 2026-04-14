@@ -6,6 +6,7 @@ title: The First Night in the Atacama
 excerpt: Above 2,500m in the driest non-polar desert on Earth, on a moonless night. The sky does something I wasn't ready for.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/atacama-stars.jpg
   observed_on: '2025-08-22'
   place: San Pedro de Atacama, Chile
   lat: '-22.9098'

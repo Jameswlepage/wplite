@@ -255,7 +255,7 @@ export function PagesPage({ pushNotice }) {
   );
 }
 
-export function PageEditorPage({ bootstrap, pushNotice }) {
+export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
   const themeJson = bootstrap?.themeJson ?? null;
   const navigate = useNavigate();
   const { pageId } = useParams();
@@ -411,6 +411,24 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
 
       const normalized = normalizePageRecord(payload);
       setDraft(normalized);
+      if (typeof setBootstrap === 'function') {
+        setBootstrap((current) => {
+          const existingPages = Array.isArray(current?.pages) ? current.pages : [];
+          const nextPages = [...existingPages];
+          const existingIndex = nextPages.findIndex((item) => String(item.id) === String(normalized.id));
+
+          if (existingIndex >= 0) {
+            nextPages[existingIndex] = normalized;
+          } else {
+            nextPages.unshift(normalized);
+          }
+
+          return {
+            ...current,
+            pages: nextPages,
+          };
+        });
+      }
       if (savedTemplate) {
         const composed = composeTemplateEditorBlocks(
           blocksFromContent(savedTemplate?.content?.raw ?? ''),
@@ -450,6 +468,12 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
     setIsDeleting(true);
     try {
       await wpApiFetch(`wp/v2/pages/${pageId}?force=true`, { method: 'DELETE' });
+      if (typeof setBootstrap === 'function') {
+        setBootstrap((current) => ({
+          ...current,
+          pages: (current?.pages ?? []).filter((page) => String(page.id) !== String(pageId)),
+        }));
+      }
       pushNotice({ status: 'success', message: 'Page deleted.' });
       navigate('/pages');
     } catch (error) {

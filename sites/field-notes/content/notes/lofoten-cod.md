@@ -6,6 +6,7 @@ title: Racks of Cod, Lofoten
 excerpt: The wooden drying racks outside Henningsvær smell like nothing because the wind has carried every molecule away.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/lofoten-cod.jpg
   observed_on: '2025-03-09'
   place: Henningsvær, Lofoten, Norway
   lat: '68.1540'

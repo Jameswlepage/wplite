@@ -904,6 +904,10 @@ export function DocsPage({ bootstrap }) {
                     add a route in <code>shell.jsx</code>, and add a navigation entry to the sidebar config.
                     The bootstrap payload already contains all the data most screens need.
                   </div>
+                  <div className="docs-callout">
+                    <strong>Global navigation:</strong> the admin shell exposes a shared command bar on <code>Cmd/Ctrl + K</code>.
+                    It merges local route commands, bootstrapped records, and live WordPress REST search for users, media, and comments.
+                  </div>
                 </div>
               </div>
             </CardBody>

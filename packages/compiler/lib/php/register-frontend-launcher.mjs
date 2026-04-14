@@ -40,6 +40,13 @@ function portfolio_light_frontend_launcher_items() {
 \t}
 
 \t$items[] = [
+\t\t'key'    => 'search',
+\t\t'label'  => __( 'Search Site', 'portfolio-light' ),
+\t\t'action' => 'search',
+\t\t'icon'   => '${launcherIconSvg('search')}',
+\t];
+
+\t$items[] = [
 \t\t'key'   => 'admin',
 \t\t'label' => __( 'Go to Admin', 'portfolio-light' ),
 \t\t'url'   => home_url( '/app' ),
@@ -55,6 +62,23 @@ function portfolio_light_frontend_launcher_items() {
 
 \treturn $items;
 }
+
+add_action(
+\t'init',
+\tfunction() {
+\t\tif ( ! portfolio_light_frontend_launcher_should_render() ) {
+\t\t\treturn;
+\t\t}
+
+\t\tadd_filter(
+\t\t\t'show_admin_bar',
+\t\t\tfunction() {
+\t\t\t\treturn false;
+\t\t\t},
+\t\t\t100
+\t\t);
+\t}
+);
 
 add_action(
 \t'wp_enqueue_scripts',
@@ -93,12 +117,18 @@ add_action(
 \t\t\treturn;
 \t\t}
 \t\t?>
-\t\t<div class="wplite-frontend-launcher" data-wplite-launcher style="--wplite-launcher-items: <?php echo (int) count( $items ); ?>;">
+\t\t<div
+\t\t\tclass="wplite-frontend-launcher"
+\t\t\tdata-wplite-launcher
+\t\t\tdata-wplite-search-url="<?php echo esc_url( home_url( '/' ) ); ?>"
+\t\t\tstyle="--wplite-launcher-items: <?php echo (int) count( $items ); ?>;"
+\t\t>
 \t\t\t<div class="wplite-frontend-launcher__dock">
 \t\t\t\t<button
 \t\t\t\t\ttype="button"
 \t\t\t\t\tclass="wplite-frontend-launcher__toggle"
 \t\t\t\t\tdata-wplite-launcher-toggle
+\t\t\t\t\tdata-tooltip="<?php echo esc_attr__( 'WordPress tools', 'portfolio-light' ); ?>"
 \t\t\t\t\taria-expanded="false"
 \t\t\t\t\taria-label="<?php echo esc_attr__( 'Open WordPress tools', 'portfolio-light' ); ?>"
 \t\t\t\t>
@@ -106,14 +136,28 @@ add_action(
 \t\t\t\t</button>
 \t\t\t\t<nav class="wplite-frontend-launcher__menu" aria-label="<?php echo esc_attr__( 'WordPress tools', 'portfolio-light' ); ?>">
 \t\t\t\t\t<?php foreach ( $items as $item ) : ?>
-\t\t\t\t\t\t<a
-\t\t\t\t\t\t\tclass="wplite-frontend-launcher__item"
-\t\t\t\t\t\t\thref="<?php echo esc_url( $item['url'] ); ?>"
-\t\t\t\t\t\t\tdata-tooltip="<?php echo esc_attr( $item['label'] ); ?>"
-\t\t\t\t\t\t\taria-label="<?php echo esc_attr( $item['label'] ); ?>"
-\t\t\t\t\t\t>
-\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-icon" aria-hidden="true"><?php echo $item['icon']; ?></span>
-\t\t\t\t\t\t</a>
+\t\t\t\t\t\t<?php if ( ! empty( $item['action'] ) ) : ?>
+\t\t\t\t\t\t\t<button
+\t\t\t\t\t\t\t\ttype="button"
+\t\t\t\t\t\t\t\tclass="wplite-frontend-launcher__item"
+\t\t\t\t\t\t\t\tdata-tooltip="<?php echo esc_attr( $item['label'] ); ?>"
+\t\t\t\t\t\t\t\tdata-wplite-launcher-action="<?php echo esc_attr( $item['action'] ); ?>"
+\t\t\t\t\t\t\t\taria-label="<?php echo esc_attr( $item['label'] ); ?>"
+\t\t\t\t\t\t\t>
+\t\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-icon" aria-hidden="true"><?php echo $item['icon']; ?></span>
+\t\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-label"><?php echo esc_html( $item['label'] ); ?></span>
+\t\t\t\t\t\t\t</button>
+\t\t\t\t\t\t<?php else : ?>
+\t\t\t\t\t\t\t<a
+\t\t\t\t\t\t\t\tclass="wplite-frontend-launcher__item"
+\t\t\t\t\t\t\t\thref="<?php echo esc_url( $item['url'] ); ?>"
+\t\t\t\t\t\t\t\tdata-tooltip="<?php echo esc_attr( $item['label'] ); ?>"
+\t\t\t\t\t\t\t\taria-label="<?php echo esc_attr( $item['label'] ); ?>"
+\t\t\t\t\t\t\t>
+\t\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-icon" aria-hidden="true"><?php echo $item['icon']; ?></span>
+\t\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-label"><?php echo esc_html( $item['label'] ); ?></span>
+\t\t\t\t\t\t\t</a>
+\t\t\t\t\t\t<?php endif; ?>
 \t\t\t\t\t<?php endforeach; ?>
 \t\t\t\t</nav>
 \t\t\t</div>
@@ -165,6 +209,7 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -194,6 +239,32 @@ export function frontendLauncherCss() {
   outline-offset: 2px;
 }
 
+.wplite-frontend-launcher__toggle::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translate(-50%, 4px);
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--wplite-launcher-tooltip-bg);
+  border: 1px solid var(--wplite-launcher-tooltip-border);
+  color: var(--wplite-launcher-tooltip-text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.wplite-frontend-launcher__toggle:hover::after,
+.wplite-frontend-launcher__toggle:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .wplite-frontend-launcher__toggle svg,
 .wplite-frontend-launcher__item svg {
   display: block;
@@ -202,10 +273,10 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__menu {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   max-width: 0;
   overflow: hidden;
-  padding: 0;
+  padding: 0 0 0 2px;
   opacity: 0;
   pointer-events: none;
   transform: translateX(-4px);
@@ -219,9 +290,9 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher:hover .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher:focus-within .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher.is-open .wplite-frontend-launcher__menu {
-  max-width: calc((var(--wplite-launcher-items, 3) * 42px) + 8px);
+  max-width: min(520px, calc(100vw - 84px));
   overflow: visible;
-  padding-right: 4px;
+  padding-right: 10px;
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -229,12 +300,15 @@ export function frontendLauncherCss() {
 
 .wplite-frontend-launcher__item {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 42px;
+  justify-content: flex-start;
+  gap: 8px;
+  width: auto;
+  min-width: 42px;
   height: 42px;
-  flex: 0 0 42px;
+  flex: 0 0 auto;
+  padding: 0 12px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -285,6 +359,14 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 16px;
+}
+
+.wplite-frontend-launcher__item-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
@@ -296,7 +378,7 @@ export function frontendLauncherCss() {
   .wplite-frontend-launcher:hover .wplite-frontend-launcher__menu,
   .wplite-frontend-launcher:focus-within .wplite-frontend-launcher__menu,
   .wplite-frontend-launcher.is-open .wplite-frontend-launcher__menu {
-    max-width: min(calc(100vw - 84px), calc((var(--wplite-launcher-items, 3) * 42px) + 8px));
+    max-width: calc(100vw - 84px);
   }
 }
 `;
@@ -319,10 +401,31 @@ export function frontendLauncherJs() {
       launcher.classList.toggle('is-open', nextOpen);
       toggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
     };
+    const searchUrl = launcher.getAttribute('data-wplite-search-url') || window.location.origin + '/';
 
     toggle.addEventListener('click', (event) => {
       event.preventDefault();
       setOpen(!launcher.classList.contains('is-open'));
+    });
+
+    const actionButtons = launcher.querySelectorAll('[data-wplite-launcher-action]');
+    actionButtons.forEach((button) => {
+      button.addEventListener('click', (event) => {
+        const action = button.getAttribute('data-wplite-launcher-action');
+        if (action !== 'search') {
+          return;
+        }
+
+        event.preventDefault();
+        const query = window.prompt('Search this site');
+        if (!query || !query.trim()) {
+          return;
+        }
+
+        const target = new URL(searchUrl, window.location.href);
+        target.searchParams.set('s', query.trim());
+        window.location.assign(target.toString());
+      });
     });
 
     launcher.addEventListener('mouseleave', () => {

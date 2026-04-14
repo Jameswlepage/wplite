@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "field-notes/places-visited",
+  "title": "Places visited",
+  "category": "dashboard",
+  "icon": "location",
+  "description": "Distinct places recorded across all entries.",
+  "supports": { "html": false, "align": ["half", "full"] },
+  "dashboard": { "priority": 30, "span": "half" },
+  "render": "file:./render.php"
+}

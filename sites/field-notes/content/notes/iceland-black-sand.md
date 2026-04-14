@@ -6,6 +6,7 @@ title: Reynisfjara, In the Wrong Kind of Quiet
 excerpt: A black-sand beach in Iceland with a famously noisy surf, but the day I went the ocean was behaving like a held breath.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/iceland-black-sand.jpg
   observed_on: '2025-10-04'
   place: Reynisfjara, Iceland
   lat: '63.4069'

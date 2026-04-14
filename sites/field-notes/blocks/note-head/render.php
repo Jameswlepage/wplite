@@ -11,6 +11,11 @@ $lng       = get_post_meta( $post_id, 'lng', true );
 $elevation = get_post_meta( $post_id, 'elevation_m', true );
 $weather   = get_post_meta( $post_id, 'weather', true );
 $species   = get_post_meta( $post_id, 'species', true );
+$hero      = get_post_meta( $post_id, 'hero_url', true );
+if ( ! $hero ) {
+	$thumb = get_the_post_thumbnail_url( $post_id, 'full' );
+	if ( $thumb ) { $hero = $thumb; }
+}
 
 $date_fmt = '';
 if ( $observed ) {
@@ -39,6 +44,12 @@ if ( $lat && $lng ) {
 
 	<?php if ( $excerpt ) : ?>
 		<p class="fn-single__lede"><?php echo esc_html( $excerpt ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( $hero ) : ?>
+		<figure class="fn-single__hero">
+			<img src="<?php echo esc_url( $hero ); ?>" alt="<?php echo esc_attr( $title ); ?>">
+		</figure>
 	<?php endif; ?>
 
 	<div class="fn-single__facts">

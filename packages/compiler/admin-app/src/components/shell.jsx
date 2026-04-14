@@ -11,10 +11,12 @@ import {
   Button,
   Card,
   CardBody,
+  DropdownMenu,
 } from '@wordpress/components';
 import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
-import { collectionPathForModel, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
+import { collectionPathForModel, editorRouteForModel, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
+import { CommandBar } from './command-bar.jsx';
 import { NotificationBell, SidekickPanel, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
@@ -192,6 +194,7 @@ function SidebarUserMenu({ currentUser, sidebarCollapsed, navigate }) {
 export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsByModel, singletonData, setSingletonData }) {
   const [notices, setNotices] = useState([]);
   const [dashWidgetConfig, setDashWidgetConfig] = useState(null);
+  const [commandBarOpen, setCommandBarOpen] = useState(false);
   const {
     notifications,
     archiveNotification,
@@ -296,6 +299,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
 
   const groupedNavigation = useMemo(() => {
     const commentsEnabled = bootstrap.site?.commentsEnabled === true;
+    const hasPosts = Boolean((bootstrap.models || []).find((model) => model?.id === 'post'));
 
     // Top-level items (not collapsible)
     const topLevel = [
@@ -306,7 +310,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
 
     const core = [
       { id: 'pages', label: 'Pages', path: '/pages', kind: 'core' },
-      { id: 'post', label: 'Posts', path: '/posts', kind: 'core' },
+      ...(hasPosts ? [{ id: 'post', label: 'Posts', path: '/posts', kind: 'core' }] : []),
       ...(commentsEnabled ? [{ id: 'comments', label: 'Comments', path: '/comments', kind: 'core' }] : []),
       { id: 'media', label: 'Media', path: '/media', kind: 'core' },
     ];
@@ -327,7 +331,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     ];
 
     return { topLevel, core, collections, settings };
-  }, [bootstrap.navigation, bootstrap.site?.commentsEnabled]);
+  }, [bootstrap.models, bootstrap.navigation, bootstrap.site?.commentsEnabled]);
 
   const breadcrumbSegments = useMemo(() => {
     if (location.pathname === '/') return [{ label: 'Dashboard', path: '/' }];
@@ -350,6 +354,48 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
       return location.pathname.startsWith(path) && rest.length > 1 && rest.startsWith('/');
     });
   }, [bootstrap.models, location.pathname]);
+
+  // Build the "+ New ..." quick-create menu: collections first (sorted by label),
+  // then page/post core types. Each control navigates to the model's editor at
+  // the "new" slot.
+  const createMenuControls = useMemo(() => {
+    const hasPosts = Boolean((bootstrap.models || []).find((model) => model?.id === 'post'));
+
+    const collectionControls = (bootstrap.models || [])
+      .filter((model) => model?.public !== false && model?.id !== 'page' && model?.id !== 'post')
+      .slice()
+      .sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id)))
+      .map((model) => ({
+        title: `New ${model.label || toTitleCase(model.id)}`,
+        icon: null,
+        onClick: () => navigate(editorRouteForModel(model, 'new')),
+      }));
+
+    const coreControls = [
+      {
+        title: 'New Page',
+        icon: null,
+        onClick: () => navigate('/pages/new'),
+      },
+    ];
+    if (hasPosts) {
+      coreControls.push({
+        title: 'New Post',
+        icon: null,
+        onClick: () => navigate('/posts/new'),
+      });
+    }
+
+    return [...collectionControls, ...coreControls];
+  }, [bootstrap.models, navigate]);
+  const commandShortcut = useMemo(() => {
+    try {
+      return /Mac|iPhone|iPad|iPod/.test(window.navigator.platform) ? '⌘K' : 'Ctrl K';
+    } catch {
+      return 'Ctrl K';
+    }
+  }, []);
+
   const adminColorScheme = normalizeAdminColor(
     bootstrap.currentUser?.preferences?.adminColor ?? singletonData.profile?.color_scheme
   );
@@ -458,6 +504,28 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
               </nav>
             </div>
             <div className="main-panel__topbar-actions">
+              <button
+                className="command-bar-trigger"
+                type="button"
+                onClick={() => setCommandBarOpen(true)}
+                aria-label={`Search or run a command (${commandShortcut})`}
+              >
+                <CarbonIcon name="Search" size={16} />
+                <span className="command-bar-trigger__label">Search or run a command</span>
+                <span className="command-bar-trigger__shortcut">{commandShortcut}</span>
+              </button>
+              {createMenuControls.length > 0 && (
+                <DropdownMenu
+                  icon={<CarbonIcon name="Add" size={20} />}
+                  label="Create new"
+                  controls={createMenuControls}
+                  toggleProps={{
+                    className: 'wplite-topbar-create',
+                    showTooltip: true,
+                  }}
+                  popoverProps={{ placement: 'bottom-end' }}
+                />
+              )}
               <NotificationBell
                 unreadCount={unreadCount}
                 isOpen={sidekickOpen}
@@ -502,7 +570,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
                 }
               />
               <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
               <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/comments/:commentId" element={<CommentEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
@@ -567,6 +635,14 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
         onMarkAllRead={markAllRead}
         onClearAll={clearAllNotifications}
         onOpen={markNonErrorsRead}
+      />
+      <CommandBar
+        bootstrap={bootstrap}
+        recordsByModel={recordsByModel}
+        isOpen={commandBarOpen}
+        onOpen={() => setCommandBarOpen(true)}
+        onClose={() => setCommandBarOpen(false)}
+        closeMobileSidebar={closeMobileSidebar}
       />
       <NoticeStack notices={notices} onDismiss={dismissNotice} />
     </div>

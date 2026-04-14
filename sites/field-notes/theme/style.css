@@ -7,19 +7,22 @@ Version: 0.1.0
 Text Domain: field-notes
 */
 
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
 /* =========================================================
    0. Base — ruled paper
    ========================================================= */
 
 :root {
-	--fn-rule-spacing: 28px;
+	--fn-rule-spacing: 36px;
+	--fn-rule-color: rgba(120, 95, 55, 0.10);
 	--fn-tape: #e6d5a8;
-	--fn-shadow-warm: 0 1px 0 rgba(60, 40, 20, 0.06), 0 8px 24px rgba(60, 40, 20, 0.08);
-	--fn-shadow-deep: 0 2px 0 rgba(30, 20, 10, 0.08), 0 18px 48px rgba(30, 20, 10, 0.18);
+	--fn-shadow-warm: 0 1px 0 rgba(60, 40, 20, 0.05), 0 8px 24px rgba(60, 40, 20, 0.07);
+	--fn-shadow-deep: 0 2px 0 rgba(30, 20, 10, 0.07), 0 18px 48px rgba(30, 20, 10, 0.15);
 }
 
 html {
-	background: var(--wp--preset--color--manila);
+	background: var(--wp--preset--color--paper);
 }
 
 body {
@@ -28,16 +31,10 @@ body {
 			to bottom,
 			transparent 0,
 			transparent calc(var(--fn-rule-spacing) - 1px),
-			var(--wp--preset--color--rule) calc(var(--fn-rule-spacing) - 1px),
-			var(--wp--preset--color--rule) var(--fn-rule-spacing)
-		),
-		radial-gradient(
-			ellipse at top left,
-			rgba(255, 240, 210, 0.7) 0%,
-			transparent 60%
+			var(--fn-rule-color) calc(var(--fn-rule-spacing) - 1px),
+			var(--fn-rule-color) var(--fn-rule-spacing)
 		),
 		var(--wp--preset--color--paper);
-	background-blend-mode: multiply, normal, normal;
 }
 
 body::before {
@@ -48,22 +45,12 @@ body::before {
 	bottom: 0;
 	width: 1px;
 	background: var(--wp--preset--color--rust);
-	opacity: 0.35;
+	opacity: 0.18;
 	pointer-events: none;
 	z-index: 0;
 }
 
-/* a subtle paper grain */
-body::after {
-	content: "";
-	position: fixed;
-	inset: 0;
-	pointer-events: none;
-	z-index: 0;
-	background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.05  0 0 0 0 0.02  0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-	mix-blend-mode: multiply;
-	opacity: 0.55;
-}
+/* paper grain intentionally omitted — rules alone carry the texture */
 
 main, header, footer { position: relative; z-index: 1; }
 
@@ -300,6 +287,7 @@ main, header, footer { position: relative; z-index: 1; }
 	position: relative;
 	width: 100%;
 	aspect-ratio: 16 / 9;
+	min-height: 540px;
 	background:
 		/* grid overlay */
 		linear-gradient(to right, rgba(60, 40, 20, 0.08) 1px, transparent 1px) 0 0 / 64px 64px,
@@ -461,10 +449,43 @@ main, header, footer { position: relative; z-index: 1; }
 .fn-note {
 	position: relative;
 	background: var(--wp--preset--color--paper);
-	padding: 24px 24px 28px;
+	padding: 0 0 24px;
 	box-shadow: var(--fn-shadow-warm);
 	border: 1px solid rgba(169, 124, 79, 0.25);
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	overflow: hidden;
+}
+
+.fn-note__hero {
+	display: block;
+	aspect-ratio: 4 / 3;
+	overflow: hidden;
+	background: var(--wp--preset--color--manila);
+}
+
+.fn-note__hero img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+	transition: transform 0.4s ease;
+	filter: saturate(0.85) contrast(0.98);
+}
+
+.fn-note:hover .fn-note__hero img {
+	transform: scale(1.03);
+}
+
+.fn-note__stamp,
+.fn-note__title,
+.fn-note__excerpt,
+.fn-note__meta {
+	padding-left: 22px;
+	padding-right: 22px;
+}
+
+.fn-note__stamp {
+	margin-top: 18px;
 }
 
 .fn-note:nth-child(3n+1) { transform: rotate(-0.4deg); }
@@ -563,9 +584,22 @@ main, header, footer { position: relative; z-index: 1; }
 }
 
 .fn-field__grid {
+	/* Gutenberg wraps posts in .wp-block-post-template <ul>, so grid has to
+	   live on that inner element — not on .wp-block-query itself. */
+}
+
+.fn-field__grid .wp-block-post-template {
+	list-style: none;
+	padding: 0;
+	margin: 0;
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-	gap: clamp(24px, 3vw, 40px) clamp(24px, 3vw, 40px);
+	gap: clamp(24px, 3vw, 40px);
+}
+
+.fn-field__grid .wp-block-post-template > li {
+	margin: 0;
+	list-style: none;
 }
 
 /* =========================================================
@@ -611,6 +645,23 @@ main, header, footer { position: relative; z-index: 1; }
 	color: var(--wp--preset--color--iron);
 	font-style: italic;
 	margin: 0 0 24px;
+}
+
+.fn-single__hero {
+	margin: 32px 0 28px;
+	padding: 0;
+	overflow: hidden;
+	background: var(--wp--preset--color--manila);
+	box-shadow: var(--fn-shadow-deep);
+}
+
+.fn-single__hero img {
+	display: block;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 16 / 10;
+	object-fit: cover;
+	filter: saturate(0.88) contrast(0.98);
 }
 
 .fn-single__facts {

@@ -6,6 +6,7 @@ title: Dune 45, Before Sunrise
 excerpt: A sand dune that sings. Climb it slowly and it will tell you what old light sounds like.
 status: publish
 fields:
+  hero_url: /wp-content/themes/field-notes-theme/assets/media/namibia-dune.jpg
   observed_on: '2024-11-06'
   place: Sossusvlei, Namibia
   lat: '-24.7311'

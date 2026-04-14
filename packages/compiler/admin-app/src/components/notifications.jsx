@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, DropdownMenu } from '@wordpress/components';
 import {
   Notification as BellIcon,
@@ -6,9 +6,8 @@ import {
   WarningAlt,
   Information,
   Close,
-  ChatBot,
   OverflowMenuVertical,
-  Send,
+  ArrowUp,
   NotificationOff,
 } from '@carbon/icons-react';
 
@@ -151,47 +150,135 @@ function NotificationsList({ notifications }) {
   );
 }
 
-function AssistantPlaceholder() {
-  const [value, setValue] = useState('');
-  const canSend = value.trim().length > 0;
+const MOCK_REPLIES = [
+  "Sure — here's a quick take. This dashboard lives in the /app shell and every widget is a WordPress block with category \"dashboard\". Add one to any site by creating a block.json with that category.",
+  "Good question. The compiler reads each site's blocks/ folder and emits them as a runtime plugin. Nothing is hardcoded to a specific site — it's all driven off block.json metadata.",
+  "You can reorder widgets by dragging the handle that appears on hover, and hide any widget from the dashboard settings menu. Layout is persisted per-user in localStorage.",
+  "For streaming content into blocks, look at the Interactivity API wiring in the traffic-overview block — it seeds state on the server and hydrates on the client.",
+];
+
+function pickMockReply(input) {
+  const seed = input.split('').reduce((acc, ch) => (acc + ch.charCodeAt(0)) % 1000, 0);
+  return MOCK_REPLIES[seed % MOCK_REPLIES.length];
+}
+
+function AssistantChat() {
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const textareaRef = useRef(null);
+  const scrollRef = useRef(null);
+  const streamTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (streamTimer.current) clearInterval(streamTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  function autogrow() {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  }
+
+  function streamReply(target, full) {
+    let i = 0;
+    const id = target.id;
+    streamTimer.current = setInterval(() => {
+      i += Math.max(1, Math.floor(Math.random() * 4));
+      const next = full.slice(0, i);
+      setMessages((current) => current.map((m) => (m.id === id ? { ...m, text: next } : m)));
+      if (i >= full.length) {
+        clearInterval(streamTimer.current);
+        streamTimer.current = null;
+        setIsStreaming(false);
+      }
+    }, 22);
+  }
+
+  function send() {
+    const text = draft.trim();
+    if (!text || isStreaming) return;
+    const user = { id: `u-${Date.now()}`, role: 'user', text };
+    const bot = { id: `a-${Date.now()}`, role: 'assistant', text: '' };
+    setMessages((current) => [...current, user, bot]);
+    setDraft('');
+    setIsStreaming(true);
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.focus();
+      }
+    });
+    streamReply(bot, pickMockReply(text));
+  }
+
+  function onComposerClick(event) {
+    if (event.target.closest('.assistant-composer__send')) return;
+    textareaRef.current?.focus();
+  }
+
+  const canSend = draft.trim().length > 0 && !isStreaming;
+
   return (
-    <div className="sidekick-panel__assistant">
-      <div className="sidekick-panel__assistant-empty">
-        <div className="sidekick-panel__assistant-icon" aria-hidden="true">
-          <ChatBot size={32} />
-        </div>
-        <h3 className="sidekick-panel__assistant-title">AI Assistant</h3>
-        <p className="sidekick-panel__assistant-body">
-          Draft content, navigate the site, and troubleshoot from this panel.
-          <br />
-          <span className="sidekick-panel__assistant-body-muted">Coming soon.</span>
-        </p>
+    <div className="assistant-chat">
+      <div className="assistant-chat__scroll" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <div className="assistant-chat__empty">
+            <h3 className="assistant-chat__empty-title">Ask anything</h3>
+            <p className="assistant-chat__empty-body">
+              Ask about the dashboard, your content, or how to do something in this site.
+            </p>
+          </div>
+        ) : (
+          <ol className="assistant-chat__messages" aria-live="polite">
+            {messages.map((m) => (
+              <li key={m.id} className={`assistant-msg assistant-msg--${m.role}`}>
+                <div className="assistant-msg__bubble">
+                  {m.text}
+                  {m.role === 'assistant' && isStreaming && m === messages[messages.length - 1] ? (
+                    <span className="assistant-msg__caret" aria-hidden="true" />
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
-      <form
-        className="sidekick-panel__composer"
-        onSubmit={(e) => e.preventDefault()}
+      <div
+        className="assistant-composer"
+        role="group"
         aria-label="AI assistant composer"
+        onClick={onComposerClick}
       >
         <textarea
-          className="sidekick-panel__composer-input"
+          ref={textareaRef}
+          className="assistant-composer__input"
           placeholder="Ask anything…"
           rows={1}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); autogrow(); }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) e.preventDefault();
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
           }}
         />
         <button
-          type="submit"
-          className="sidekick-panel__composer-send"
-          aria-label="Send"
+          type="button"
+          className="assistant-composer__send"
+          aria-label="Send message"
           disabled={!canSend}
-          data-can-send={canSend ? 'true' : 'false'}
+          onClick={send}
         >
-          <Send size={14} />
+          <ArrowUp size={16} />
         </button>
-      </form>
+      </div>
     </div>
   );
 }
@@ -249,61 +336,53 @@ export function SidekickPanel({
       : [];
 
   return (
-    <>
-      <button
-        type="button"
-        className="sidekick-scrim"
-        aria-label="Close sidekick"
-        onClick={() => onClose?.()}
-      />
-      <aside
-        className="sidekick-panel"
-        role="complementary"
-        aria-label="Sidekick panel"
-      >
-        <div className="sidekick-panel__tabstrip">
-          <nav className="sidekick-panel__tabs" role="tablist">
-            {tabs.map((t) => (
-              <button
-                key={t.name}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === t.name}
-                className={`sidekick-panel__tab${activeTab === t.name ? ' is-active' : ''}`}
-                onClick={() => onTabChange?.(t.name)}
-              >
-                {t.title}
-              </button>
-            ))}
-          </nav>
-          <div className="sidekick-panel__tabstrip-actions">
-            {menuControls.length > 0 ? (
-              <DropdownMenu
-                className="sidekick-panel__menu"
-                icon={OverflowIcon}
-                label="More actions"
-                controls={menuControls}
-              />
-            ) : null}
+    <aside
+      className="sidekick-panel"
+      role="complementary"
+      aria-label="Sidekick panel"
+    >
+      <div className="sidekick-panel__tabstrip">
+        <nav className="sidekick-panel__tabs" role="tablist">
+          {tabs.map((t) => (
             <button
+              key={t.name}
               type="button"
-              className="sidekick-panel__close"
-              onClick={() => onClose?.()}
-              aria-label="Close"
-              title="Close"
+              role="tab"
+              aria-selected={activeTab === t.name}
+              className={`sidekick-panel__tab${activeTab === t.name ? ' is-active' : ''}`}
+              onClick={() => onTabChange?.(t.name)}
             >
-              <Close size={16} />
+              {t.title}
             </button>
-          </div>
+          ))}
+        </nav>
+        <div className="sidekick-panel__tabstrip-actions">
+          {menuControls.length > 0 ? (
+            <DropdownMenu
+              className="sidekick-panel__menu"
+              icon={OverflowIcon}
+              label="More actions"
+              controls={menuControls}
+            />
+          ) : null}
+          <button
+            type="button"
+            className="sidekick-panel__close"
+            onClick={() => onClose?.()}
+            aria-label="Close"
+            title="Close"
+          >
+            <Close size={16} />
+          </button>
         </div>
-        <div className="sidekick-panel__body">
-          {activeTab === 'notifications' ? (
-            <NotificationsList notifications={notifications} />
-          ) : (
-            <AssistantPlaceholder />
-          )}
-        </div>
-      </aside>
-    </>
+      </div>
+      <div className="sidekick-panel__body">
+        {activeTab === 'notifications' ? (
+          <NotificationsList notifications={notifications} />
+        ) : (
+          <AssistantChat />
+        )}
+      </div>
+    </aside>
   );
 }

@@ -1424,7 +1424,7 @@ async function loadInitBrief() {
   const title = brief.title || name.split('-').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
   const tagline = brief.tagline || 'Built with wplite.';
   const pageSync = brief.pageSync === true;
-  const blogEnabled = brief.blogEnabled !== false;
+  const blogEnabled = brief.blogEnabled === true;
 
   const routes = asArray(brief.routes).length > 0
     ? asArray(brief.routes)
