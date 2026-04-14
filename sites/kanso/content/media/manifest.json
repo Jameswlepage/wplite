@@ -1,0 +1,4 @@
+{
+  "note": "Flat-file image registry for wplite. Each <slug>.{jpg|png|webp} in this folder may have a sidecar <slug>.json with alt / credit / focalPoint / tags. The compiler copies these into the theme at theme/assets/media and serves them from /wp-content/themes/<theme>/assets/media/<slug>.ext. Sidecar metadata is the source of truth and can be overwritten on pull.",
+  "baseUrl": "/wp-content/themes/kanso-theme/assets/media"
+}

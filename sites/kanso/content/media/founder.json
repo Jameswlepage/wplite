@@ -1,0 +1,9 @@
+{
+  "id": "founder",
+  "file": "founder.jpg",
+  "alt": "Emi Nakamura, founding principal of Kanso Studio",
+  "credit": { "source": "Unsplash" },
+  "focalPoint": { "x": 0.5, "y": 0.35 },
+  "tags": ["portrait", "team"],
+  "dimensions": { "w": 1600, "h": 2000 }
+}

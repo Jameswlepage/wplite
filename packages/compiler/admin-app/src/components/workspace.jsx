@@ -6,6 +6,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Modal,
   SelectControl,
   Spinner,
   TextControl,
@@ -46,6 +47,7 @@ export function DomainsPage({ bootstrap, pushNotice }) {
     },
   ]);
   const [dnsOpenFor, setDnsOpenFor] = useState(null);
+  const [isAddDomainOpen, setIsAddDomainOpen] = useState(false);
 
   function handleSearch() {
     if (!searchQuery.trim()) return;
@@ -226,59 +228,19 @@ export function DomainsPage({ bootstrap, pushNotice }) {
           <p className="eyebrow">Workspace</p>
           <h1>Domains</h1>
           <p className="screen-header__lede">
-            Search, register, and manage custom domains for your site.
+            Connect a custom domain to this site.
           </p>
         </div>
+        <div className="screen-header__actions">
+          <Button
+            variant="primary"
+            icon={<Add size={16} />}
+            onClick={() => setIsAddDomainOpen(true)}
+          >
+            Add domain
+          </Button>
+        </div>
       </header>
-
-      <Card className="surface-card">
-        <CardHeader><h2>Find a Domain</h2></CardHeader>
-        <CardBody>
-          <div className="domain-search-row">
-            <TextControl
-              placeholder="Search for a domain name..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              __next40pxDefaultSize
-              __nextHasNoMarginBottom
-            />
-            <Button
-              variant="primary"
-              icon={<Search size={16} />}
-              isBusy={isSearching}
-              onClick={handleSearch}
-            >
-              Search
-            </Button>
-          </div>
-
-          {searchResults && (
-            <div className="domain-results">
-              {searchResults.map((result) => (
-                <div key={result.domain} className={`domain-result ${result.available ? '' : 'is-unavailable'}`}>
-                  <div className="domain-result__info">
-                    <span className="domain-result__name">{result.domain}</span>
-                    {result.available ? (
-                      <span className="domain-result__badge domain-result__badge--available">Available</span>
-                    ) : (
-                      <span className="domain-result__badge domain-result__badge--taken">Taken</span>
-                    )}
-                  </div>
-                  <div className="domain-result__actions">
-                    <span className="domain-result__price">{result.price}</span>
-                    {result.available && (
-                      <Button variant="primary" size="compact" onClick={() => handleRegister(result)}>
-                        Register
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardBody>
-      </Card>
 
       <Card className="surface-card">
         <CardHeader><h2>Connected Domains</h2></CardHeader>
@@ -362,37 +324,65 @@ export function DomainsPage({ bootstrap, pushNotice }) {
         </Card>
       )}
 
-      <Card className="surface-card">
-        <CardHeader><h2>Email Forwarding</h2></CardHeader>
-        <CardBody>
-          <p className="field-hint email-forwarding__hint">
-            Forward emails from your custom domain to an existing email address.
-          </p>
-          <div className="email-forwarding-row">
+      {isAddDomainOpen && (
+        <Modal
+          title="Add a domain"
+          onRequestClose={() => setIsAddDomainOpen(false)}
+          className="domain-add-modal"
+          size="medium"
+        >
+          <div className="domain-search-row">
             <TextControl
-              label="From"
-              placeholder={`hello@${primaryDomain}`}
+              placeholder="Search for a domain name..."
+              value={searchQuery}
+              onChange={setSearchQuery}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               __next40pxDefaultSize
               __nextHasNoMarginBottom
-              disabled
             />
-            <span className="email-arrow">→</span>
-            <TextControl
-              label="To"
-              placeholder="you@gmail.com"
-              __next40pxDefaultSize
-              __nextHasNoMarginBottom
-              disabled
-            />
-            <Button variant="secondary" disabled>
-              Add Rule
+            <Button
+              variant="primary"
+              icon={<Search size={16} />}
+              isBusy={isSearching}
+              onClick={handleSearch}
+            >
+              Search
             </Button>
           </div>
-          <p className="field-hint email-forwarding__footnote">
-            Email forwarding will be available once a custom domain is active.
-          </p>
-        </CardBody>
-      </Card>
+
+          {searchResults && (
+            <div className="domain-results">
+              {searchResults.map((result) => (
+                <div key={result.domain} className={`domain-result ${result.available ? '' : 'is-unavailable'}`}>
+                  <div className="domain-result__info">
+                    <span className="domain-result__name">{result.domain}</span>
+                    {result.available ? (
+                      <span className="domain-result__badge domain-result__badge--available">Available</span>
+                    ) : (
+                      <span className="domain-result__badge domain-result__badge--taken">Taken</span>
+                    )}
+                  </div>
+                  <div className="domain-result__actions">
+                    <span className="domain-result__price">{result.price}</span>
+                    {result.available && (
+                      <Button
+                        variant="primary"
+                        size="compact"
+                        onClick={() => {
+                          handleRegister(result);
+                          setIsAddDomainOpen(false);
+                        }}
+                      >
+                        Register
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1237,15 +1227,22 @@ export function IntegrationsPage({ pushNotice }) {
       enableSorting: true,
       enableHiding: false,
       getValue: ({ item }) => item.name,
-      render: ({ item }) => (
-        <div className="integration-service-cell">
-          <span className="integration-service-cell__icon"><BrandIcon id={item.id} size={24} /></span>
-          <div className="integration-service-cell__meta">
-            <strong className="row-title">{item.name}</strong>
-            <span className="integration-service-cell__description">{item.description}</span>
-          </div>
-        </div>
-      ),
+    },
+    {
+      id: 'media',
+      label: 'Icon',
+      enableSorting: false,
+      enableHiding: true,
+      enableGlobalSearch: false,
+      getValue: ({ item }) => item.id,
+      render: ({ item }) => <BrandIcon id={item.id} size={24} />,
+    },
+    {
+      id: 'description',
+      label: 'Description',
+      enableGlobalSearch: true,
+      enableSorting: false,
+      getValue: ({ item }) => item.description,
     },
     {
       id: 'category',
@@ -1352,7 +1349,7 @@ export function IntegrationsPage({ pushNotice }) {
     sort: { field: 'name', direction: 'asc' },
     fields: ['category', 'status', 'connectedAt'],
     titleField: 'name',
-    mediaField: 'name',
+    mediaField: 'media',
     descriptionField: 'description',
     layout: {},
     filters: [],

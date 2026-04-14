@@ -63,6 +63,11 @@ function getTitle(item) {
   return decodeRenderedText(item.title?.rendered) || item.slug || '(untitled)';
 }
 
+// Strip trailing " (N)" duplicate-upload artifact for display only.
+function getDisplayTitle(item) {
+  return getTitle(item).replace(/\s*\(\d+\)$/, '');
+}
+
 /* ── Drop Zone ── */
 function UploadDropZone({ onUpload, children }) {
   const [dragOver, setDragOver] = useState(false);
@@ -272,8 +277,7 @@ export function MediaPage({ pushNotice }) {
                         )}
                       </div>
                       <div className="media-tile__meta">
-                        <strong className="media-tile__name" title={getTitle(item)}>{getTitle(item)}</strong>
-                        <span className="media-tile__mime">{item.mime_type}</span>
+                        <strong className="media-tile__name" title={getTitle(item)}>{getDisplayTitle(item)}</strong>
                       </div>
                     </button>
                   );

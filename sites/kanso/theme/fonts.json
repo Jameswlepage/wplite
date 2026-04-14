@@ -1,0 +1,27 @@
+{
+  "source": "google",
+  "families": [
+    {
+      "slug": "display",
+      "name": "Display",
+      "family": "Fraunces",
+      "weights": [300, 400, 500, 600, 700, 900],
+      "styles": ["normal", "italic"],
+      "stack": "'Shippori Mincho', 'EB Garamond', Georgia, serif"
+    },
+    {
+      "slug": "body",
+      "name": "Body",
+      "family": "Inter",
+      "weights": [300, 400, 500, 600, 700],
+      "stack": "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    },
+    {
+      "slug": "mono",
+      "name": "Mono",
+      "family": "JetBrains Mono",
+      "weights": [400, 500, 600],
+      "stack": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    }
+  ]
+}

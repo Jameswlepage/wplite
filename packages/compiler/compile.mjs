@@ -654,9 +654,84 @@ async function buildEditorTemplates(themeSourceRoot, siteSchema) {
   };
 }
 
-async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, siteSchema) {
+async function readJsonIfExists(filePath) {
+  try {
+    const raw = await readFile(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function buildGoogleFontsImport(fonts) {
+  if (!fonts || !Array.isArray(fonts.families) || fonts.families.length === 0) {
+    return { importUrl: null, css: '', fontFamilies: [] };
+  }
+  const googleFams = fonts.families.filter((f) => (f.source ?? 'google') === 'google');
+  const specs = googleFams.map((f) => {
+    const fam = encodeURIComponent(f.family).replace(/%20/g, '+');
+    const weights = (f.weights && f.weights.length ? f.weights : [400]).slice().sort((a, b) => a - b);
+    const styles = f.styles && f.styles.length ? f.styles : ['normal'];
+    const hasItalic = styles.includes('italic');
+    if (hasItalic) {
+      const ital = [];
+      for (const w of weights) ital.push(`0,${w}`);
+      for (const w of weights) ital.push(`1,${w}`);
+      return `family=${fam}:ital,wght@${ital.join(';')}`;
+    }
+    return `family=${fam}:wght@${weights.join(';')}`;
+  });
+  const importUrl = specs.length
+    ? `https://fonts.googleapis.com/css2?${specs.join('&')}&display=swap`
+    : null;
+
+  const fontFamilies = fonts.families.map((f) => {
+    const stack = f.stack ?? '';
+    const primary = `'${f.family}'`;
+    const fontFamily = stack ? `${primary}, ${stack}` : primary;
+    return { slug: f.slug, name: f.name ?? f.family, fontFamily };
+  });
+
+  const css = importUrl ? `@import url('${importUrl}');\n` : '';
+  return { importUrl, css, fontFamilies };
+}
+
+async function applyFontsManifestToThemeJson(themeTargetRoot, fontFamilies) {
+  if (!fontFamilies || fontFamilies.length === 0) return;
+  const themeJsonPath = path.join(themeTargetRoot, 'theme.json');
+  try {
+    const raw = await readFile(themeJsonPath, 'utf8');
+    const themeJson = JSON.parse(raw);
+    themeJson.settings = themeJson.settings ?? {};
+    themeJson.settings.typography = themeJson.settings.typography ?? {};
+    themeJson.settings.typography.fontFamilies = fontFamilies;
+    await writeFile(themeJsonPath, JSON.stringify(themeJson, null, 2) + '\n');
+  } catch {
+    // no theme.json — skip
+  }
+}
+
+async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, siteSchema, siteRoot) {
   await ensureDir(themeTargetRoot);
   await cp(themeSourceRoot, themeTargetRoot, { recursive: true });
+
+  const fontsManifest = await readJsonIfExists(path.join(themeSourceRoot, 'fonts.json'));
+  const fonts = buildGoogleFontsImport(fontsManifest);
+  if (fontsManifest) {
+    await applyFontsManifestToThemeJson(themeTargetRoot, fonts.fontFamilies);
+    await rm(path.join(themeTargetRoot, 'fonts.json'), { force: true });
+  }
+
+  if (siteRoot) {
+    const mediaSrc = path.join(siteRoot, 'content', 'media');
+    const mediaDst = path.join(themeTargetRoot, 'assets', 'media');
+    try {
+      await cp(mediaSrc, mediaDst, { recursive: true });
+    } catch {
+      // no content/media — skip
+    }
+  }
+
   let themeStylesheet = '';
   try {
     themeStylesheet = await readFile(path.join(themeSourceRoot, 'style.css'), 'utf8');
@@ -665,7 +740,7 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
   }
   await writeFile(
     path.join(themeTargetRoot, 'style.css'),
-    `/*\nTheme Name: ${toTitleCase(themeSlug)}\n*/\n\n${themeStylesheet}`
+    `/*\nTheme Name: ${toTitleCase(themeSlug)}\n*/\n\n${fonts.css}${themeStylesheet}`
   );
   await writeFile(
     path.join(themeTargetRoot, 'functions.php'),
@@ -2102,8 +2177,10 @@ add_action(
 \t'login_enqueue_scripts',
 \tfunction() {
 \t\t$plugin_file = glob( dirname( __DIR__ ) . '/*.php' )[0] ?? __FILE__;
+\t\t$style_path  = dirname( $plugin_file ) . '/assets/login.css';
 \t\t$style_url   = plugins_url( 'assets/login.css', $plugin_file );
-\t\twp_enqueue_style( 'wplite-login', $style_url, [], null );
+\t\t$style_ver   = file_exists( $style_path ) ? (string) filemtime( $style_path ) : null;
+\t\twp_enqueue_style( 'wplite-login', $style_url, [], $style_ver );
 
 \t\t$logo_url = wplite_login_logo_url();
 \t\tif ( $logo_url ) {
@@ -2141,11 +2218,11 @@ add_action(
 \t'login_footer',
 \tfunction() {
 \t\t?>
-\t\t<div class="wplite-login-footer" aria-hidden="false">
-\t\t\t<span class="wplite-login-footer__left">Built on wplite</span>
-\t\t\t<span class="wplite-login-footer__right" role="img" aria-label="WordPress">
-\t\t\t\t<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" focusable="false"><path d="M10 .5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19Zm0 1.2a8.3 8.3 0 1 1 0 16.6 8.3 8.3 0 0 1 0-16.6ZM5 6.6h1.6L8 11.2l1.1-3.1-.5-1.5H10l1.9 5.2 1.3-4.5a2.7 2.7 0 0 0-.1-1l1.3-.1-.2 1L12 14.2h-.3l-2-5-1.9 5H7.5L5 6.6Z"/></svg>
-\t\t\t</span>
+\t\t<div class="wplite-login-footer">
+\t\t\t<span class="wplite-login-footer__brand">Built on <strong>wplite</strong></span>
+\t\t\t<a class="wplite-login-footer__wp" href="https://wordpress.org" target="_blank" rel="noopener noreferrer" aria-label="Powered by WordPress">
+\t\t\t\t<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.52 122.523" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8.708 61.26c0 20.802 12.089 38.779 29.619 47.298L13.258 39.872a52.32 52.32 0 0 0-4.55 21.388zm90.061-2.713c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.434c-2.83-.166-5.511-.5-5.511-.5-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.988zM64.087 65.796l-15.768 45.819c4.708 1.384 9.687 2.141 14.851 2.141 6.125 0 11.999-1.058 17.465-2.979-.141-.225-.269-.464-.374-.724l-16.174-44.257zm45.304-29.877c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.413c15.624-9.111 26.133-26.038 26.133-45.426.002-9.137-2.333-17.729-6.438-25.215zM61.262 0C27.484 0 0 27.482 0 61.26c0 33.783 27.484 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263C122.526 27.482 95.039 0 61.262 0zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/></svg>
+\t\t\t</a>
 \t\t</div>
 \t\t<?php
 \t}
@@ -2163,8 +2240,8 @@ function loginStyleCss() {
   --wplite-accent: #3858e9;
   --wplite-accent-hover: #1d35b4;
   --wplite-destructive: #cc1818;
-  --wplite-radius: 8px;
-  --wplite-radius-sm: 6px;
+  --wplite-radius: 6px;
+  --wplite-radius-sm: 4px;
   --wplite-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -2219,12 +2296,12 @@ body.login.wplite-login-with-logo h1 {
 }
 
 body.login.wplite-login-with-logo h1 a {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
-  border-radius: 12px;
+  border-radius: 6px;
   font-size: 0;
   color: transparent;
   text-indent: -9999px;
@@ -2239,11 +2316,10 @@ body.login.wplite-login-with-logo h1 a {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 20px;
   font-family: var(--wplite-font);
   font-size: 11px;
   color: var(--wplite-text-muted);
-  letter-spacing: 0.01em;
   pointer-events: none;
 }
 
@@ -2251,10 +2327,37 @@ body.login.wplite-login-with-logo h1 a {
   pointer-events: auto;
 }
 
-.wplite-login-footer__right svg {
+.wplite-login-footer__brand {
+  letter-spacing: 0.01em;
+}
+
+.wplite-login-footer__brand strong {
+  color: var(--wplite-text);
+  font-weight: 600;
+}
+
+.wplite-login-footer__wp {
+  display: inline-flex;
+  align-items: center;
+  color: var(--wplite-text-muted);
+  opacity: 0.6;
+  text-decoration: none;
+  transition: opacity 80ms ease, color 80ms ease;
+  box-shadow: none;
+}
+
+.wplite-login-footer__wp:hover,
+.wplite-login-footer__wp:focus {
+  opacity: 1;
+  color: var(--wplite-text);
+  box-shadow: none;
+  outline: none;
+}
+
+.wplite-login-footer__wp svg {
   display: block;
-  fill: var(--wplite-text-muted);
-  opacity: 0.7;
+  width: 16px;
+  height: 16px;
 }
 
 body.login form {
@@ -2262,14 +2365,14 @@ body.login form {
   border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius);
   box-shadow: none;
-  padding: 24px;
+  padding: 20px;
   margin: 0;
   font-weight: normal;
   overflow: visible;
 }
 
 body.login form p {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 body.login form label {
@@ -2285,7 +2388,7 @@ body.login input[type="text"],
 body.login input[type="password"],
 body.login input[type="email"] {
   width: 100%;
-  height: 36px;
+  height: 34px;
   padding: 6px 10px;
   font-size: 13px;
   font-family: var(--wplite-font);
@@ -2294,8 +2397,8 @@ body.login input[type="email"] {
   border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius-sm);
   box-shadow: none;
-  transition: border-color 80ms ease, box-shadow 80ms ease;
-  margin: 0 0 4px;
+  transition: border-color 80ms ease;
+  margin: 0 0 2px;
 }
 
 body.login form .input:focus,
@@ -2390,18 +2493,19 @@ body.login .submit {
 body.login .button-primary,
 body.login #wp-submit {
   width: 100%;
-  height: 36px;
+  height: 34px;
   float: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--wplite-accent);
-  border: 1px solid var(--wplite-accent);
+  background: var(--wplite-text);
+  border: 1px solid var(--wplite-text);
   border-radius: var(--wplite-radius-sm);
   color: #fff;
   font-family: var(--wplite-font);
   font-size: 13px;
   font-weight: 500;
+  letter-spacing: 0.005em;
   padding: 0 14px;
   text-shadow: none;
   box-shadow: none;
@@ -2413,8 +2517,8 @@ body.login .button-primary:hover,
 body.login #wp-submit:hover,
 body.login .button-primary:focus,
 body.login #wp-submit:focus {
-  background: var(--wplite-accent-hover);
-  border-color: var(--wplite-accent-hover);
+  background: #000;
+  border-color: #000;
   color: #fff;
   box-shadow: none;
   outline: none;
@@ -3227,7 +3331,7 @@ async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminS
 async function emitThemeArtifacts(root, generatedRoot, site, siteSchema) {
   const themeRoot = path.join(generatedRoot, 'wp-content', 'themes', site.theme.slug);
   await rm(themeRoot, { recursive: true, force: true });
-  await copyThemeSource(path.join(root, 'theme'), themeRoot, site.theme.slug, siteSchema);
+  await copyThemeSource(path.join(root, 'theme'), themeRoot, site.theme.slug, siteSchema, root);
 }
 
 async function emitContentArtifacts(generatedRoot, site, siteSchema) {
