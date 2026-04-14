@@ -742,6 +742,25 @@ add_action( 'init', function() {
 \t}
 } );
 
+add_filter(
+\t'block_categories_all',
+\tfunction( $categories ) {
+\t\tforeach ( $categories as $category ) {
+\t\t\tif ( ( $category['slug'] ?? '' ) === 'dashboard' ) {
+\t\t\t\treturn $categories;
+\t\t\t}
+\t\t}
+
+\t\t$categories[] = [
+\t\t\t'slug'  => 'dashboard',
+\t\t\t'title' => __( 'Dashboard widgets', 'portfolio-light' ),
+\t\t\t'icon'  => null,
+\t\t];
+
+\t\treturn $categories;
+\t}
+);
+
 register_activation_hook(
 \t__FILE__,
 \tfunction() {
@@ -896,6 +915,34 @@ function portfolio_light_get_route( $id ) {
 function portfolio_light_get_blocks() {
 \t$compiled = portfolio_light_get_compiled_site();
 \treturn $compiled['blocks'] ?? [];
+}
+
+function portfolio_light_get_dashboard_widgets() {
+\t$blocks   = portfolio_light_get_blocks();
+\t$widgets  = [];
+
+\tforeach ( $blocks as $block ) {
+\t\tif ( ( $block['category'] ?? '' ) !== 'dashboard' ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$supports = $block['supports'] ?? [];
+\t\t$align    = $supports['align'] ?? [];
+\t\tif ( ! is_array( $align ) ) {
+\t\t\t$align = [ $align ];
+\t\t}
+
+\t\t$widgets[] = [
+\t\t\t'id'          => sanitize_key( str_replace( '/', '-', $block['name'] ) ),
+\t\t\t'name'        => $block['name'],
+\t\t\t'title'       => $block['title'] ?? $block['name'],
+\t\t\t'description' => $block['description'] ?? '',
+\t\t\t'icon'        => $block['icon'] ?? null,
+\t\t\t'span'        => in_array( 'full', $align, true ) ? 'full' : 'half',
+\t\t];
+\t}
+
+\treturn $widgets;
 }
 
 function portfolio_light_get_menus() {
@@ -1615,6 +1662,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'site'          => portfolio_light_get_site_config(),
 \t\t\t\t\t\t'generatedAt'   => portfolio_light_get_compiled_generated_at(),
 \t\t\t\t\t\t'blocks'        => portfolio_light_get_blocks(),
+\t\t\t\t\t\t'dashboardWidgets' => portfolio_light_get_dashboard_widgets(),
 \t\t\t\t\t\t'models'        => $models,
 \t\t\t\t\t\t'singletons'    => $singletons,
 \t\t\t\t\t\t'routes'        => portfolio_light_get_routes(),

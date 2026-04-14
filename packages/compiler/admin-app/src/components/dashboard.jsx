@@ -1,6 +1,8 @@
 import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Popover } from '@wordpress/components';
+import ServerSideRender from '@wordpress/server-side-render';
+import { hydrateInteractivity } from '../lib/interactivity.js';
 import {
   DndContext,
   closestCenter,
@@ -680,6 +682,71 @@ function WidgetSiteStructure({ routes }) {
   );
 }
 
+/* ── Widget Error Boundary ── */
+class WidgetErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[dashboard widget]', this.props.label, error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <WidgetShell eyebrow="Widget" title={this.props.label || 'Widget'}>
+          <p className="dash-empty__text">This widget crashed while rendering. Check the widget source.</p>
+          <code style={{ fontSize: 11, color: 'var(--wp-admin-text-muted)', wordBreak: 'break-word' }}>
+            {String(this.state.error?.message || this.state.error)}
+          </code>
+        </WidgetShell>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ── Block Widget (server-rendered dashboard block) ── */
+function BlockWidget({ widget }) {
+  const hostRef = useRef(null);
+  // Hydrate Interactivity API each time the rendered HTML changes.
+  useEffect(() => {
+    if (!hostRef.current) return;
+    const observer = new MutationObserver(() => {
+      hydrateInteractivity(hostRef.current);
+    });
+    observer.observe(hostRef.current, { childList: true, subtree: true });
+    hydrateInteractivity(hostRef.current);
+    return () => observer.disconnect();
+  }, [widget.blockName]);
+
+  return (
+    <WidgetShell
+      eyebrow="Widget"
+      title={widget.label}
+    >
+      <div ref={hostRef} className="block-widget-host">
+        <ServerSideRender
+          block={widget.blockName}
+          attributes={{}}
+          EmptyResponsePlaceholder={() => (
+            <p className="dash-empty__text">Widget returned no content.</p>
+          )}
+          LoadingResponsePlaceholder={() => (
+            <p className="dash-empty__text">Loading…</p>
+          )}
+          ErrorResponsePlaceholder={({ response }) => (
+            <p className="dash-empty__text">{response?.errorMsg || 'Failed to render widget.'}</p>
+          )}
+        />
+      </div>
+    </WidgetShell>
+  );
+}
+
 /* ── Dashboard Settings Popover ── */
 export function DashboardSettingsButton({ widgets, onToggle, onReset }) {
   const [open, setOpen] = useState(false);
@@ -745,8 +812,20 @@ export function DashboardPage({ bootstrap, recordsByModel, singletonData, pushNo
       list.push({ id: 'recent-inquiries', type: 'recent-inquiries', label: 'Recent Inquiries', visible: true, span: 'half' });
     }
     list.push({ id: 'site-structure', type: 'site-structure', label: 'Site Structure', visible: true, span: 'half' });
+    for (const widget of bootstrap.dashboardWidgets ?? []) {
+      list.push({
+        id: widget.id,
+        type: 'block-widget',
+        blockName: widget.name,
+        label: widget.title,
+        icon: widget.icon,
+        description: widget.description,
+        visible: true,
+        span: widget.span === 'full' ? 'full' : 'half',
+      });
+    }
     return list;
-  }, [bootstrap.models]);
+  }, [bootstrap.models, bootstrap.dashboardWidgets]);
 
   const [widgetState, setWidgetState] = useState(() => {
     try {
@@ -767,7 +846,7 @@ export function DashboardPage({ bootstrap, recordsByModel, singletonData, pushNo
     setWidgetState(next);
     try {
       window.localStorage.setItem(DASH_STORAGE_KEY, JSON.stringify(
-        next.map(({ id, type, modelId, label, visible, span }) => ({ id, type, modelId, label, visible, span }))
+        next.map(({ id, type, modelId, blockName, label, visible, span }) => ({ id, type, modelId, blockName, label, visible, span }))
       ));
     } catch {}
   }
@@ -824,6 +903,12 @@ export function DashboardPage({ bootstrap, recordsByModel, singletonData, pushNo
         return <WidgetRecentInquiries items={(dashboard.recentInquiries ?? []).slice(0, 5)} />;
       case 'site-structure':
         return <WidgetSiteStructure routes={bootstrap.routes} />;
+      case 'block-widget':
+        return (
+          <WidgetErrorBoundary label={widget.label}>
+            <BlockWidget widget={widget} />
+          </WidgetErrorBoundary>
+        );
       default:
         return null;
     }
