@@ -356,8 +356,7 @@
 }
 
 .native-editor__canvas--fit {
-  background:
-    linear-gradient(180deg, #f6f7f7 0%, #f6f7f7 140px, #ffffff 140px);
+  background: #ffffff;
 }
 
 .native-editor__canvas > div,
@@ -374,11 +373,11 @@
 
 .native-editor__canvas--fit .block-editor-iframe__scale-container {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
   width: max(100%, 1180px);
   min-width: 1180px;
-  padding: 24px 24px 40px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -394,7 +393,7 @@
 .native-editor__canvas--fit iframe {
   background: #ffffff;
   min-width: 1180px;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 18px 38px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 /* Kill all WordPress block editor internal padding */
