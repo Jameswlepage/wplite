@@ -3,12 +3,31 @@ export function phpRegisterLoginStyleFile() {
   return `<?php
 defined( 'ABSPATH' ) || exit;
 
+function wplite_login_logo_url() {
+\t$logo_id = get_theme_mod( 'custom_logo' );
+\tif ( $logo_id ) {
+\t\t$src = wp_get_attachment_image_src( $logo_id, 'full' );
+\t\tif ( $src ) {
+\t\t\treturn $src[0];
+\t\t}
+\t}
+\t$icon = get_site_icon_url( 256 );
+\treturn $icon ?: '';
+}
+
 add_action(
 \t'login_enqueue_scripts',
 \tfunction() {
 \t\t$plugin_file = glob( dirname( __DIR__ ) . '/*.php' )[0] ?? __FILE__;
+\t\t$style_path  = dirname( $plugin_file ) . '/assets/login.css';
 \t\t$style_url   = plugins_url( 'assets/login.css', $plugin_file );
-\t\twp_enqueue_style( 'wplite-login', $style_url, [], null );
+\t\t$style_ver   = file_exists( $style_path ) ? (string) filemtime( $style_path ) : null;
+\t\twp_enqueue_style( 'wplite-login', $style_url, [], $style_ver );
+
+\t\t$logo_url = wplite_login_logo_url();
+\t\tif ( $logo_url ) {
+\t\t\techo '<style id="wplite-login-logo">body.login.wplite-login-with-logo h1 a{background-image:url(' . esc_url( $logo_url ) . ') !important;}</style>';
+\t\t}
 \t}
 );
 
@@ -30,7 +49,24 @@ add_filter(
 \t'login_body_class',
 \tfunction( $classes ) {
 \t\t$classes[] = 'wplite-login';
+\t\tif ( wplite_login_logo_url() ) {
+\t\t\t$classes[] = 'wplite-login-with-logo';
+\t\t}
 \t\treturn $classes;
+\t}
+);
+
+add_action(
+\t'login_footer',
+\tfunction() {
+\t\t?>
+\t\t<div class="wplite-login-footer">
+\t\t\t<span class="wplite-login-footer__brand">Built on <strong>wplite</strong></span>
+\t\t\t<a class="wplite-login-footer__wp" href="https://wordpress.org" target="_blank" rel="noopener noreferrer" aria-label="Powered by WordPress">
+\t\t\t\t<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122.52 122.523" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8.708 61.26c0 20.802 12.089 38.779 29.619 47.298L13.258 39.872a52.32 52.32 0 0 0-4.55 21.388zm90.061-2.713c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.434c-2.83-.166-5.511-.5-5.511-.5-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.988zM64.087 65.796l-15.768 45.819c4.708 1.384 9.687 2.141 14.851 2.141 6.125 0 11.999-1.058 17.465-2.979-.141-.225-.269-.464-.374-.724l-16.174-44.257zm45.304-29.877c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.413c15.624-9.111 26.133-26.038 26.133-45.426.002-9.137-2.333-17.729-6.438-25.215zM61.262 0C27.484 0 0 27.482 0 61.26c0 33.783 27.484 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263C122.526 27.482 95.039 0 61.262 0zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z"/></svg>
+\t\t\t</a>
+\t\t</div>
+\t\t<?php
 \t}
 );
 `;
@@ -46,8 +82,8 @@ export function loginStyleCss() {
   --wplite-accent: #3858e9;
   --wplite-accent-hover: #1d35b4;
   --wplite-destructive: #cc1818;
-  --wplite-radius: 8px;
-  --wplite-radius-sm: 6px;
+  --wplite-radius: 6px;
+  --wplite-radius-sm: 4px;
   --wplite-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -97,19 +133,88 @@ body.login h1 a:focus {
   color: var(--wplite-accent);
 }
 
+body.login.wplite-login-with-logo h1 {
+  margin-bottom: 20px;
+}
+
+body.login.wplite-login-with-logo h1 a {
+  width: 56px;
+  height: 56px;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 6px;
+  font-size: 0;
+  color: transparent;
+  text-indent: -9999px;
+  overflow: hidden;
+}
+
+.wplite-login-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  font-family: var(--wplite-font);
+  font-size: 11px;
+  color: var(--wplite-text-muted);
+  pointer-events: none;
+}
+
+.wplite-login-footer > * {
+  pointer-events: auto;
+}
+
+.wplite-login-footer__brand {
+  letter-spacing: 0.01em;
+}
+
+.wplite-login-footer__brand strong {
+  color: var(--wplite-text);
+  font-weight: 600;
+}
+
+.wplite-login-footer__wp {
+  display: inline-flex;
+  align-items: center;
+  color: var(--wplite-text-muted);
+  opacity: 0.6;
+  text-decoration: none;
+  transition: opacity 80ms ease, color 80ms ease;
+  box-shadow: none;
+}
+
+.wplite-login-footer__wp:hover,
+.wplite-login-footer__wp:focus {
+  opacity: 1;
+  color: var(--wplite-text);
+  box-shadow: none;
+  outline: none;
+}
+
+.wplite-login-footer__wp svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
 body.login form {
   background: var(--wplite-surface);
   border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius);
   box-shadow: none;
-  padding: 24px;
+  padding: 20px;
   margin: 0;
   font-weight: normal;
   overflow: visible;
 }
 
 body.login form p {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 body.login form label {
@@ -125,7 +230,7 @@ body.login input[type="text"],
 body.login input[type="password"],
 body.login input[type="email"] {
   width: 100%;
-  height: 36px;
+  height: 34px;
   padding: 6px 10px;
   font-size: 13px;
   font-family: var(--wplite-font);
@@ -134,8 +239,8 @@ body.login input[type="email"] {
   border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius-sm);
   box-shadow: none;
-  transition: border-color 80ms ease, box-shadow 80ms ease;
-  margin: 0 0 4px;
+  transition: border-color 80ms ease;
+  margin: 0 0 2px;
 }
 
 body.login form .input:focus,
@@ -230,18 +335,19 @@ body.login .submit {
 body.login .button-primary,
 body.login #wp-submit {
   width: 100%;
-  height: 36px;
+  height: 34px;
   float: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--wplite-accent);
-  border: 1px solid var(--wplite-accent);
+  background: var(--wplite-text);
+  border: 1px solid var(--wplite-text);
   border-radius: var(--wplite-radius-sm);
   color: #fff;
   font-family: var(--wplite-font);
   font-size: 13px;
   font-weight: 500;
+  letter-spacing: 0.005em;
   padding: 0 14px;
   text-shadow: none;
   box-shadow: none;
@@ -253,8 +359,8 @@ body.login .button-primary:hover,
 body.login #wp-submit:hover,
 body.login .button-primary:focus,
 body.login #wp-submit:focus {
-  background: var(--wplite-accent-hover);
-  border-color: var(--wplite-accent-hover);
+  background: #000;
+  border-color: #000;
   color: #fff;
   box-shadow: none;
   outline: none;
@@ -331,4 +437,3 @@ body.login .language-switcher select {
 }
 `;
 }
-

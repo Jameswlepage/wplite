@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/project-hero",
+  "title": "Project Hero Image",
+  "category": "widgets",
+  "icon": "format-image",
+  "description": "Full-bleed hero image pulled from the current project's hero_url meta.",
+  "supports": { "html": false, "inserter": false },
+  "usesContext": ["postId"],
+  "render": "file:./render.php"
+}

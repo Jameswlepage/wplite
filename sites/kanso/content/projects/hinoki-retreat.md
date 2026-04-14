@@ -6,6 +6,7 @@ title: Hinoki Retreat
 excerpt: A material sourcing project for a private bath house using Japanese cypress and volcanic stone.
 status: publish
 fields:
+  hero_url: /wp-content/themes/kanso-theme/assets/media/hinoki-retreat.jpg
   location: Hakone, Japan
   year: '2025'
   area_sqm: 45
@@ -14,6 +15,10 @@ fields:
   status: completed
 ---
 A private client building a bath house in the Hakone mountains needed materials that could withstand humidity and temperature extremes while aging beautifully over decades.
+
+<!-- wp:image {"sizeSlug":"full"} -->
+<figure class="wp-block-image size-full"><img src="/wp-content/themes/kanso-theme/assets/media/hinoki-retreat-2.jpg" alt="Hinoki bath house interior"/></figure>
+<!-- /wp:image -->
 
 ## Brief
 

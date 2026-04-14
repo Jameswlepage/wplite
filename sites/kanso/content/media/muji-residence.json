@@ -1,0 +1,9 @@
+{
+  "id": "muji-residence",
+  "file": "muji-residence.jpg",
+  "alt": "Muji Residence — living room with low bench and tatami",
+  "credit": { "source": "Unsplash" },
+  "focalPoint": { "x": 0.5, "y": 0.45 },
+  "tags": ["project", "residential", "tokyo"],
+  "dimensions": { "w": 2000, "h": 1333 }
+}

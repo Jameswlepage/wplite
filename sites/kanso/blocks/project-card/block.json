@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "kanso/project-card",
+  "title": "Project Card",
+  "category": "widgets",
+  "icon": "portfolio",
+  "description": "Editorial project card. Reads hero_url / location / year meta from the current project post.",
+  "supports": { "html": false, "inserter": false },
+  "usesContext": ["postId"],
+  "render": "file:./render.php"
+}

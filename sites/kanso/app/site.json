@@ -1,7 +1,7 @@
 {
   "id": "kanso-studio",
-  "title": "Kanso Studio",
-  "tagline": "Serene spaces, intentional living",
+  "title": "Kanso",
+  "tagline": "Interior architecture — Japanese poetry, Swiss rigor.",
   "mode": "light",
   "content": {
     "mode": "files",
@@ -11,13 +11,14 @@
     "databaseFirst": false,
     "collections": {
       "project": { "sync": true },
+      "team": { "sync": true },
       "testimonial": { "sync": true },
       "post": { "sync": true },
       "page": { "sync": false }
     }
   },
   "frontPage": "home",
-  "postsPage": null,
+  "postsPage": "journal",
   "theme": {
     "slug": "kanso-theme",
     "sourceDir": "theme"

@@ -1,0 +1,13 @@
+{
+  "id": "journal",
+  "type": "page",
+  "slug": "journal",
+  "title": "Journal",
+  "template": "index",
+  "postsPage": true,
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": ""
+  }
+}

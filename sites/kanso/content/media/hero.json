@@ -1,0 +1,9 @@
+{
+  "id": "hero",
+  "file": "hero.jpg",
+  "alt": "Minimal architectural interior — homepage hero",
+  "credit": { "source": "Unsplash" },
+  "focalPoint": { "x": 0.5, "y": 0.5 },
+  "tags": ["architecture", "hero", "minimal"],
+  "dimensions": { "w": 2400, "h": 1600 }
+}

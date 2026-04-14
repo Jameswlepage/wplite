@@ -6,6 +6,7 @@ export function pluralize(word) {
     project: 'projects',
     experience: 'experiences',
     post: 'posts',
+    team: 'team',
   };
 
   if (irregular[word]) {

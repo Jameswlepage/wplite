@@ -1,0 +1,30 @@
+<!--
+Title: Journal — Latest Posts
+Slug: kanso-theme/journal-latest
+Inserter: no
+-->
+<!-- wp:group {"className":"k-journal","layout":{"type":"default"}} -->
+<div class="wp-block-group k-journal">
+
+<!-- wp:html -->
+<div class="k-journal__head">
+  <h2 class="k-journal__title">Journal<br><em style="font-style:italic;color:#d94e2e;font-weight:400;">Notes</em></h2>
+  <div class="k-meta" style="text-align:right; justify-content:flex-end;">
+    <span>— 004 / Writing &amp; Research</span>
+    <a href="/journal" style="color:#0f0f0e;">All Entries →</a>
+  </div>
+</div>
+<!-- /wp:html -->
+
+<!-- wp:query {"queryId":20,"query":{"perPage":3,"postType":"post","order":"desc","orderBy":"date"},"className":"k-journal__grid"} -->
+<div class="wp-block-query k-journal__grid">
+<!-- wp:post-template -->
+<!-- wp:post-date {"format":"Y · M"} /-->
+<!-- wp:post-title {"isLink":true} /-->
+<!-- wp:post-excerpt {"excerptLength":26,"moreOnNewLine":false} /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->

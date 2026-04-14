@@ -41,6 +41,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
         setDraft({
           title: settings.title ?? '',
           description: settings.description ?? '',
+          site_icon: settings.site_icon ?? 0,
           timezone: settings.timezone ?? '',
           date_format: settings.date_format ?? 'F j, Y',
           time_format: settings.time_format ?? 'g:i a',
@@ -75,6 +76,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
         body: {
           title: draft.title,
           description: draft.description,
+          site_icon: Number(draft.site_icon || 0),
           timezone: draft.timezone,
           date_format: draft.date_format,
           time_format: draft.time_format,
@@ -147,6 +149,16 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
                   onChange={(value) => setDraft((c) => ({ ...c, description: value }))}
                   help="A short description of your site."
                   __next40pxDefaultSize
+                />
+                <ImageControl
+                  data={draft}
+                  field={{
+                    id: 'site_icon',
+                    label: 'Site Icon',
+                    help: 'Used as the browser favicon and site icon. Square images 512×512 or larger work best.',
+                    getValue: ({ item }) => item?.site_icon ?? 0,
+                  }}
+                  onChange={(edits) => setDraft((c) => ({ ...c, ...edits }))}
                 />
               </div>
             </CardBody>

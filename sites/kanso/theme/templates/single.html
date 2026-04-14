@@ -1,10 +1,20 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
-<!-- wp:post-title {"level":1,"style":{"typography":{"fontWeight":"200"}}} /-->
+<!-- wp:group {"className":"k-post-head","layout":{"type":"default"}} -->
+<div class="wp-block-group k-post-head">
+<!-- wp:post-date {"className":"k-label k-label--muted","format":"F j, Y"} /-->
+<!-- wp:post-title {"level":1,"className":"k-post-head__title"} /-->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:post-featured-image /-->
+
+<!-- wp:group {"className":"k-post-body","layout":{"type":"default"}} -->
+<div class="wp-block-group k-post-body">
 <!-- wp:post-content /-->
 </div>
 <!-- /wp:group -->
+
+<!-- wp:pattern {"slug":"kanso-theme/contact-cta"} /-->
 
 <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

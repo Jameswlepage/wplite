@@ -1,10 +1,39 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
-<!-- wp:query-title {"type":"archive"} /-->
-<!-- wp:post-content /-->
+<!-- wp:group {"className":"k-hero k-hero--compact","layout":{"type":"default"}} -->
+<div class="wp-block-group k-hero k-hero--compact">
+
+<!-- wp:html -->
+<div class="k-hero__eyebrow">
+  <span class="k-label">— Journal / 手記</span>
+  <span class="line"></span>
+  <span class="k-label">Writing &amp; Research</span>
+</div>
+<!-- /wp:html -->
+
+<!-- wp:heading {"level":1,"className":"k-hero__title"} -->
+<h1 class="wp-block-heading k-hero__title">Journal.</h1>
+<!-- /wp:heading -->
+
 </div>
 <!-- /wp:group -->
+
+<!-- wp:group {"className":"k-journal","layout":{"type":"default"}} -->
+<div class="wp-block-group k-journal">
+
+<!-- wp:query {"queryId":200,"query":{"perPage":24,"postType":"post","order":"desc","orderBy":"date"},"className":"k-journal__grid"} -->
+<div class="wp-block-query k-journal__grid">
+<!-- wp:post-template -->
+<!-- wp:post-date {"format":"Y · M"} /-->
+<!-- wp:post-title {"isLink":true} /-->
+<!-- wp:post-excerpt {"excerptLength":28,"moreOnNewLine":false} /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->
+
+<!-- wp:pattern {"slug":"kanso-theme/contact-cta"} /-->
 
 <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

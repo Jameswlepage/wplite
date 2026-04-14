@@ -1,22 +1,8 @@
 [
-  {
-    "label": "Work",
-    "type": "archive",
-    "object": "project"
-  },
-  {
-    "label": "Services",
-    "type": "page",
-    "object": "services"
-  },
-  {
-    "label": "About",
-    "type": "page",
-    "object": "about"
-  },
-  {
-    "label": "Contact",
-    "type": "page",
-    "object": "contact"
-  }
+  { "label": "Work",    "type": "archive", "object": "project" },
+  { "label": "Team",    "type": "archive", "object": "team" },
+  { "label": "Services","type": "page",    "object": "services" },
+  { "label": "About",   "type": "page",    "object": "about" },
+  { "label": "Journal", "type": "page",    "object": "journal" },
+  { "label": "Contact", "type": "page",    "object": "contact" }
 ]

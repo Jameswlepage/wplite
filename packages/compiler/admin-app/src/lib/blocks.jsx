@@ -48,6 +48,29 @@ export function registerRuntimeBlocks(blocks = []) {
   }
 }
 
+function sanitizeParsedBlocks(blocks) {
+  const output = [];
+  for (const block of blocks ?? []) {
+    if (!block?.name) {
+      continue;
+    }
+    // rawHandler (and occasionally parse) can yield core/freeform (classic
+    // block) for unrecognized HTML. Convert to core/html so content is
+    // preserved without the deprecated classic editor warning.
+    if (block.name === 'core/freeform') {
+      const raw = block.attributes?.content ?? '';
+      if (!String(raw).trim()) continue;
+      output.push(createBlock('core/html', { content: String(raw) }));
+      continue;
+    }
+    output.push({
+      ...block,
+      innerBlocks: sanitizeParsedBlocks(block.innerBlocks ?? []),
+    });
+  }
+  return output;
+}
+
 export function blocksFromContent(content) {
   if (!content?.trim()) {
     return [];
@@ -55,13 +78,13 @@ export function blocksFromContent(content) {
 
   try {
     if (content.includes('<!-- wp:')) {
-      return parse(content);
+      return sanitizeParsedBlocks(parse(content));
     }
 
-    return rawHandler({ HTML: content });
+    return sanitizeParsedBlocks(rawHandler({ HTML: content }));
   } catch {
     try {
-      return parse(content || '');
+      return sanitizeParsedBlocks(parse(content || ''));
     } catch {
       return [];
     }
@@ -259,22 +282,26 @@ function buildTemplatePreviewMarkup({
       .filter((innerBlock) => innerBlock?.name === 'core/navigation-link')
       .map((innerBlock) => {
         const itemAttrs = innerBlock.attributes ?? {};
-        return createBlock('core/button', {
-          text: itemAttrs.label ?? 'Link',
-          url: itemAttrs.url ?? '#',
-          className: 'portfolio-editor-template-nav-link',
-        });
+        const label = String(itemAttrs.label ?? 'Link')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        const url = String(itemAttrs.url ?? '#')
+          .replace(/"/g, '&quot;');
+        return `<a href="${url}">${label}</a>`;
       });
 
-    return serializePreviewBlock(
-      'core/buttons',
-      {
-        className: appendClassName(attributes.className, 'portfolio-editor-template-navigation'),
-        layout: attributes.layout ?? { type: 'flex', justifyContent: 'right' },
-        style: attributes.style ?? {},
-      },
-      navItems
-    );
+    if (navItems.length === 0) {
+      return '';
+    }
+
+    const content = navItems.join('&nbsp;·&nbsp;');
+
+    return serializePreviewBlock('core/paragraph', {
+      align: attributes.textAlign ?? 'right',
+      className: appendClassName(attributes.className, 'portfolio-editor-template-navigation'),
+      content,
+    });
   });
 
   previewMarkup = replaceTemplateBlockMarkup(previewMarkup, 'post-title', (match) => {
@@ -636,10 +663,38 @@ export function buildBlockEditorSettings(themeJson, themeCss = '') {
   };
 }
 
+function extractCssImports(css) {
+  if (!css) return { imports: '', rest: '' };
+  const importRegex = /@import\s+(?:url\([^)]*\)|["'][^"']*["'])[^;]*;/g;
+  const matches = css.match(importRegex) ?? [];
+  const rest = css.replace(importRegex, '');
+  return { imports: matches.join('\n'), rest };
+}
+
+function buildFontFaceRules(themeJson) {
+  const fontFamilies = themeJson?.settings?.typography?.fontFamilies ?? [];
+  const rules = [];
+  for (const family of fontFamilies) {
+    const faces = Array.isArray(family?.fontFace) ? family.fontFace : [];
+    for (const face of faces) {
+      if (!face?.src) continue;
+      const srcs = Array.isArray(face.src) ? face.src : [face.src];
+      const srcList = srcs.map((s) => `url('${s}')`).join(', ');
+      const familyName = face.fontFamily ?? family.fontFamily ?? family.name;
+      const weight = face.fontWeight ? `\n  font-weight: ${face.fontWeight};` : '';
+      const style = face.fontStyle ? `\n  font-style: ${face.fontStyle};` : '';
+      rules.push(`@font-face {\n  font-family: ${familyName};${weight}${style}\n  font-display: swap;\n  src: ${srcList};\n}`);
+    }
+  }
+  return rules.join('\n');
+}
+
 export function buildCanvasStyles(themeJson, themeCss = '') {
   const layout = themeJson?.settings?.layout ?? {};
   const cssVars = buildPresetCssVars(themeJson);
   const themeJsonStyleRules = buildThemeJsonStyleRules(themeJson);
+  const { imports: themeCssImports, rest: themeCssRest } = extractCssImports(themeCss);
+  const fontFaceRules = buildFontFaceRules(themeJson);
 
   const contentSize = layout.contentSize ?? '720px';
   const fontFamily = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Segoe UI', system-ui, sans-serif";
@@ -648,7 +703,9 @@ export function buildCanvasStyles(themeJson, themeCss = '') {
 
   return [
     {
-      css: `
+      css: `${themeCssImports}
+      ${fontFaceRules}
+
       html {
         height: 100%;
         min-height: 100%;
@@ -726,7 +783,7 @@ export function buildCanvasStyles(themeJson, themeCss = '') {
 
       ${themeJsonStyleRules}
 
-      ${themeCss}
+      ${themeCssRest}
 
       .editor-styles-wrapper,
       .editor-styles-wrapper p,

@@ -1,0 +1,20 @@
+{
+  "id": "team",
+  "label": "Team",
+  "singularLabel": "Team Member",
+  "icon": "User",
+  "type": "collection",
+  "postType": "team",
+  "archiveSlug": "team",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Portrait URL" },
+    "role": { "type": "text", "label": "Role" },
+    "location": { "type": "text", "label": "Based in" },
+    "year_joined": { "type": "integer", "label": "Year joined" },
+    "order": { "type": "integer", "label": "Order" },
+    "email": { "type": "email", "label": "Email" },
+    "pronouns": { "type": "text", "label": "Pronouns" }
+  }
+}

@@ -9,6 +9,7 @@
   "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
   "taxonomies": ["project_type"],
   "fields": {
+    "hero_url": { "type": "url", "label": "Hero Image URL" },
     "location": { "type": "text", "label": "Location" },
     "year": { "type": "integer", "label": "Year" },
     "area_sqm": { "type": "integer", "label": "Area (sqm)" },

@@ -6,6 +6,7 @@ title: Nordic Studio
 excerpt: A creative agency workspace in Copenhagen designed for deep focus and collaborative flow.
 status: publish
 fields:
+  hero_url: /wp-content/themes/kanso-theme/assets/media/nordic-studio.jpg
   location: Copenhagen, Denmark
   year: '2024'
   area_sqm: 280
@@ -14,6 +15,10 @@ fields:
   status: completed
 ---
 A twelve-person design agency needed a space that supported both solitary concentration and spontaneous collaboration — without the acoustic chaos of open-plan or the isolation of private offices.
+
+<!-- wp:image {"sizeSlug":"full"} -->
+<figure class="wp-block-image size-full"><img src="/wp-content/themes/kanso-theme/assets/media/nordic-studio-2.jpg" alt="Copenhagen studio interior"/></figure>
+<!-- /wp:image -->
 
 ## Brief
 

@@ -1,19 +1,29 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!-- wp:group {"className":"k-hero","layout":{"type":"default"}} -->
+<div class="wp-block-group k-hero">
 
-<!-- wp:heading {"level":1,"style":{"typography":{"fontWeight":"200","fontSize":"clamp(3rem, 8vw, 6rem)"}}} -->
-<h1 class="wp-block-heading" style="font-weight:200;font-size:clamp(3rem, 8vw, 6rem)">404</h1>
+<!-- wp:html -->
+<div class="k-hero__eyebrow">
+  <span class="k-label">— Error / 四〇四</span>
+  <span class="line"></span>
+  <span class="k-label">Not found</span>
+</div>
+<!-- /wp:html -->
+
+<!-- wp:heading {"level":1,"className":"k-hero__title"} -->
+<h1 class="wp-block-heading k-hero__title">4<em>0</em>4.</h1>
 <!-- /wp:heading -->
 
-<!-- wp:paragraph {"style":{"color":{"text":"var:preset|color|muted"}}} -->
-<p class="has-text-color" style="color:var(--wp--preset--color--muted)">This page does not exist. Like empty space in a room, perhaps that is as it should be.</p>
-<!-- /wp:paragraph -->
-
-<!-- wp:paragraph -->
-<p><a href="/">Return home</a></p>
-<!-- /wp:paragraph -->
+<!-- wp:html -->
+<div class="k-hero__grid">
+  <p class="k-hero__lede">This page does not exist. Like empty space in a room — 間 — perhaps that is as it should be. Return home and begin again.</p>
+  <div class="k-hero__meta">
+    <div class="row"><span>Try</span> <strong><a href="/">Home</a></strong></div>
+    <div class="row"><span>Or</span> <strong><a href="/work">Work</a></strong></div>
+  </div>
+</div>
+<!-- /wp:html -->
 
 </div>
 <!-- /wp:group -->

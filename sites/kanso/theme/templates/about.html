@@ -1,18 +1,45 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!-- wp:group {"className":"k-hero k-hero--compact","layout":{"type":"default"}} -->
+<div class="wp-block-group k-hero k-hero--compact">
+
+<!-- wp:html -->
+<div class="k-hero__eyebrow">
+  <span class="k-label">— About / 概要</span>
+  <span class="line"></span>
+  <span class="k-label">Principal · Emi Nakamura</span>
+</div>
+<!-- /wp:html -->
+
+<!-- wp:heading {"level":1,"className":"k-hero__title"} -->
+<h1 class="wp-block-heading k-hero__title">Less,<br><em>Done Well.</em></h1>
+<!-- /wp:heading -->
+
+<!-- wp:html -->
+<div class="k-hero__grid">
+  <p class="k-hero__lede">Kanso is a small studio practicing the hybrid discipline of Japanese spatial poetry and Swiss rigor. We work with a limited roster of clients each year so the attention each project deserves is unavoidable.</p>
+  <div class="k-hero__meta">
+    <div class="row"><span>Founded</span> <strong>2019 · New York</strong></div>
+    <div class="row"><span>Team</span> <strong>6 — architects &amp; makers</strong></div>
+    <div class="row"><span>Studios</span> <strong>NYC · Tokyo satellite</strong></div>
+  </div>
+</div>
+<!-- /wp:html -->
+
+</div>
+<!-- /wp:group -->
+
+<!-- wp:pattern {"slug":"kanso-theme/studio-intro"} /-->
+
+<!-- wp:pattern {"slug":"kanso-theme/team-grid"} /-->
+
+<!-- wp:pattern {"slug":"kanso-theme/philosophy"} /-->
+
+<!-- wp:group {"className":"k-section k-wrap","layout":{"type":"default"}} -->
+<div class="wp-block-group k-section k-wrap">
 <!-- wp:post-content /-->
 </div>
 <!-- /wp:group -->
-
-<!-- wp:group {"style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30","bottom":"var:preset|spacing|60"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30);padding-bottom:var(--wp--preset--spacing--60)">
-<!-- wp:kanso/studio-profile /-->
-</div>
-<!-- /wp:group -->
-
-<!-- wp:pattern {"slug":"kanso-theme/philosophy"} /-->
 
 <!-- wp:pattern {"slug":"kanso-theme/contact-cta"} /-->
 

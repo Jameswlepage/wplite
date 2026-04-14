@@ -1,35 +1,37 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!-- wp:group {"className":"k-hero k-hero--compact","layout":{"type":"default"}} -->
+<div class="wp-block-group k-hero k-hero--compact">
 
-<!-- wp:paragraph {"className":"kicker"} -->
-<p class="kicker">Selected work</p>
-<!-- /wp:paragraph -->
+<!-- wp:html -->
+<div class="k-hero__eyebrow">
+  <span class="k-label">— Index / Selected Projects</span>
+  <span class="line"></span>
+  <span class="k-label">2019 — 2026</span>
+</div>
+<!-- /wp:html -->
 
-<!-- wp:heading {"level":1,"style":{"typography":{"fontWeight":"200"}}} -->
-<h1 class="wp-block-heading" style="font-weight:200">Projects</h1>
+<!-- wp:heading {"level":1,"className":"k-hero__title"} -->
+<h1 class="wp-block-heading k-hero__title">The<br><em>Work.</em></h1>
 <!-- /wp:heading -->
 
-<!-- wp:spacer {"height":"48px"} -->
-<div style="height:48px" aria-hidden="true" class="wp-block-spacer"></div>
-<!-- /wp:spacer -->
-
-<!-- wp:query {"queryId":1,"query":{"perPage":12,"postType":"project","order":"desc","orderBy":"date"}} -->
-<div class="wp-block-query">
-<!-- wp:post-template {"layout":{"type":"grid","columnCount":3}} -->
-<!-- wp:group {"className":"kanso-project-card","layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-project-card">
-<!-- wp:post-featured-image /-->
-<!-- wp:post-title {"level":3,"isLink":true,"style":{"elements":{"link":{"color":{"text":"var:preset|color|base"}}}}} /-->
-<!-- wp:post-excerpt {"excerptLength":12,"style":{"color":{"text":"var:preset|color|muted"},"typography":{"fontSize":"0.875rem"}}} /-->
 </div>
 <!-- /wp:group -->
+
+<!-- wp:group {"className":"k-work","layout":{"type":"default"}} -->
+<div class="wp-block-group k-work">
+
+<!-- wp:query {"queryId":100,"query":{"perPage":24,"postType":"project","order":"desc","orderBy":"date"},"className":"k-work__grid"} -->
+<div class="wp-block-query k-work__grid">
+<!-- wp:post-template -->
+<!-- wp:kanso/project-card /-->
 <!-- /wp:post-template -->
 </div>
 <!-- /wp:query -->
 
 </div>
 <!-- /wp:group -->
+
+<!-- wp:pattern {"slug":"kanso-theme/contact-cta"} /-->
 
 <!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

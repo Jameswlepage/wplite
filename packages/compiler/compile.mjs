@@ -228,9 +228,84 @@ async function buildEditorTemplates(themeSourceRoot, siteSchema) {
   };
 }
 
-async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, siteSchema) {
+async function readJsonIfExists(filePath) {
+  try {
+    const raw = await readFile(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function buildGoogleFontsImport(fonts) {
+  if (!fonts || !Array.isArray(fonts.families) || fonts.families.length === 0) {
+    return { importUrl: null, css: '', fontFamilies: [] };
+  }
+  const googleFams = fonts.families.filter((f) => (f.source ?? 'google') === 'google');
+  const specs = googleFams.map((f) => {
+    const fam = encodeURIComponent(f.family).replace(/%20/g, '+');
+    const weights = (f.weights && f.weights.length ? f.weights : [400]).slice().sort((a, b) => a - b);
+    const styles = f.styles && f.styles.length ? f.styles : ['normal'];
+    const hasItalic = styles.includes('italic');
+    if (hasItalic) {
+      const ital = [];
+      for (const w of weights) ital.push(`0,${w}`);
+      for (const w of weights) ital.push(`1,${w}`);
+      return `family=${fam}:ital,wght@${ital.join(';')}`;
+    }
+    return `family=${fam}:wght@${weights.join(';')}`;
+  });
+  const importUrl = specs.length
+    ? `https://fonts.googleapis.com/css2?${specs.join('&')}&display=swap`
+    : null;
+
+  const fontFamilies = fonts.families.map((f) => {
+    const stack = f.stack ?? '';
+    const primary = `'${f.family}'`;
+    const fontFamily = stack ? `${primary}, ${stack}` : primary;
+    return { slug: f.slug, name: f.name ?? f.family, fontFamily };
+  });
+
+  const css = importUrl ? `@import url('${importUrl}');\n` : '';
+  return { importUrl, css, fontFamilies };
+}
+
+async function applyFontsManifestToThemeJson(themeTargetRoot, fontFamilies) {
+  if (!fontFamilies || fontFamilies.length === 0) return;
+  const themeJsonPath = path.join(themeTargetRoot, 'theme.json');
+  try {
+    const raw = await readFile(themeJsonPath, 'utf8');
+    const themeJson = JSON.parse(raw);
+    themeJson.settings = themeJson.settings ?? {};
+    themeJson.settings.typography = themeJson.settings.typography ?? {};
+    themeJson.settings.typography.fontFamilies = fontFamilies;
+    await writeFile(themeJsonPath, JSON.stringify(themeJson, null, 2) + '\n');
+  } catch {
+    // no theme.json — skip
+  }
+}
+
+async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, siteSchema, siteRoot) {
   await ensureDir(themeTargetRoot);
   await cp(themeSourceRoot, themeTargetRoot, { recursive: true });
+
+  const fontsManifest = await readJsonIfExists(path.join(themeSourceRoot, 'fonts.json'));
+  const fonts = buildGoogleFontsImport(fontsManifest);
+  if (fontsManifest) {
+    await applyFontsManifestToThemeJson(themeTargetRoot, fonts.fontFamilies);
+    await rm(path.join(themeTargetRoot, 'fonts.json'), { force: true });
+  }
+
+  if (siteRoot) {
+    const mediaSrc = path.join(siteRoot, 'content', 'media');
+    const mediaDst = path.join(themeTargetRoot, 'assets', 'media');
+    try {
+      await cp(mediaSrc, mediaDst, { recursive: true });
+    } catch {
+      // no content/media — skip
+    }
+  }
+
   let themeStylesheet = '';
   try {
     themeStylesheet = await readFile(path.join(themeSourceRoot, 'style.css'), 'utf8');
@@ -239,7 +314,7 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
   }
   await writeFile(
     path.join(themeTargetRoot, 'style.css'),
-    `/*\nTheme Name: ${toTitleCase(themeSlug)}\n*/\n\n${themeStylesheet}`
+    `/*\nTheme Name: ${toTitleCase(themeSlug)}\n*/\n\n${fonts.css}${themeStylesheet}`
   );
   await writeFile(
     path.join(themeTargetRoot, 'functions.php'),
@@ -450,7 +525,7 @@ async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminS
 async function emitThemeArtifacts(root, generatedRoot, site, siteSchema) {
   const themeRoot = path.join(generatedRoot, 'wp-content', 'themes', site.theme.slug);
   await rm(themeRoot, { recursive: true, force: true });
-  await copyThemeSource(path.join(root, 'theme'), themeRoot, site.theme.slug, siteSchema);
+  await copyThemeSource(path.join(root, 'theme'), themeRoot, site.theme.slug, siteSchema, root);
 }
 
 async function emitContentArtifacts(generatedRoot, site, siteSchema) {

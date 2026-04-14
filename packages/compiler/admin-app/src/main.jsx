@@ -56,12 +56,13 @@ function App() {
   }, []);
 
   if (error) {
+    const systemFont = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif";
     return (
       <div className="app-loading">
-        <Card className="surface-card" style={{ maxWidth: '480px', width: '100%' }}>
+        <Card className="surface-card" style={{ maxWidth: '480px', width: '100%', fontFamily: systemFont }}>
           <CardBody>
-            <h1 style={{ margin: '0 0 8px', fontSize: '16px' }}>Failed to Load</h1>
-            <p style={{ margin: 0, color: 'var(--wp-admin-text-muted)' }}>{error.message}</p>
+            <h1 style={{ margin: '0 0 6px', fontSize: '14px', fontWeight: 600, fontFamily: systemFont, letterSpacing: '-0.005em' }}>Failed to load</h1>
+            <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.45, color: 'var(--wp-admin-text-muted)', fontFamily: systemFont, wordBreak: 'break-word' }}>{error.message}</p>
           </CardBody>
         </Card>
       </div>
