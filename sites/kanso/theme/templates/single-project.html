@@ -1,24 +1,42 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!-- wp:group {"className":"k-project-head","layout":{"type":"default"}} -->
+<div class="wp-block-group k-project-head">
 
-<!-- wp:paragraph {"className":"kicker"} -->
-<p class="kicker">Project</p>
+<!-- wp:paragraph {"className":"k-label k-label--muted"} -->
+<p class="k-label k-label--muted">— Project · 事例</p>
 <!-- /wp:paragraph -->
 
-<!-- wp:post-title {"level":1,"style":{"typography":{"fontWeight":"200"}}} /-->
+<!-- wp:post-title {"level":1,"className":"k-project-head__title"} /-->
 
-<!-- wp:post-excerpt {"style":{"color":{"text":"var:preset|color|muted"},"typography":{"fontSize":"1.0625rem"}}} /-->
+<!-- wp:html -->
+<div class="k-project-head__grid">
+<!-- /wp:html -->
 
-<!-- wp:spacer {"height":"48px"} -->
-<div style="height:48px" aria-hidden="true" class="wp-block-spacer"></div>
-<!-- /wp:spacer -->
+<!-- wp:post-excerpt {"className":"k-project-head__excerpt"} /-->
 
-<!-- wp:post-content /-->
+<!-- wp:html -->
+<div class="k-project-head__facts">
+  <dl><dt>Location</dt><dd>Tokyo, Japan</dd></dl>
+  <dl><dt>Year</dt><dd>2025</dd></dl>
+  <dl><dt>Discipline</dt><dd>Residential</dd></dl>
+  <dl><dt>Status</dt><dd>Completed</dd></dl>
+</div>
+</div>
+<!-- /wp:html -->
 
 </div>
 <!-- /wp:group -->
+
+<!-- wp:post-featured-image /-->
+
+<!-- wp:group {"className":"k-project-body","layout":{"type":"default"}} -->
+<div class="wp-block-group k-project-body">
+<!-- wp:post-content /-->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:pattern {"slug":"kanso-theme/testimonial"} /-->
 
 <!-- wp:pattern {"slug":"kanso-theme/contact-cta"} /-->
 

@@ -1,7 +1,33 @@
 <!-- wp:template-part {"slug":"header","tagName":"header"} /-->
 
-<!-- wp:group {"className":"kanso-section","style":{"spacing":{"padding":{"left":"var:preset|spacing|30","right":"var:preset|spacing|30"}}},"layout":{"type":"constrained"}} -->
-<div class="wp-block-group kanso-section" style="padding-left:var(--wp--preset--spacing--30);padding-right:var(--wp--preset--spacing--30)">
+<!-- wp:html -->
+<section class="k-contact">
+  <div class="k-contact__left">
+    <span class="k-label k-label--muted">— Begin · 始</span>
+    <h1 class="k-contact__title">Start a<br><em>Conversation.</em></h1>
+  </div>
+  <div class="k-contact__right">
+    <span class="k-label k-label--muted" style="color:#c9c4b8;">— Studio · 事務所</span>
+    <h2 class="k-contact__title" style="color:#f2efe9;margin-top:16px;">Kanso.</h2>
+    <dl class="k-info">
+      <div><dt>Studio</dt><dd>47 Crosby Street, Floor 3<br>New York, NY 10012</dd></div>
+      <div><dt>Email</dt><dd>hello@kansostudio.com</dd></div>
+      <div><dt>Telephone</dt><dd>+1 (212) 555-0147</dd></div>
+      <div><dt>Hours</dt><dd>Mon — Fri · 09:00 — 18:00</dd></div>
+      <div><dt>New projects</dt><dd>Accepting for Q3 2026</dd></div>
+    </dl>
+  </div>
+</section>
+<!-- /wp:html -->
+
+<!-- wp:group {"className":"k-section k-wrap","layout":{"type":"default"}} -->
+<div class="wp-block-group k-section k-wrap">
+<!-- wp:kanso/contact-form /-->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"k-wrap","layout":{"type":"constrained"}} -->
+<div class="wp-block-group k-wrap">
 <!-- wp:post-content /-->
 </div>
 <!-- /wp:group -->
