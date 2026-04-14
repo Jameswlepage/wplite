@@ -321,33 +321,35 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
 
         setDraft(normalized);
 
-        if (templateSlug && previewMarkup) {
+        if (templateSlug) {
           const pageBlocks = blocksFromContent(normalized.content);
-          const templateBlocks = blocksFromContent(previewMarkup);
-          const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
+          let template = null;
 
-          setTemplateRecord({
-            id: routeManifest?.editor?.templateEntityId || '',
-            slug: templateSlug,
-            title: routeManifest?.title ?? normalized.title ?? templateSlug,
-            slotFound: composed.slotFound,
-            source: 'route-manifest',
-          });
-          setBlocks(composed.blocks);
-        } else if (templateSlug) {
-          const template = await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(templateSlug)}`);
+          try {
+            template = await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(templateSlug)}`);
+          } catch (error) {
+            if (!previewMarkup) {
+              throw error;
+            }
+          }
+
           if (cancelled) return;
 
-          const pageBlocks = blocksFromContent(normalized.content);
-          const templateBlocks = blocksFromContent(template?.content?.raw ?? '');
+          const templateMarkup = String(template?.content?.raw ?? previewMarkup ?? '');
+          const templateBlocks = blocksFromContent(templateMarkup);
           const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
 
           setTemplateRecord({
-            id: template.id,
-            slug: template.slug,
-            title: template.title?.raw ?? template.title?.rendered ?? templateSlug,
+            id: String(template?.id ?? routeManifest?.editor?.templateEntityId ?? ''),
+            slug: String(template?.slug ?? templateSlug),
+            title:
+              template?.title?.raw
+              ?? template?.title?.rendered
+              ?? routeManifest?.title
+              ?? normalized.title
+              ?? templateSlug,
             slotFound: composed.slotFound,
-            source: 'template-rest',
+            source: template?.content?.raw ? 'template-rest' : 'route-manifest',
           });
           setBlocks(composed.blocks);
         } else {

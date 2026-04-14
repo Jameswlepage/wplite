@@ -35,10 +35,8 @@ export function compileNavigationMarkup(menuItems, { routes, models }) {
     })
     .join('\n');
 
-  return `<!-- wp:navigation {"layout":{"type":"flex","justifyContent":"right"}} -->
-<nav class="wp-block-navigation">
+  return `<!-- wp:navigation {"overlayMenu":"mobile","layout":{"type":"flex","justifyContent":"right"}} -->
 ${itemsMarkup}
-</nav>
 <!-- /wp:navigation -->`;
 }
 
@@ -62,4 +60,3 @@ export function compileNavigationTemplate(source, menuItems, siteSchema) {
     .replace(openClose, navigationMarkup)
     .replace(selfClosing, navigationMarkup);
 }
-

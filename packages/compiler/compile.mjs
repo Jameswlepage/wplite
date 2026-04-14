@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -65,6 +66,16 @@ async function readHtmlDirectory(dirPath) {
   }
 
   return data;
+}
+
+function stripPatternHeaderComment(source) {
+  const value = String(source ?? '');
+
+  return value.replace(/^\s*<!--([\s\S]*?)-->\s*/, (match, commentBody) => {
+    return /(?:^|\n)\s*(Title|Slug|Categories|Inserter)\s*:/i.test(commentBody)
+      ? ''
+      : match;
+  });
 }
 
 async function readBlockDirectory(dirPath) {
@@ -150,7 +161,10 @@ async function readContentEntries(rootDir, collections) {
 async function buildEditorTemplates(themeSourceRoot, siteSchema) {
   const templates = await readHtmlDirectory(path.join(themeSourceRoot, 'templates'));
   const rawParts = await readHtmlDirectory(path.join(themeSourceRoot, 'parts'));
-  const patterns = await readHtmlDirectory(path.join(themeSourceRoot, 'patterns'));
+  const rawPatterns = await readHtmlDirectory(path.join(themeSourceRoot, 'patterns'));
+  const patterns = Object.fromEntries(
+    Object.entries(rawPatterns).map(([name, markup]) => [name, stripPatternHeaderComment(markup)])
+  );
   const parts = Object.fromEntries(
     Object.entries(rawParts).map(([name, markup]) => {
       const menuItems =
@@ -355,7 +369,9 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
     }
 
     const fileName = path.basename(entry.name, '.html');
-    const source = await readFile(path.join(patternsDir, entry.name), 'utf8');
+    const source = stripPatternHeaderComment(
+      await readFile(path.join(patternsDir, entry.name), 'utf8')
+    );
     const pattern = `<?php\n/**\n * Title: ${toTitleCase(fileName)}\n * Slug: ${themeSlug}/${fileName}\n * Categories: ${themeSlug}\n * Inserter: yes\n */\n?>\n${source}\n`;
     await writeFile(path.join(generatedPatternsDir, `${fileName}.php`), pattern);
     await rm(path.join(generatedPatternsDir, entry.name), { force: true });
@@ -364,7 +380,24 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
 
 function compilerSelfHash() {
   // Cheap invariant: fall back to full rebuild if compiler source changes.
-  return createHash('sha1')
+  const hash = createHash('sha1');
+  const compilerSources = [
+    new URL(import.meta.url),
+    new URL('./lib/navigation.mjs', import.meta.url),
+    new URL('./lib/patterns.mjs', import.meta.url),
+    new URL('./lib/markdown-blocks.mjs', import.meta.url),
+    new URL('./lib/models.mjs', import.meta.url),
+  ];
+
+  for (const fileUrl of compilerSources) {
+    try {
+      hash.update(readFileSync(fileUrl, 'utf8'));
+    } catch {
+      // Ignore missing sources in unusual packaging scenarios.
+    }
+  }
+
+  return hash
     .update(phpSeedFile())
     .update(phpHelpersFile())
     .update(phpRegisterPostTypesFile())

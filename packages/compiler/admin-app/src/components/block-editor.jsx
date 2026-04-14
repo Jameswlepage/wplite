@@ -9,7 +9,6 @@ import {
   BlockTools,
   __experimentalLibrary as InserterLibrary,
 } from '@wordpress/block-editor';
-import { useZoomOut } from '../../../../../node_modules/@wordpress/block-editor/src/hooks/use-zoom-out.js';
 import {
   Button,
   DropdownMenu,
@@ -197,9 +196,6 @@ export function NativeBlockEditorFrame({
   const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [inserterOpen, setInserterOpen] = useState(false);
-  const shouldFitCanvas = fitCanvas && (sidebarOpen || inserterOpen);
-
-  useZoomOut(shouldFitCanvas);
 
   useEffect(() => {
     if (!inserterOpen) return undefined;

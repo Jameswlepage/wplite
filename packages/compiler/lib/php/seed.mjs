@@ -257,6 +257,96 @@ function portfolio_light_seed_singletons() {
 \t}
 }
 
+function portfolio_light_find_theme_template_post( $slug, $stylesheet ) {
+\t$templates = get_posts(
+\t\t[
+\t\t\t'post_type'      => 'wp_template',
+\t\t\t'post_status'    => 'any',
+\t\t\t'posts_per_page' => 1,
+\t\t\t'name'           => $slug,
+\t\t\t'tax_query'      => [
+\t\t\t\t[
+\t\t\t\t\t'taxonomy' => 'wp_theme',
+\t\t\t\t\t'field'    => 'slug',
+\t\t\t\t\t'terms'    => [ $stylesheet ],
+\t\t\t\t],
+\t\t\t],
+\t\t]
+\t);
+
+\treturn ! empty( $templates ) ? $templates[0] : null;
+}
+
+function portfolio_light_sync_managed_templates() {
+\t$stylesheet = (string) get_stylesheet();
+\tif ( '' === $stylesheet ) {
+\t\treturn;
+\t}
+
+\t$template_dir = trailingslashit( get_stylesheet_directory() ) . 'templates/';
+\tif ( ! is_dir( $template_dir ) ) {
+\t\treturn;
+\t}
+
+\t$slugs = [];
+\tforeach ( portfolio_light_get_routes() as $route ) {
+\t\tif ( 'page' !== ( $route['type'] ?? '' ) ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$template_slug = (string) ( $route['template'] ?? '' );
+\t\tif ( '' !== $template_slug ) {
+\t\t\t$slugs[] = $template_slug;
+\t\t}
+\t}
+
+\t$slugs = array_values( array_unique( $slugs ) );
+\tif ( empty( $slugs ) ) {
+\t\treturn;
+\t}
+
+\t$theme_term = term_exists( $stylesheet, 'wp_theme' );
+\tif ( ! $theme_term ) {
+\t\t$theme_term = wp_insert_term( $stylesheet, 'wp_theme', [ 'slug' => $stylesheet ] );
+\t}
+
+\tif ( is_wp_error( $theme_term ) || empty( $theme_term['term_id'] ) ) {
+\t\treturn;
+\t}
+
+\t$theme_term_id = (int) $theme_term['term_id'];
+
+\tforeach ( $slugs as $slug ) {
+\t\t$file_path = $template_dir . $slug . '.html';
+\t\tif ( ! file_exists( $file_path ) ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\t$content  = (string) file_get_contents( $file_path );
+\t\t$existing = portfolio_light_find_theme_template_post( $slug, $stylesheet );
+\t\t$payload  = [
+\t\t\t'post_type'    => 'wp_template',
+\t\t\t'post_status'  => 'publish',
+\t\t\t'post_title'   => ucwords( str_replace( [ '-', '_' ], ' ', $slug ) ),
+\t\t\t'post_name'    => $slug,
+\t\t\t'post_content' => $content,
+\t\t];
+
+\t\tif ( $existing ) {
+\t\t\t$payload['ID'] = $existing->ID;
+\t\t\t$template_id   = wp_update_post( wp_slash( $payload ), true );
+\t\t} else {
+\t\t\t$template_id = wp_insert_post( wp_slash( $payload ), true );
+\t\t}
+
+\t\tif ( is_wp_error( $template_id ) ) {
+\t\t\tcontinue;
+\t\t}
+
+\t\twp_set_post_terms( (int) $template_id, [ $theme_term_id ], 'wp_theme', false );
+\t}
+}
+
 function portfolio_light_cleanup_default_content() {
 \t$hello_world = get_page_by_path( 'hello-world', OBJECT, 'post' );
 \tif ( $hello_world && 'Hello world!' === $hello_world->post_title ) {
@@ -464,6 +554,7 @@ function portfolio_light_seed_site() {
 \tif ( ! empty( $site['theme']['slug'] ) ) {
 \t\tswitch_theme( $site['theme']['slug'] );
 \t}
+\tportfolio_light_sync_managed_templates();
 \t$front_page = $page_ids[ $site['frontPage'] ?? '' ] ?? 0;
 \t$posts_page = $page_ids[ $site['postsPage'] ?? '' ] ?? 0;
 
@@ -490,4 +581,3 @@ function portfolio_light_seed_site() {
 }
 `;
 }
-

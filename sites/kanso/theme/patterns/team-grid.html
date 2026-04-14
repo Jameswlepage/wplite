@@ -6,15 +6,25 @@ Inserter: no
 <!-- wp:group {"className":"k-team","layout":{"type":"default"}} -->
 <div class="wp-block-group k-team">
 
-<!-- wp:html -->
-<div class="k-team__head">
-  <h2 class="k-team__title">The<br><em style="font-style:italic;color:#d94e2e;font-weight:400;">Studio.</em></h2>
-  <div class="k-meta" style="text-align:right; justify-content:flex-end;">
-    <span>— 005 / People</span>
-    <span>NY · Tokyo · Copenhagen</span>
-  </div>
+<!-- wp:group {"className":"k-team__head","layout":{"type":"default"}} -->
+<div class="wp-block-group k-team__head">
+<!-- wp:heading {"level":2,"className":"k-team__title"} -->
+<h2 class="wp-block-heading k-team__title">The<br><em>Studio.</em></h2>
+<!-- /wp:heading -->
+
+<!-- wp:group {"className":"k-meta","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"right"}} -->
+<div class="wp-block-group k-meta">
+<!-- wp:paragraph -->
+<p>— 005 / People</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>NY · Tokyo · Copenhagen</p>
+<!-- /wp:paragraph -->
 </div>
-<!-- /wp:html -->
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
 
 <!-- wp:query {"queryId":30,"query":{"perPage":24,"postType":"team","order":"asc","orderBy":"menu_order"},"className":"k-team__grid"} -->
 <div class="wp-block-query k-team__grid">

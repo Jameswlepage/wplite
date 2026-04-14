@@ -6,15 +6,25 @@ Inserter: no
 <!-- wp:group {"className":"k-journal","layout":{"type":"default"}} -->
 <div class="wp-block-group k-journal">
 
-<!-- wp:html -->
-<div class="k-journal__head">
-  <h2 class="k-journal__title">Journal<br><em style="font-style:italic;color:#d94e2e;font-weight:400;">Notes</em></h2>
-  <div class="k-meta" style="text-align:right; justify-content:flex-end;">
-    <span>— 004 / Writing &amp; Research</span>
-    <a href="/journal" style="color:#0f0f0e;">All Entries →</a>
-  </div>
+<!-- wp:group {"className":"k-journal__head","layout":{"type":"default"}} -->
+<div class="wp-block-group k-journal__head">
+<!-- wp:heading {"level":2,"className":"k-journal__title"} -->
+<h2 class="wp-block-heading k-journal__title">Journal<br><em>Notes</em></h2>
+<!-- /wp:heading -->
+
+<!-- wp:group {"className":"k-meta","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"right"}} -->
+<div class="wp-block-group k-meta">
+<!-- wp:paragraph -->
+<p>— 004 / Writing &amp; Research</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph {"className":"k-journal__link"} -->
+<p class="k-journal__link"><a href="/journal">All Entries →</a></p>
+<!-- /wp:paragraph -->
 </div>
-<!-- /wp:html -->
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
 
 <!-- wp:query {"queryId":20,"query":{"perPage":3,"postType":"post","order":"desc","orderBy":"date"},"className":"k-journal__grid"} -->
 <div class="wp-block-query k-journal__grid">

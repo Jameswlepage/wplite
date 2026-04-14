@@ -6,15 +6,25 @@ Inserter: no
 <!-- wp:group {"className":"k-work","layout":{"type":"default"}} -->
 <div class="wp-block-group k-work">
 
-<!-- wp:html -->
-<div class="k-work__head">
-  <h2 class="k-work__title">Selected<br><em style="font-style:italic;color:#d94e2e;font-weight:400;">Work</em></h2>
-  <div class="k-work__count k-meta">
-    <span>— Index 2019 / 2026</span>
-    <span>012 Projects</span>
-  </div>
+<!-- wp:group {"className":"k-work__head","layout":{"type":"default"}} -->
+<div class="wp-block-group k-work__head">
+<!-- wp:heading {"level":2,"className":"k-work__title"} -->
+<h2 class="wp-block-heading k-work__title">Selected<br><em>Work</em></h2>
+<!-- /wp:heading -->
+
+<!-- wp:group {"className":"k-work__count k-meta","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"right"}} -->
+<div class="wp-block-group k-work__count k-meta">
+<!-- wp:paragraph -->
+<p>— Index 2019 / 2026</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>012 Projects</p>
+<!-- /wp:paragraph -->
 </div>
-<!-- /wp:html -->
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
 
 <!-- wp:query {"queryId":10,"query":{"perPage":6,"postType":"project","order":"desc","orderBy":"date"},"className":"k-work__grid"} -->
 <div class="wp-block-query k-work__grid">

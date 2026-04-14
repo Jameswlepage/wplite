@@ -368,15 +368,16 @@
 }
 
 .native-editor__canvas--fit .block-editor-iframe__container {
-  min-width: 100%;
+  width: max(100%, 1180px);
+  min-width: 1180px;
 }
 
 .native-editor__canvas--fit .block-editor-iframe__scale-container {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  width: 100%;
-  min-width: 100%;
+  width: max(100%, 1180px);
+  min-width: 1180px;
   padding: 24px 24px 40px;
   box-sizing: border-box;
 }
@@ -392,6 +393,7 @@
 
 .native-editor__canvas--fit iframe {
   background: #ffffff;
+  min-width: 1180px;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 18px 38px rgba(15, 23, 42, 0.08);
 }
 
