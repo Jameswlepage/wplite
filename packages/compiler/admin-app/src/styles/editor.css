@@ -350,9 +350,14 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   position: relative;
   padding: 0;
+}
+
+.native-editor__canvas--fit {
+  background:
+    linear-gradient(180deg, #f6f7f7 0%, #f6f7f7 140px, #ffffff 140px);
 }
 
 .native-editor__canvas > div,
@@ -362,6 +367,20 @@
   min-height: 100%;
 }
 
+.native-editor__canvas--fit .block-editor-iframe__container {
+  min-width: 100%;
+}
+
+.native-editor__canvas--fit .block-editor-iframe__scale-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  min-width: 100%;
+  padding: 24px 24px 40px;
+  box-sizing: border-box;
+}
+
 .native-editor__canvas iframe {
   display: block;
   width: 100%;
@@ -369,6 +388,11 @@
   min-height: 100%;
   border: 0;
   background: #ffffff;
+}
+
+.native-editor__canvas--fit iframe {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 18px 38px rgba(15, 23, 42, 0.08);
 }
 
 /* Kill all WordPress block editor internal padding */

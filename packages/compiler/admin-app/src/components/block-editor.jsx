@@ -9,6 +9,7 @@ import {
   BlockTools,
   __experimentalLibrary as InserterLibrary,
 } from '@wordpress/block-editor';
+import { useZoomOut } from '../../../../../node_modules/@wordpress/block-editor/src/hooks/use-zoom-out.js';
 import {
   Button,
   DropdownMenu,
@@ -144,6 +145,7 @@ export function NativeBlockEditorFrame({
   blockSidebarFooter = null,
   wpAdminUrl,
   wpAdminTemplateUrl,
+  fitCanvas = false,
 }) {
   const [editorBundle, setEditorBundle] = useState(null);
   const [bundleError, setBundleError] = useState(null);
@@ -195,6 +197,9 @@ export function NativeBlockEditorFrame({
   const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [inserterOpen, setInserterOpen] = useState(false);
+  const shouldFitCanvas = fitCanvas && (sidebarOpen || inserterOpen);
+
+  useZoomOut(shouldFitCanvas);
 
   useEffect(() => {
     if (!inserterOpen) return undefined;
@@ -333,7 +338,7 @@ export function NativeBlockEditorFrame({
                 <BlockToolbar hideDragHandle />
               </div>
               <div className="native-editor__canvas-shell">
-                <div className="native-editor__canvas">
+                <div className={`native-editor__canvas${fitCanvas ? ' native-editor__canvas--fit' : ''}`}>
                   <BlockCanvas height="100%" styles={canvasStyles} />
                 </div>
               </div>

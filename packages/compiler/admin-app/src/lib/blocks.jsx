@@ -3,6 +3,7 @@ import {
   createBlock,
   getBlockType,
   parse,
+  pasteHandler,
   rawHandler,
   registerBlockType,
 } from '@wordpress/blocks';
@@ -139,25 +140,41 @@ export function blocksFromContent(content) {
   try {
     if (content.includes('<!-- wp:')) {
       result = sanitizeParsedBlocks(parse(content));
-    } else {
-      // Content has no block markers — this is rendered HTML, which is a
-      // common sign that the REST response is missing `.raw` (e.g. the
-      // request wasn't served with context=edit). rawHandler does its best
-      // but unknown HTML becomes core/freeform (classic block).
-      if (typeof console !== 'undefined') {
-        console.warn(
-          '[wplite] Parsing content without block markers via rawHandler — '
-          + 'source appears to be rendered HTML. Any block that cannot be '
-          + 'transformed will appear as a classic/freeform block.'
+      const isSingleHtmlFallback =
+        result.length === 1 &&
+        ['core/freeform', 'core/html'].includes(result[0]?.name);
+
+      if (isSingleHtmlFallback) {
+        result = sanitizeParsedBlocks(
+          pasteHandler({ HTML: content, mode: 'BLOCKS' })
         );
       }
-      result = sanitizeParsedBlocks(rawHandler({ HTML: content }));
+    } else {
+      // Content has no block markers — this is usually rendered HTML or
+      // legacy classic-editor markup. Use the block paste pipeline first so
+      // Gutenberg can recover paragraphs/headings/lists instead of surfacing
+      // deprecated classic/freeform blocks in the canvas.
+      if (typeof console !== 'undefined') {
+        console.warn(
+          '[wplite] Parsing content without block markers via pasteHandler — '
+          + 'source appears to be rendered HTML or legacy classic markup.'
+        );
+      }
+      result = sanitizeParsedBlocks(
+        pasteHandler({ HTML: content, mode: 'BLOCKS' })
+      );
     }
   } catch {
     try {
-      result = sanitizeParsedBlocks(parse(content || ''));
+      result = sanitizeParsedBlocks(
+        pasteHandler({ HTML: content || '', mode: 'BLOCKS' })
+      );
     } catch {
-      return [];
+      try {
+        result = sanitizeParsedBlocks(rawHandler({ HTML: content || '' }));
+      } catch {
+        return [];
+      }
     }
   }
 

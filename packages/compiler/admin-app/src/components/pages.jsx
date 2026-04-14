@@ -507,6 +507,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
       isPrimaryBusy={isSaving}
       viewUrl={draft.link}
       documentLabel="Page"
+      fitCanvas={Boolean(templateRecord || routeManifest)}
       wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
       documentSidebar={

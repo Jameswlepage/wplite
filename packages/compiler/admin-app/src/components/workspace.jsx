@@ -1384,6 +1384,29 @@ function IntegrationConfigModal({ integration, initialConfig, isConnected, onSav
   );
 }
 
+function normalizeIntegrationsView(nextView) {
+  const type = nextView?.type === 'table' ? 'table' : 'grid';
+
+  return {
+    ...nextView,
+    type,
+    fields: ['category', 'status', 'connectedAt'],
+    titleField: 'name',
+    mediaField: 'media',
+    descriptionField: 'description',
+    layout: {
+      ...(nextView?.layout ?? {}),
+      density: type === 'grid' ? 'balanced' : 'comfortable',
+      styles: {
+        category: { width: '140px', minWidth: '140px' },
+        status: { width: '140px', minWidth: '140px' },
+        connectedAt: { width: '148px', minWidth: '148px' },
+        ...(nextView?.layout?.styles ?? {}),
+      },
+    },
+  };
+}
+
 export function IntegrationsPage({ pushNotice }) {
   const [connected, setConnected] = useState([
     { integrationId: 'google-analytics', config: { measurement_id: 'G-XXXXXXXXXX' }, connectedAt: '2026-03-10' },
@@ -1578,7 +1601,7 @@ export function IntegrationsPage({ pushNotice }) {
     },
   ], []);
 
-  const [view, setView] = useState({
+  const [view, setView] = useState(() => normalizeIntegrationsView({
     type: 'grid',
     perPage: 25,
     page: 1,
@@ -1590,7 +1613,7 @@ export function IntegrationsPage({ pushNotice }) {
     layout: {},
     filters: [],
     search: '',
-  });
+  }));
 
   const [selection, setSelection] = useState([]);
 
@@ -1616,13 +1639,13 @@ export function IntegrationsPage({ pushNotice }) {
         </div>
       </header>
 
-      <Card className="surface-card">
+      <Card className="surface-card integrations-card">
         <CardBody>
           <DataViews
             data={processed.data}
             fields={fields}
             view={view}
-            onChangeView={setView}
+            onChangeView={(nextView) => setView(normalizeIntegrationsView(nextView))}
             getItemId={(item) => item.id}
             selection={selection}
             onChangeSelection={setSelection}

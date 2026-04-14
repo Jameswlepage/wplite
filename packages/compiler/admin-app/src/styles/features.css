@@ -709,82 +709,63 @@
   flex-shrink: 0;
 }
 
-/* ── Table (list) layout ── */
-
-/* Media / icon cell: centered square, fixed width. */
-.dataviews-view-table__cell[data-field-id="media"],
-.dataviews-view-table tbody td:has(> .integration-brand-icon),
-.dataviews-view-table tbody td:has(.integration-brand-icon) {
-  width: 48px;
+/* Keep the DataViews surface aligned with the rest of the admin. */
+.integrations-card .components-card__body,
+.integrations-card .components-card-body {
+  padding: 16px 16px 10px;
 }
 
-.dataviews-view-table__cell[data-field-id="media"] .dataviews-view-table__cell-content-wrapper,
-.dataviews-view-table tbody td:has(.integration-brand-icon) .dataviews-view-table__cell-content-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  text-align: center;
+.integrations-card .dataviews-shell {
+  gap: 12px;
 }
 
-/* Name cell: force the title + description stack to be left-aligned. DataViews'
-   default flex centering cascades deeply; nuke it at every level. */
-.dataviews-view-table__cell[data-field-id="name"],
-.dataviews-view-table__cell[data-field-id="name"] > *,
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper,
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content,
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-field,
-.dataviews-view-table__cell[data-field-id="name"] [class*="primary"],
-.dataviews-view-table__cell[data-field-id="name"] [class*="title"],
-.dataviews-view-table__cell[data-field-id="name"] [class*="field-value"] {
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
-  text-align: left !important;
-  align-self: flex-start !important;
-}
-
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper,
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  gap: 2px;
-  white-space: normal;
-  min-height: 44px;
-}
-
-/* Everything inside the name cell should behave as a block-level left-aligned
-   element, overriding DataViews' inline-flex defaults. */
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__cell-content-wrapper > *,
-.dataviews-view-table__cell[data-field-id="name"] .dataviews-view-table__primary-column-content > * {
-  display: block;
-  width: 100%;
-  margin-left: 0;
-  margin-right: auto;
-  text-align: left !important;
-}
-
+/* ── Table layout ── */
 .dataviews-view-table tbody td,
 .dataviews-view-table__cell {
   vertical-align: middle;
 }
 
-.dataviews-view-table__cell[data-field-id="description"],
-.dataviews-view-table__cell[data-field-id="description"] .dataviews-view-table__cell-content-wrapper {
-  align-items: center !important;
+.dataviews-view-table .dataviews-column-primary__media {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  min-width: 40px;
+  margin-top: 1px;
+}
+
+.dataviews-view-table .dataviews-column-primary__media .integration-brand-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.dataviews-view-table .dataviews-view-table__primary-column-content {
+  min-width: 0;
+  gap: 4px;
+}
+
+.dataviews-view-table .dataviews-view-table__primary-column-content,
+.dataviews-view-table .dataviews-view-table__primary-column-content > *,
+.dataviews-view-table .dataviews-view-table__primary-column-content .dataviews-view-table__cell-content-wrapper {
+  align-items: flex-start !important;
   justify-content: flex-start !important;
   text-align: left !important;
 }
 
-/* ── Grid layout ──
-   The upstream CSS paints a 1px inset box-shadow inside
-   .dataviews-view-grid__media::after and the media cell also has its own
-   border-radius + background; combined with our prior aspect-ratio override
-   that sat atop the outer card border, this produced a visible doubled
-   border (outer card border + inner media pseudo-border). Remove the inner
-   pseudo-border and consolidate: one outer card frame, flush media with
-   clean internal spacing, icon centered. */
+.dataviews-view-table .dataviews-view-table__primary-column-content .dataviews-title-field,
+.dataviews-view-table .dataviews-view-table__primary-column-content .integration-service-cell__description {
+  display: block;
+  width: 100%;
+}
 
+.dataviews-view-table .dataviews-view-table__primary-column-content .integration-service-cell__description {
+  white-space: normal;
+  line-height: 1.45;
+  max-width: 42ch;
+}
+
+/* ── Grid layout ── */
 .dataviews-view-grid .dataviews-view-grid__card {
   border: 1px solid var(--wp-admin-border);
   border-radius: 6px;
@@ -794,19 +775,21 @@
   overflow: hidden;
 }
 
-.dataviews-view-grid {
-  padding: 12px;
-  gap: 12px;
+.integrations-card .dataviews-layout .dataviews-view-grid {
+  padding: 18px !important;
+  gap: 18px;
+  align-content: start;
 }
 
-/* Kill the inset pseudo-border that caused the doubled border effect. */
+.integrations-card .dataviews-layout .dataviews-view-grid__row {
+  gap: 18px;
+}
+
 .dataviews-view-grid .dataviews-view-grid__card .dataviews-view-grid__media::after {
   box-shadow: none !important;
   background-color: transparent !important;
 }
 
-/* Media slot: tight fixed height, no aspect-ratio (which was making the slot
-   absurdly tall for a 64px icon). Flush to card edges. */
 .dataviews-view-grid .dataviews-view-grid__media,
 .dataviews-view-grid .dataviews-view-grid__card-media {
   display: flex !important;
@@ -826,17 +809,26 @@
   overflow: hidden;
 }
 
-/* Brand icon inside grid card: proportional, not oversized. */
 .dataviews-view-grid .dataviews-view-grid__media .integration-brand-icon,
 .dataviews-view-grid .dataviews-view-grid__card-media .integration-brand-icon {
   width: 40px;
   height: 40px;
 }
 
-/* The text body of each card needs its own padding since the card itself
-   is now flush (padding: 0). */
+.dataviews-view-grid .dataviews-view-grid__title {
+  padding: 14px 14px 4px;
+}
+
+.dataviews-view-grid .integration-service-cell__description {
+  display: block;
+  padding: 0 14px 8px;
+  white-space: normal;
+  line-height: 1.45;
+  max-width: none;
+}
+
 .dataviews-view-grid .dataviews-view-grid__fields {
-  padding: 12px 14px;
+  padding: 0 14px 14px;
   box-sizing: border-box;
 }
 
