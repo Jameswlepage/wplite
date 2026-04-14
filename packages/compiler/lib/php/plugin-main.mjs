@@ -21,6 +21,7 @@ require_once __DIR__ . '/inc/register-head.php';
 require_once __DIR__ . '/inc/register-rest.php';
 require_once __DIR__ . '/inc/register-admin-app.php';
 require_once __DIR__ . '/inc/register-login-style.php';
+require_once __DIR__ . '/inc/register-frontend-launcher.php';
 require_once __DIR__ . '/inc/seed.php';
 
 add_action( 'init', function() {
@@ -66,4 +67,3 @@ register_deactivation_hook(
 );
 `;
 }
-

@@ -5,13 +5,16 @@ import path from 'node:path';
 import process from 'node:process';
 import matter from 'gray-matter';
 import { marked } from 'marked';
+import { pluginMainFile } from './lib/php/plugin-main.mjs';
 import { phpHelpersFile } from './lib/php/helpers.mjs';
 import { phpRegisterPostTypesFile } from './lib/php/register-post-types.mjs';
 import { phpRegisterTaxonomiesFile } from './lib/php/register-taxonomies.mjs';
 import { phpRegisterMetaFile } from './lib/php/register-meta.mjs';
 import { phpRegisterSingletonsFile } from './lib/php/register-singletons.mjs';
+import { phpRegisterHeadFile } from './lib/php/register-head.mjs';
 import { phpRegisterRestFile } from './lib/php/register-rest.mjs';
 import { phpRegisterAdminAppFile } from './lib/php/register-admin-app.mjs';
+import { phpRegisterFrontendLauncherFile, frontendLauncherCss, frontendLauncherJs } from './lib/php/register-frontend-launcher.mjs';
 import { phpRegisterLoginStyleFile, loginStyleCss } from './lib/php/register-login-style.mjs';
 import { phpSeedFile } from './lib/php/seed.mjs';
 import { writeGeneratedPlugin, writeStaticAssets, hashPath } from './lib/emit-plugin.mjs';
@@ -384,10 +387,16 @@ function compilerSelfHash() {
   const hash = createHash('sha1');
   const compilerSources = [
     new URL(import.meta.url),
+    new URL('./lib/emit-plugin.mjs', import.meta.url),
     new URL('./lib/navigation.mjs', import.meta.url),
     new URL('./lib/patterns.mjs', import.meta.url),
     new URL('./lib/markdown-blocks.mjs', import.meta.url),
     new URL('./lib/models.mjs', import.meta.url),
+    new URL('./lib/php/icons.mjs', import.meta.url),
+    new URL('./lib/php/plugin-main.mjs', import.meta.url),
+    new URL('./lib/php/register-head.mjs', import.meta.url),
+    new URL('./lib/php/register-login-style.mjs', import.meta.url),
+    new URL('./lib/php/register-frontend-launcher.mjs', import.meta.url),
   ];
 
   for (const fileUrl of compilerSources) {
@@ -399,15 +408,20 @@ function compilerSelfHash() {
   }
 
   return hash
+    .update(pluginMainFile())
     .update(phpSeedFile())
     .update(phpHelpersFile())
     .update(phpRegisterPostTypesFile())
     .update(phpRegisterTaxonomiesFile())
     .update(phpRegisterMetaFile())
     .update(phpRegisterSingletonsFile())
+    .update(phpRegisterHeadFile())
     .update(phpRegisterRestFile())
     .update(phpRegisterAdminAppFile())
+    .update(phpRegisterFrontendLauncherFile())
     .update(phpRegisterLoginStyleFile())
+    .update(frontendLauncherCss())
+    .update(frontendLauncherJs())
     .update(loginStyleCss())
     .digest('hex');
 }

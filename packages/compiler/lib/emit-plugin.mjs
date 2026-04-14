@@ -12,6 +12,7 @@ import { phpRegisterSingletonsFile } from './php/register-singletons.mjs';
 import { phpRegisterHeadFile } from './php/register-head.mjs';
 import { phpRegisterRestFile } from './php/register-rest.mjs';
 import { phpRegisterAdminAppFile } from './php/register-admin-app.mjs';
+import { phpRegisterFrontendLauncherFile, frontendLauncherCss, frontendLauncherJs } from './php/register-frontend-launcher.mjs';
 import { phpRegisterLoginStyleFile, loginStyleCss } from './php/register-login-style.mjs';
 import { phpSeedFile } from './php/seed.mjs';
 
@@ -23,6 +24,8 @@ export async function writeStaticAssets(pluginDir) {
   const assetsDir = path.join(pluginDir, 'assets');
   await ensureDir(assetsDir);
   await writeFile(path.join(assetsDir, 'login.css'), loginStyleCss());
+  await writeFile(path.join(assetsDir, 'frontend-launcher.css'), frontendLauncherCss());
+  await writeFile(path.join(assetsDir, 'frontend-launcher.js'), frontendLauncherJs());
 }
 
 export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths) {
@@ -45,6 +48,7 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
   await writeFile(path.join(incDir, 'register-rest.php'), phpRegisterRestFile());
   await writeFile(path.join(incDir, 'register-admin-app.php'), phpRegisterAdminAppFile());
   await writeFile(path.join(incDir, 'register-login-style.php'), phpRegisterLoginStyleFile());
+  await writeFile(path.join(incDir, 'register-frontend-launcher.php'), phpRegisterFrontendLauncherFile());
   await writeFile(path.join(incDir, 'seed.php'), phpSeedFile());
   await writeStaticAssets(paths.pluginRoot);
   await writeFile(
