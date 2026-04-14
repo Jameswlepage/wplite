@@ -6,5 +6,6 @@
   "icon": "email",
   "description": "Latest contact-form inquiries, if the site exposes an inquiry model.",
   "supports": { "html": false },
+  "dashboard": { "priority": 90, "span": "half" },
   "render": "file:./render.php"
 }

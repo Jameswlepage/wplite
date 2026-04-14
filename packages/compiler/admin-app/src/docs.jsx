@@ -241,12 +241,7 @@ const SINGLETON_SCHEMA_SNIPPET = String.raw`{
       "options": ["open", "limited", "closed"]
     },
     "resume_url": { "type": "url", "label": "Resume URL" },
-    "avatar": { "type": "image", "label": "Avatar" },
-    "color_scheme": {
-      "type": "select",
-      "label": "Color Scheme",
-      "options": ["default", "light", "midnight", "ocean", "sunrise", "coffee"]
-    }
+    "avatar": { "type": "image", "label": "Avatar" }
   }
 }`;
 
@@ -276,11 +271,6 @@ const SINGLETON_FORM_SNIPPET = String.raw`{
         "id": "presence",
         "label": "Presence",
         "children": ["availability", "resume_url", "avatar"]
-      },
-      {
-        "id": "appearance",
-        "label": "Appearance",
-        "children": ["color_scheme"]
       }
     ]
   }
@@ -474,6 +464,7 @@ const ADMIN_APP_SNIPPET = String.raw`admin-app/src/
     dashboard.jsx       # Dashboard host; currently still supports legacy block widgets
     collections.jsx     # DataViews list + DataForm editor
     pages.jsx           # WordPress core pages management
+    comments.jsx        # WordPress core comments moderation
     settings.jsx        # Singleton settings editors
     media.jsx           # Media library
     users.jsx           # User management
@@ -742,6 +733,16 @@ export function DocsPage({ bootstrap }) {
                 Singletons are option-backed settings surfaces. They compile into REST endpoints, generated forms,
                 and seeded data.
               </p>
+              <div className="docs-callout">
+                <strong>Use Site settings for native WordPress settings:</strong>{' '}
+                homepage behavior, posts-per-page, timezone, and discussion defaults like comment enablement
+                belong in <code>/app/settings/site</code>, not in a singleton.
+              </div>
+              <div className="docs-callout">
+                <strong>Use users for user preferences:</strong>{' '}
+                logged-in WordPress profile settings such as admin color, locale, editor toggles, password, and admin-bar visibility
+                belong on the user record under <code>/app/users</code>, not in a singleton.
+              </div>
               <div className="docs-snippet-stack">
                 <DocsSnippet
                   snippetId="singleton-schema"

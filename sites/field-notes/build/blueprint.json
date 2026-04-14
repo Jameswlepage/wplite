@@ -1,0 +1,17 @@
+{
+  "landingPage": "/",
+  "steps": [
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; activate_plugin( 'field-notes-app/field-notes-app.php' ); ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; switch_theme( 'field-notes-theme' ); ?>"
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; update_option( 'permalink_structure', '/%postname%/' ); flush_rewrite_rules(); ?>"
+    }
+  ]
+}

@@ -266,6 +266,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
     slug: '',
     routeId: '',
     postStatus: 'draft',
+    commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
     content: '',
     parent: 0,
     template: '',
@@ -299,6 +300,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
             slug: '',
             routeId: '',
             postStatus: 'draft',
+            commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
             content: '',
             parent: 0,
             template: '',
@@ -388,6 +390,7 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
           title: draft.title,
           slug: draft.slug,
           status: draft.postStatus,
+          comment_status: draft.commentStatus === 'open' ? 'open' : 'closed',
           content: serialize(pageContentBlocks),
           parent: Number(draft.parent || 0),
           template: draft.template || '',
@@ -535,6 +538,18 @@ export function PageEditorPage({ bootstrap, pushNotice }) {
                 __next40pxDefaultSize
               />
             </div>
+
+            <SelectControl
+              label="Comments"
+              value={draft.commentStatus ?? 'closed'}
+              options={[
+                { value: 'closed', label: 'Disabled' },
+                { value: 'open', label: 'Enabled' },
+              ]}
+              onChange={(value) => setDraft((current) => ({ ...current, commentStatus: value }))}
+              help="New pages inherit the Site setting. This page can override it."
+              __next40pxDefaultSize
+            />
           </PanelBody>
 
           <PanelBody title="Page attributes" initialOpen={true}>

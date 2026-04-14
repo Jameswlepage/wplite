@@ -130,15 +130,22 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     ? (recordsByModel[model.id] ?? []).find((item) => String(item.id) === String(itemId))
     : null;
   const editorManaged = Boolean(model?.supports?.includes('editor'));
-  const [draft, setDraft] = useState(() => existing ?? (model ? createEmptyRecord(model) : {}));
+  const commentsSupported = Boolean(model?.supports?.includes('comments'));
+  const [draft, setDraft] = useState(() => existing ?? (model ? createEmptyRecord(model, {
+    commentsEnabled: bootstrap.site?.commentsEnabled === true,
+    includeCommentStatus: commentsSupported,
+  }) : {}));
   const [blocks, setBlocks] = useState(() => blocksFromContent(existing?.content ?? ''));
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!model) return;
-    setDraft(existing ?? createEmptyRecord(model));
-  }, [existing, model]);
+    setDraft(existing ?? createEmptyRecord(model, {
+      commentsEnabled: bootstrap.site?.commentsEnabled === true,
+      includeCommentStatus: commentsSupported,
+    }));
+  }, [bootstrap.site?.commentsEnabled, commentsSupported, existing, model]);
 
   // Reset the block tree when we navigate to a different record so blocks
   // don't stay stuck on the previous entry's content.
@@ -285,6 +292,20 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
                 />
               </div>
 
+              {commentsSupported ? (
+                <SelectControl
+                  label="Comments"
+                  value={draft.commentStatus ?? 'closed'}
+                  options={[
+                    { value: 'closed', label: 'Disabled' },
+                    { value: 'open', label: 'Enabled' },
+                  ]}
+                  onChange={(value) => setDraft((current) => ({ ...current, commentStatus: value }))}
+                  help="New entries inherit the Site setting. This entry can override it."
+                  __next40pxDefaultSize
+                />
+              ) : null}
+
               {model.supports?.includes('excerpt') ? (
                 <TextareaControl
                   label="Excerpt"
@@ -370,6 +391,21 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
               __next40pxDefaultSize
             />
           </div>
+
+          {commentsSupported ? (
+            <SelectControl
+              label="Comments"
+              value={draft.commentStatus ?? 'closed'}
+              options={[
+                { value: 'closed', label: 'Disabled' },
+                { value: 'open', label: 'Enabled' },
+              ]}
+              onChange={(value) => setDraft((c) => ({ ...c, commentStatus: value }))}
+              help="New entries inherit the Site setting. This entry can override it."
+              __next40pxDefaultSize
+            />
+          ) : null}
+
           {existing?.id && (
             <div className="editor-meta">
               <span>ID: {existing.id}</span>

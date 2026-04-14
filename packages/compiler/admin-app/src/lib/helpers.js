@@ -67,6 +67,26 @@ export function normalizeOption(value) {
   return { value, label: toTitleCase(value) };
 }
 
+export function normalizeAdminColor(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized || normalized === 'default' || normalized === 'fresh') {
+    return 'modern';
+  }
+
+  const allowed = new Set(['modern', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise']);
+  return allowed.has(normalized) ? normalized : 'modern';
+}
+
+export function normalizeUserPreferences(preferences = {}) {
+  return {
+    adminColor: normalizeAdminColor(preferences?.adminColor),
+    richEditing: preferences?.richEditing !== false,
+    syntaxHighlighting: preferences?.syntaxHighlighting !== false,
+    commentShortcuts: preferences?.commentShortcuts === true,
+    showAdminBarFront: preferences?.showAdminBarFront !== false,
+  };
+}
+
 export function resolveCanonicalValue(source, canonical = {}) {
   switch (source) {
     case 'site.title':       return canonical.title;
@@ -226,14 +246,20 @@ export function createInitialView(schema) {
   };
 }
 
-export function createEmptyRecord(model) {
-  return {
+export function createEmptyRecord(model, { commentsEnabled = false, includeCommentStatus = false } = {}) {
+  const record = {
     title: '',
     slug: '',
     excerpt: '',
     content: '',
     postStatus: model.id === 'inquiry' ? 'publish' : 'draft',
   };
+
+  if (includeCommentStatus) {
+    record.commentStatus = commentsEnabled ? 'open' : 'closed';
+  }
+
+  return record;
 }
 
 export function createEmptySingleton() {
@@ -500,6 +526,7 @@ export function normalizePageRecord(page) {
     slug: page.slug ?? '',
     routeId: page.portfolioRouteId ?? '',
     postStatus: page.status ?? 'draft',
+    commentStatus: page.comment_status ?? 'closed',
     content: extractRawField(page.content, { fieldLabel: 'content', itemLabel: `page ${page.id}` }),
     excerpt: page.excerpt?.raw ?? decodeRenderedText(page.excerpt?.rendered) ?? '',
     parent: page.parent ?? 0,
@@ -547,12 +574,60 @@ export function normalizeMediaRecord(item) {
   };
 }
 
+export function normalizeCommentStatus(status) {
+  const normalized = String(status ?? '').trim().toLowerCase();
+  if (!normalized) return 'hold';
+  if (normalized === 'approved') return 'approve';
+  if (normalized === 'pending') return 'hold';
+  return normalized;
+}
+
+export function normalizeCommentRecord(comment) {
+  const contentRendered = comment.content?.rendered ?? '';
+  const contentRaw = comment.content?.raw ?? decodeRenderedText(contentRendered) ?? '';
+  const contentText = decodeRenderedText(contentRendered || contentRaw);
+  const embeddedPost = comment._embedded?.up?.[0] ?? null;
+
+  return {
+    id: comment.id,
+    postId: comment.post ?? 0,
+    postTitle: decodeRenderedText(embeddedPost?.title?.rendered) || `Post #${comment.post ?? '—'}`,
+    postLink: embeddedPost?.link ?? '',
+    parent: comment.parent ?? 0,
+    authorId: comment.author ?? 0,
+    authorName: comment.author_name ?? '',
+    authorEmail: comment.author_email ?? '',
+    authorUrl: comment.author_url ?? '',
+    authorAvatarUrl: comment.author_avatar_urls?.['96'] ?? comment.author_avatar_urls?.['48'] ?? comment.author_avatar_urls?.['24'] ?? '',
+    content: contentRaw,
+    contentText,
+    contentRendered,
+    excerpt: contentText.length > 140 ? `${contentText.slice(0, 137)}...` : contentText,
+    date: comment.date ?? '',
+    dateGmt: comment.date_gmt ?? '',
+    status: normalizeCommentStatus(comment.status),
+    type: comment.type ?? 'comment',
+    link: comment.link ?? '',
+  };
+}
+
 export function normalizeUserRecord(user) {
+  const avatarUrls = user.avatar_urls ?? user.avatarUrls ?? {};
   return {
     id: user.id,
+    displayName: user.name ?? '',
     name: user.name ?? '',
-    username: user.slug ?? '',
+    username: user.username ?? user.slug ?? '',
+    firstName: user.first_name ?? user.firstName ?? '',
+    lastName: user.last_name ?? user.lastName ?? '',
+    nickname: user.nickname ?? '',
     email: user.email ?? '',
+    url: user.url ?? '',
+    description: user.description ?? '',
+    locale: user.locale ?? '',
     roles: user.roles ?? [],
+    avatarUrls,
+    avatarUrl: avatarUrls['96'] ?? avatarUrls['48'] ?? avatarUrls['24'] ?? '',
+    preferences: normalizeUserPreferences(user.wplitePreferences ?? user.preferences),
   };
 }

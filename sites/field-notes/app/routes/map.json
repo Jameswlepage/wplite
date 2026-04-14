@@ -1,0 +1,12 @@
+{
+  "id": "map",
+  "type": "page",
+  "slug": "map",
+  "title": "The Map",
+  "template": "map",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": ""
+  }
+}

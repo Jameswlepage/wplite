@@ -476,6 +476,13 @@
   color: var(--wp-admin-sidebar-muted);
 }
 
+.sidebar__user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 .sidebar__user-info {
   display: flex;
   flex-direction: column;

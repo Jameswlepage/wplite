@@ -8,8 +8,9 @@
   "supports": {
     "html": false,
     "interactivity": true,
-    "align": ["full"]
+    "align": ["half", "full"]
   },
+  "dashboard": { "priority": 30, "span": "half" },
   "render": "file:./render.php",
   "viewScriptModule": "file:./view.js"
 }

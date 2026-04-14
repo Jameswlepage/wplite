@@ -1,0 +1,13 @@
+{
+  "id": "field",
+  "type": "page",
+  "slug": "field",
+  "title": "The Field",
+  "template": "index",
+  "postsPage": true,
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": ""
+  }
+}

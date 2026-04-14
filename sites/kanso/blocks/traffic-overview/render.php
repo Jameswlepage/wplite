@@ -36,14 +36,15 @@ wp_interactivity_state(
 );
 
 // Render an initial SVG for the default metric so the chart is visible before hydration.
+if ( ! function_exists( 'portfolio_light_render_chart_svg' ) ) {
 function portfolio_light_render_chart_svg( $series, $color = '#3858e9' ) {
-	$w = 800; $h = 220;
-	$pad = [ 'top' => 16, 'right' => 16, 'bottom' => 24, 'left' => 36 ];
+	$w = 1200; $h = 240;
+	$pad = [ 'top' => 16, 'right' => 16, 'bottom' => 28, 'left' => 44 ];
 	$iw = $w - $pad['left'] - $pad['right'];
 	$ih = $h - $pad['top']  - $pad['bottom'];
-	$max = max( $series ); $min = min( $series );
-	$nice_max = (int) ceil( $max * 1.1 );
-	$nice_min = max( 0, (int) floor( $min * 0.8 ) );
+	$max = max( $series );
+	$nice_max = (int) ( ceil( $max * 1.15 / 10 ) * 10 );
+	$nice_min = 0;
 	$range = ( $nice_max - $nice_min ) ?: 1;
 	$step  = $iw / max( count( $series ) - 1, 1 );
 
@@ -80,6 +81,7 @@ function portfolio_light_render_chart_svg( $series, $color = '#3858e9' ) {
 		</g>
 	</svg>
 	<?php return ob_get_clean();
+}
 }
 ?>
 <div

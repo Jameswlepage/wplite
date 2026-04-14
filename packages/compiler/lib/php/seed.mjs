@@ -524,7 +524,20 @@ function portfolio_light_seed_collection_items( $indexes = null ) {
 \t}
 }
 
+function portfolio_light_apply_site_defaults() {
+\t$defaults_version = (int) get_option( 'portfolio_light_site_defaults_version', 0 );
+
+\tif ( $defaults_version >= 1 ) {
+\t\treturn;
+\t}
+
+\tupdate_option( 'default_comment_status', 'closed' );
+\tupdate_option( 'portfolio_light_site_defaults_version', 1 );
+}
+
 function portfolio_light_seed_site() {
+\tportfolio_light_apply_site_defaults();
+
 \t$indexes = [
 \t\t'page' => portfolio_light_build_post_index( 'page' ),
 \t\t'post' => portfolio_light_build_post_index( 'post' ),

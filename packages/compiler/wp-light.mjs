@@ -8,15 +8,41 @@ import matter from 'gray-matter';
 import TurndownService from 'turndown';
 import { build, resolveRoot } from './compile.mjs';
 
-const ROOT = resolveRoot();
-const command = (() => {
-  const args = process.argv.slice(2);
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--root') { i++; continue; }
-    return args[i];
+function parseCliArgs(argv) {
+  const flags = {};
+  const positional = [];
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+
+    if (!token.startsWith('--')) {
+      positional.push(token);
+      continue;
+    }
+
+    const key = token.slice(2);
+    const next = argv[index + 1];
+
+    if (next && !next.startsWith('--')) {
+      flags[key] = next;
+      index += 1;
+      continue;
+    }
+
+    flags[key] = true;
   }
-  return 'build';
-})();
+
+  return {
+    flags,
+    positional,
+    command: positional[0] ?? 'build',
+  };
+}
+
+const CLI = parseCliArgs(process.argv.slice(2));
+const ROOT = resolveRoot();
+const command = CLI.command;
+const OUTPUT_JSON = CLI.flags.json === true;
 const PLAYGROUND_HOST = '127.0.0.1';
 const PLAYGROUND_DEFAULT_PORT = 9400;
 const PLAYGROUND_MAX_PORT = 9410;
@@ -36,6 +62,48 @@ const turndown = new TurndownService({
   bulletListMarker: '-',
   codeBlockStyle: 'fenced',
 });
+
+function note(message) {
+  const output = OUTPUT_JSON ? process.stderr : process.stdout;
+  output.write(`${message}\n`);
+}
+
+function errorOut(message) {
+  process.stderr.write(`${message}\n`);
+}
+
+function stringFlag(name, fallback = null) {
+  const value = CLI.flags[name];
+  return typeof value === 'string' ? value : fallback;
+}
+
+function boolFlag(name) {
+  return CLI.flags[name] === true;
+}
+
+function emitResult(payload) {
+  if (OUTPUT_JSON) {
+    process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+    return;
+  }
+
+  if (payload?.summary) {
+    note(payload.summary);
+  }
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function toKebabCase(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
 
 function parseBlockMarkup(source) {
   const blocks = [];
@@ -122,12 +190,23 @@ function blockMarkupToMarkdown(source) {
 
 function run(commandName, args, options = {}) {
   return new Promise((resolve, reject) => {
+    const shouldPipe = OUTPUT_JSON && options.stdio === undefined;
+    const childStdio = shouldPipe ? ['ignore', 'pipe', 'pipe'] : 'inherit';
     const child = spawn(commandName, args, {
       cwd: ROOT,
-      stdio: 'inherit',
+      stdio: childStdio,
       shell: false,
       ...options,
     });
+
+    if (shouldPipe) {
+      child.stdout?.on('data', (chunk) => {
+        process.stderr.write(chunk);
+      });
+      child.stderr?.on('data', (chunk) => {
+        process.stderr.write(chunk);
+      });
+    }
 
     child.on('error', reject);
     child.on('exit', (code) => {
@@ -299,8 +378,7 @@ async function buildGeneratedSite() {
   const adminOutDir = path.join(result.pluginRoot, 'build');
   const existingBundle = existsSync(path.join(adminOutDir, 'admin-app.js'));
   const incremental = result.incremental;
-  const needsBundle =
-    !incremental || incremental.adminApp || !existingBundle;
+  const needsBundle = result.adminBundleDirty || !existingBundle;
 
   if (needsBundle) {
     const viteConfig = path.join(compilerDir(), 'admin-app/vite.config.mjs');
@@ -313,10 +391,15 @@ async function buildGeneratedSite() {
     const changed = incremental.skipped
       ? 'nothing'
       : Object.entries(incremental).filter(([, v]) => v).map(([k]) => k).join(',') || 'nothing';
-    process.stdout.write(`wplite: incremental build (${changed}) in ${Date.now() - startedAt}ms\n`);
+    note(`wplite: incremental build (${changed}) in ${Date.now() - startedAt}ms`);
   } else {
-    process.stdout.write(`wplite: full build in ${Date.now() - startedAt}ms\n`);
+    note(`wplite: full build in ${Date.now() - startedAt}ms`);
   }
+
+  return {
+    ...result,
+    durationMs: Date.now() - startedAt,
+  };
 }
 
 async function writeDevState(state) {
@@ -511,9 +594,7 @@ async function startPlaygroundServer(site) {
 
     const duplicates = matchingUrls.filter((siteUrl) => siteUrl !== chosenUrl);
     if (duplicates.length > 0) {
-      process.stdout.write(
-        `Multiple matching Playground sites found. Using ${chosenUrl} and ignoring ${duplicates.join(', ')}\n`
-      );
+      note(`Multiple matching Playground sites found. Using ${chosenUrl} and ignoring ${duplicates.join(', ')}`);
     }
 
     await writePlaygroundState({
@@ -521,7 +602,7 @@ async function startPlaygroundServer(site) {
       pluginSlug: site?.plugin?.slug ?? null,
       updatedAt: new Date().toISOString(),
     });
-    process.stdout.write(`Playground already available at ${chosenUrl}\n`);
+    note(`Playground already available at ${chosenUrl}`);
     return chosenUrl;
   }
 
@@ -579,7 +660,7 @@ async function startPlaygroundServer(site) {
     pluginSlug,
     updatedAt: new Date().toISOString(),
   });
-  process.stdout.write(`Playground started at ${siteUrl}\n`);
+  note(`Playground started at ${siteUrl}`);
   return siteUrl;
 }
 
@@ -1085,7 +1166,11 @@ async function normalizePullPayloadFromBootstrap(schema, bootstrap) {
 }
 
 async function buildCommand() {
-  await buildGeneratedSite();
+  const buildInfo = await buildGeneratedSite();
+  return {
+    summary: `Built artifacts in ${buildInfo.durationMs}ms.`,
+    data: buildInfo,
+  };
 }
 
 async function syncRunningSite({ useDocker } = {}) {
@@ -1106,14 +1191,39 @@ async function syncRunningSite({ useDocker } = {}) {
 async function applyCommand() {
   const { siteUrl, mode } = await syncRunningSite();
   if (mode === 'playground' && siteUrl) {
-    process.stdout.write(`Applied site to ${siteUrl}\n`);
+    note(`Applied site to ${siteUrl}`);
   }
+  return {
+    summary: mode === 'playground' && siteUrl
+      ? `Applied and seeded ${siteUrl}`
+      : 'Applied and seeded via Docker wp-env.',
+    data: { mode, siteUrl },
+  };
+}
+
+async function seedCommand() {
+  if (await canUseDocker()) {
+    await run('npx', ['wp-env', 'start']);
+    await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
+    return {
+      summary: 'Seeded content via Docker wp-env.',
+      data: { mode: 'docker', siteUrl: null },
+    };
+  }
+
+  const site = await loadSiteConfig();
+  const siteUrl = await startPlaygroundServer(site);
+  await runLocalSeed(siteUrl);
+  return {
+    summary: `Seeded content at ${siteUrl}`,
+    data: { mode: 'playground', siteUrl },
+  };
 }
 
 function watchPath(target, onChange) {
   const absoluteTarget = path.join(ROOT, target);
   if (!existsSync(absoluteTarget)) {
-    process.stdout.write(`Skipping watch (not present): ${target}\n`);
+    note(`Skipping watch (not present): ${target}`);
     return null;
   }
   const watcher = watch(
@@ -1126,7 +1236,7 @@ function watchPath(target, onChange) {
   );
 
   watcher.on('error', (error) => {
-    process.stderr.write(`Watcher error for ${target}: ${error.message}\n`);
+    errorOut(`Watcher error for ${target}: ${error.message}`);
   });
 
   return watcher;
@@ -1137,13 +1247,11 @@ async function devCommand() {
   const initialSync = await syncRunningSite({ useDocker });
   await bumpDevState();
 
-  process.stdout.write('Development environment started with live rebuilds.\n');
+  note('Development environment started with live rebuilds.');
   if (initialSync.mode === 'playground' && initialSync.siteUrl) {
-    process.stdout.write(`Local site: ${initialSync.siteUrl}\n`);
+    note(`Local site: ${initialSync.siteUrl}`);
   }
-  process.stdout.write(
-    `Watching ${WATCH_TARGETS.join(', ')} for changes. Press Ctrl+C to stop.\n`
-  );
+  note(`Watching ${WATCH_TARGETS.join(', ')} for changes. Press Ctrl+C to stop.`);
 
   let timer = null;
   const heartbeatTimer = setInterval(() => {
@@ -1169,17 +1277,17 @@ async function devCommand() {
     syncing = true;
     const reasons = [...changedPaths];
     changedPaths.clear();
-    process.stdout.write(`Detected changes: ${reasons.join(', ')}\n`);
+    note(`Detected changes: ${reasons.join(', ')}`);
 
     try {
       const syncResult = await syncRunningSite({ useDocker });
       await bumpDevState();
       if (syncResult.mode === 'playground' && syncResult.siteUrl) {
-        process.stdout.write(`Updated ${syncResult.siteUrl}\n`);
+        note(`Updated ${syncResult.siteUrl}`);
       }
-      process.stdout.write('Rebuilt, reseeded, and triggered browser refresh.\n');
+      note('Rebuilt, reseeded, and triggered browser refresh.');
     } catch (error) {
-      process.stderr.write(`Watch rebuild failed: ${error.stack || error.message}\n`);
+      errorOut(`Watch rebuild failed: ${error.stack || error.message}`);
     } finally {
       syncing = false;
     }
@@ -1224,6 +1332,11 @@ async function devCommand() {
       shutdown(0);
     });
   });
+
+  return {
+    summary: 'Development session stopped.',
+    data: { watched: WATCH_TARGETS },
+  };
 }
 
 async function pullCommand() {
@@ -1256,35 +1369,677 @@ async function pullCommand() {
   await writePulledRoutes(schema, payload);
   await writePulledSingletons(payload);
 
-  process.stdout.write('Pulled WordPress content into markdown and singleton data files.\n');
+  note('Pulled WordPress content into markdown and singleton data files.');
+  return {
+    summary: 'Pulled WordPress content into source files.',
+    data: {
+      models: Object.keys(payload.collections ?? {}).length,
+      pages: (payload.pages ?? []).length,
+      singletons: Object.keys(payload.singletons ?? {}).length,
+    },
+  };
 }
 
 async function ejectCommand() {
   const filePath = path.join(ROOT, '.wp-light.ejected');
   await writeFile(filePath, JSON.stringify({ ejectedAt: new Date().toISOString() }, null, 2));
-  process.stdout.write(`Recorded eject marker at ${filePath}\n`);
+  note(`Recorded eject marker at ${filePath}`);
+  return {
+    summary: `Recorded eject marker at ${filePath}`,
+    data: { filePath },
+  };
+}
+
+async function writeJsonFile(filePath, value, { force = false } = {}) {
+  if (!force && existsSync(filePath)) {
+    throw new Error(`Refusing to overwrite existing file: ${path.relative(ROOT, filePath)}`);
+  }
+  await ensureDir(path.dirname(filePath));
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function writeTextFile(filePath, value, { force = false } = {}) {
+  if (!force && existsSync(filePath)) {
+    throw new Error(`Refusing to overwrite existing file: ${path.relative(ROOT, filePath)}`);
+  }
+  await ensureDir(path.dirname(filePath));
+  await writeFile(filePath, value.endsWith('\n') ? value : `${value}\n`);
+}
+
+async function loadInitBrief() {
+  const briefPath = stringFlag('brief');
+  let brief = {};
+
+  if (briefPath) {
+    const source = await readFile(path.resolve(ROOT, briefPath), 'utf8');
+    brief = JSON.parse(source);
+  }
+
+  if (stringFlag('name')) brief.name = stringFlag('name');
+  if (stringFlag('title')) brief.title = stringFlag('title');
+  if (stringFlag('tagline')) brief.tagline = stringFlag('tagline');
+
+  const fallbackName = toKebabCase(path.basename(ROOT));
+  const name = toKebabCase(brief.name || brief.siteId || fallbackName || 'new-site');
+  const title = brief.title || name.split('-').map((part) => part[0].toUpperCase() + part.slice(1)).join(' ');
+  const tagline = brief.tagline || 'Built with wplite.';
+  const pageSync = brief.pageSync === true;
+  const blogEnabled = brief.blogEnabled !== false;
+
+  const routes = asArray(brief.routes).length > 0
+    ? asArray(brief.routes)
+    : [
+        { id: 'home', type: 'page', slug: '', title: 'Home', template: 'front-page' },
+        { id: 'about', type: 'page', slug: 'about', title: 'About', template: 'page' },
+        { id: 'contact', type: 'page', slug: 'contact', title: 'Contact', template: 'page' },
+        ...(blogEnabled ? [{ id: 'journal', type: 'page', slug: 'journal', title: 'Journal', template: 'index' }] : []),
+      ];
+
+  const collections = asArray(brief.collections).length > 0
+    ? asArray(brief.collections)
+    : [
+        {
+          id: 'project',
+          label: 'Projects',
+          postType: 'project',
+          archiveSlug: 'work',
+          supports: ['title', 'editor', 'excerpt', 'thumbnail', 'revisions'],
+          fields: {
+            featured: { type: 'boolean', label: 'Featured' },
+          },
+        },
+      ];
+
+  const singletons = asArray(brief.singletons).length > 0
+    ? asArray(brief.singletons)
+    : [
+        {
+          id: 'profile',
+          label: 'Profile',
+          fields: { short_bio: { type: 'richtext', label: 'Short Bio' } },
+          seed: { short_bio: 'Add your studio profile here.' },
+        },
+        {
+          id: 'contact',
+          label: 'Contact',
+          fields: {
+            email: { type: 'email', label: 'Email' },
+            phone: { type: 'text', label: 'Phone' },
+          },
+          seed: { email: 'hello@example.com', phone: '+1 555-0100' },
+        },
+        {
+          id: 'seo',
+          label: 'SEO',
+          fields: {
+            title_separator: { type: 'text', label: 'Title Separator' },
+          },
+          seed: { title_separator: '—' },
+        },
+      ];
+
+  return {
+    name,
+    title,
+    tagline,
+    pageSync,
+    blogEnabled,
+    routes,
+    collections,
+    singletons,
+    themeSlug: toKebabCase(brief.themeSlug || `${name}-theme`) || `${name}-theme`,
+    pluginSlug: toKebabCase(brief.pluginSlug || `${name}-app`) || `${name}-app`,
+  };
+}
+
+function defaultSeedMarkdown({ modelId, title, slug }) {
+  const frontMatter = {
+    model: modelId,
+    sourceId: `${modelId}.${slug}`,
+    slug,
+    title,
+    status: 'publish',
+  };
+
+  return matter.stringify(`## ${title}\n\nAdd your content here.\n`, frontMatter);
+}
+
+function agentContractMarkdown(brief) {
+  return `# AGENTS
+
+This site is authored with \`wplite\`. Treat files as source of truth and WordPress as runtime storage/rendering.
+
+## Canonical Workflow
+1. Update files in \`app/\`, \`content/\`, \`theme/\`, \`blocks/\`, and optional \`admin/\`.
+2. Run \`npm run apply\` (or \`wp-light apply\`) to compile, activate, and seed.
+3. Run \`wp-light verify --json\` and fail fast on \`errors > 0\`.
+4. If content was edited in WordPress, run \`wp-light pull\` before committing.
+
+## Contract Rules
+- Keep public frontend as native block theme files under \`theme/\`.
+- Keep structured schema in \`app/\` and editable copy/content in \`content/\`.
+- Do not duplicate modeled content literals in theme templates/patterns when data already exists in singletons/models.
+- Use custom blocks in \`blocks/\` only when core blocks cannot express required behavior.
+- Keep admin experience compiler-owned; avoid site-local admin runtime hacks.
+
+## Site Brief
+- Site id: \`${brief.name}\`
+- Title: ${brief.title}
+- Tagline: ${brief.tagline}
+- Plugin slug: \`${brief.pluginSlug}\`
+- Theme slug: \`${brief.themeSlug}\`
+- Page sync: \`${brief.pageSync}\`
+- Blog enabled: \`${brief.blogEnabled}\`
+`;
 }
 
 async function initCommand() {
-  const siteConfig = await readFile(path.join(ROOT, 'app', 'site.json'), 'utf8');
-  process.stdout.write(`Source tree already initialized.\n${siteConfig}\n`);
+  const force = boolFlag('force');
+  const siteConfigPath = path.join(ROOT, 'app', 'site.json');
+
+  if (existsSync(siteConfigPath) && !force) {
+    throw new Error('Source tree already initialized. Use --force to overwrite.');
+  }
+
+  const brief = await loadInitBrief();
+  const routeIds = new Set(brief.routes.map((route) => String(route.id)));
+  const postsPage = routeIds.has('journal') ? 'journal' : null;
+
+  await writeJsonFile(siteConfigPath, {
+    id: brief.name,
+    title: brief.title,
+    tagline: brief.tagline,
+    mode: 'light',
+    content: {
+      mode: 'files',
+      format: 'markdown',
+      pull: true,
+      push: true,
+      databaseFirst: false,
+      collections: {
+        ...Object.fromEntries(brief.collections.map((collection) => [collection.id, { sync: true }])),
+        post: { sync: true },
+        page: { sync: brief.pageSync },
+      },
+    },
+    frontPage: 'home',
+    ...(postsPage ? { postsPage } : {}),
+    theme: { slug: brief.themeSlug, sourceDir: 'theme' },
+    plugin: { slug: brief.pluginSlug },
+  }, { force });
+
+  for (const route of brief.routes) {
+    await writeJsonFile(path.join(ROOT, 'app', 'routes', `${route.id}.json`), {
+      id: route.id,
+      type: route.type ?? 'page',
+      slug: route.slug ?? '',
+      title: route.title ?? route.id,
+      template: route.template ?? 'page',
+      seed: {
+        createPageShell: true,
+        status: 'publish',
+        content: '',
+      },
+    }, { force });
+  }
+
+  await writeJsonFile(path.join(ROOT, 'app', 'menus', 'primary.json'), {
+    id: 'primary',
+    label: 'Primary',
+    items: brief.routes
+      .filter((route) => route.id !== 'journal')
+      .map((route) => ({ kind: 'route', route: route.id, label: route.title })),
+  }, { force });
+
+  await writeJsonFile(path.join(ROOT, 'app', 'menus', 'footer.json'), {
+    id: 'footer',
+    label: 'Footer',
+    items: brief.routes.map((route) => ({ kind: 'route', route: route.id, label: route.title })),
+  }, { force });
+
+  for (const collection of brief.collections) {
+    await writeJsonFile(path.join(ROOT, 'app', 'models', `${collection.id}.json`), {
+      id: collection.id,
+      label: collection.label ?? collection.id,
+      icon: collection.icon ?? 'Document',
+      type: 'collection',
+      postType: collection.postType ?? collection.id,
+      archiveSlug: collection.archiveSlug ?? `${collection.id}s`,
+      public: collection.public !== false,
+      supports: collection.supports ?? ['title', 'editor', 'excerpt', 'thumbnail', 'revisions'],
+      taxonomies: collection.taxonomies ?? [],
+      fields: collection.fields ?? {},
+    }, { force });
+  }
+
+  for (const singleton of brief.singletons) {
+    await writeJsonFile(path.join(ROOT, 'app', 'singletons', `${singleton.id}.json`), {
+      id: singleton.id,
+      label: singleton.label ?? singleton.id,
+      icon: singleton.icon ?? 'Settings',
+      type: 'singleton',
+      storage: 'option',
+      fields: singleton.fields ?? {},
+    }, { force });
+
+    await writeJsonFile(path.join(ROOT, 'content', 'singletons', `${singleton.id}.json`), {
+      singleton: singleton.id,
+      data: singleton.seed ?? {},
+    }, { force });
+  }
+
+  const firstCollection = brief.collections[0];
+  const sampleSlug = firstCollection ? `${firstCollection.id}-example` : 'post-example';
+  if (firstCollection) {
+    await writeTextFile(
+      path.join(ROOT, 'content', `${pluralize(firstCollection.id)}`, `${sampleSlug}.md`),
+      defaultSeedMarkdown({
+        modelId: firstCollection.id,
+        slug: sampleSlug,
+        title: `${firstCollection.label ?? firstCollection.id} Example`,
+      }),
+      { force }
+    );
+  }
+
+  if (brief.pageSync) {
+    await writeTextFile(
+      path.join(ROOT, 'content', 'pages', 'home.md'),
+      matter.stringify('Welcome to your new wplite site.\n', {
+        model: 'page',
+        routeId: 'home',
+        sourceId: 'page.home',
+      }),
+      { force }
+    );
+  }
+
+  await writeTextFile(path.join(ROOT, 'theme', 'theme.json'), JSON.stringify({
+    $schema: 'https://schemas.wp.org/trunk/theme.json',
+    version: 3,
+    settings: {
+      color: {
+        palette: [
+          { slug: 'base', name: 'Base', color: '#f4f1ea' },
+          { slug: 'ink', name: 'Ink', color: '#191716' },
+          { slug: 'accent', name: 'Accent', color: '#6b4f3a' },
+        ],
+      },
+      typography: {
+        fluid: true,
+        fontFamilies: [
+          { slug: 'serif', name: 'Serif', fontFamily: '\"Iowan Old Style\", \"Times New Roman\", serif' },
+          { slug: 'sans', name: 'Sans', fontFamily: '\"Avenir Next\", \"Helvetica Neue\", sans-serif' },
+        ],
+      },
+    },
+    styles: {
+      color: {
+        background: 'var(--wp--preset--color--base)',
+        text: 'var(--wp--preset--color--ink)',
+      },
+      typography: {
+        fontFamily: 'var(--wp--preset--font-family--sans)',
+      },
+    },
+  }, null, 2), { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'style.css'), `/*
+Theme Name: ${brief.title}
+Description: Generated by wp-light init.
+Version: 0.1.0
+*/
+
+:root { --site-max-width: 1120px; }
+.is-layout-constrained > :where(:not(.alignleft):not(.alignright):not(.alignfull)) {
+  max-width: var(--site-max-width);
+}
+`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'parts', 'header.html'), `<!-- wp:group {"style":{"spacing":{"padding":{"top":"24px","bottom":"24px"}}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-group" style="padding-top:24px;padding-bottom:24px">
+<!-- wp:site-title {"level":0} /-->
+<!-- wp:navigation {"overlayMenu":"never","layout":{"type":"flex","justifyContent":"right"}} /-->
+</div>
+<!-- /wp:group -->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'parts', 'footer.html'), `<!-- wp:group {"style":{"spacing":{"padding":{"top":"32px","bottom":"32px"}}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-group" style="padding-top:32px;padding-bottom:32px">
+<!-- wp:paragraph -->
+<p>© ${new Date().getFullYear()} ${brief.title}</p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'patterns', 'hero.html'), `<!--
+Title: Hero
+Slug: ${brief.themeSlug}/hero
+Inserter: no
+-->
+<!-- wp:group {"style":{"spacing":{"padding":{"top":"80px","bottom":"64px"}}},"layout":{"type":"constrained"}} -->
+<div class="wp-block-group" style="padding-top:80px;padding-bottom:64px">
+<!-- wp:heading {"level":1,"fontSize":"x-large"} -->
+<h1 class="wp-block-heading has-x-large-font-size">${brief.title}</h1>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"fontSize":"large"} -->
+<p class="has-large-font-size">${brief.tagline}</p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'templates', 'front-page.html'), `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+<!-- wp:pattern {"slug":"${brief.themeSlug}/hero"} /-->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'templates', 'page.html'), `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+<!-- wp:group {"layout":{"type":"constrained"}} --><div class="wp-block-group">
+<!-- wp:post-title {"level":1} /-->
+<!-- wp:post-content /-->
+</div><!-- /wp:group -->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'theme', 'templates', 'index.html'), `<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+<!-- wp:group {"layout":{"type":"constrained"}} --><div class="wp-block-group">
+<!-- wp:query {"query":{"perPage":10,"postType":"post"}} -->
+<div class="wp-block-query">
+<!-- wp:post-template -->
+<!-- wp:post-title {"isLink":true} /-->
+<!-- wp:post-excerpt /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+</div><!-- /wp:group -->
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->`, { force });
+
+  await writeTextFile(path.join(ROOT, 'AGENTS.md'), agentContractMarkdown(brief), { force });
+
+  return {
+    summary: `Initialized ${brief.name} in ${ROOT}`,
+    data: {
+      siteId: brief.name,
+      themeSlug: brief.themeSlug,
+      pluginSlug: brief.pluginSlug,
+      routeCount: brief.routes.length,
+      collectionCount: brief.collections.length,
+      singletonCount: brief.singletons.length,
+      files: [
+        'AGENTS.md',
+        'app/site.json',
+        'app/models/*.json',
+        'app/routes/*.json',
+        'app/singletons/*.json',
+        'app/menus/*.json',
+        'content/**/*',
+        'theme/**/*',
+      ],
+    },
+  };
+}
+
+async function listFilesRecursive(dirPath, predicate = () => true) {
+  const results = [];
+  const stack = [dirPath];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = await readdir(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(absolute);
+      } else if (entry.isFile() && predicate(absolute)) {
+        results.push(absolute);
+      }
+    }
+  }
+
+  return results;
+}
+
+function pushIssue(issues, issue) {
+  issues.push({
+    severity: issue.severity ?? 'error',
+    code: issue.code ?? 'UNKNOWN',
+    message: issue.message,
+    ...(issue.path ? { path: issue.path } : {}),
+  });
+}
+
+async function verifyCommand() {
+  const issues = [];
+  const requiredDirs = ['app', 'content', 'theme', 'app/routes', 'app/menus', 'app/singletons'];
+  const requiredFiles = ['app/site.json'];
+
+  for (const dir of requiredDirs) {
+    if (!existsSync(path.join(ROOT, dir))) {
+      pushIssue(issues, { code: 'MISSING_DIR', message: `Missing required directory: ${dir}`, path: dir });
+    }
+  }
+
+  for (const filePath of requiredFiles) {
+    if (!existsSync(path.join(ROOT, filePath))) {
+      pushIssue(issues, { code: 'MISSING_FILE', message: `Missing required file: ${filePath}`, path: filePath });
+    }
+  }
+
+  let site = {};
+  try {
+    site = await loadSiteConfig();
+  } catch (err) {
+    pushIssue(issues, { code: 'INVALID_SITE_JSON', message: `Unable to parse app/site.json: ${err.message}`, path: 'app/site.json' });
+  }
+
+  if (!site?.id) {
+    pushIssue(issues, { code: 'SITE_ID_REQUIRED', message: 'app/site.json must define `id`.', path: 'app/site.json' });
+  }
+  if (!site?.title) {
+    pushIssue(issues, { code: 'SITE_TITLE_REQUIRED', message: 'app/site.json must define `title`.', path: 'app/site.json' });
+  }
+  if (!site?.theme?.slug) {
+    pushIssue(issues, { code: 'THEME_SLUG_REQUIRED', message: 'app/site.json must define `theme.slug`.', path: 'app/site.json' });
+  }
+  if (!site?.plugin?.slug) {
+    pushIssue(issues, { code: 'PLUGIN_SLUG_REQUIRED', message: 'app/site.json must define `plugin.slug`.', path: 'app/site.json' });
+  }
+
+  const routeFiles = await listFilesRecursive(path.join(ROOT, 'app', 'routes'), (filePath) => filePath.endsWith('.json'));
+  const routes = [];
+  const routeIdSet = new Set();
+  const slugSet = new Set();
+  for (const filePath of routeFiles) {
+    const relative = path.relative(ROOT, filePath);
+    try {
+      const route = JSON.parse(await readFile(filePath, 'utf8'));
+      routes.push(route);
+      if (!route.id) {
+        pushIssue(issues, { code: 'ROUTE_ID_REQUIRED', message: `Route file missing id: ${relative}`, path: relative });
+        continue;
+      }
+      if (routeIdSet.has(route.id)) {
+        pushIssue(issues, { code: 'ROUTE_ID_DUPLICATE', message: `Duplicate route id: ${route.id}`, path: relative });
+      }
+      routeIdSet.add(route.id);
+      const slugKey = `${route.type ?? 'page'}:${route.slug ?? ''}`;
+      if (slugSet.has(slugKey)) {
+        pushIssue(issues, { code: 'ROUTE_SLUG_DUPLICATE', message: `Duplicate route slug: ${route.slug ?? ''}`, path: relative });
+      }
+      slugSet.add(slugKey);
+      if (route.template) {
+        const templateFile = path.join(ROOT, 'theme', 'templates', `${route.template}.html`);
+        if (!existsSync(templateFile)) {
+          pushIssue(issues, { code: 'MISSING_TEMPLATE', message: `Route ${route.id} references missing template ${route.template}.html`, path: relative });
+        }
+      }
+    } catch (err) {
+      pushIssue(issues, { code: 'INVALID_ROUTE_JSON', message: `Unable to parse ${relative}: ${err.message}`, path: relative });
+    }
+  }
+
+  if (site?.frontPage && !routeIdSet.has(site.frontPage)) {
+    pushIssue(issues, { code: 'FRONT_PAGE_ROUTE_MISSING', message: `frontPage references missing route id: ${site.frontPage}`, path: 'app/site.json' });
+  }
+  if (site?.postsPage && !routeIdSet.has(site.postsPage)) {
+    pushIssue(issues, { code: 'POSTS_PAGE_ROUTE_MISSING', message: `postsPage references missing route id: ${site.postsPage}`, path: 'app/site.json' });
+  }
+
+  const pageSync = site?.content?.collections?.page?.sync === true;
+  const pageContentFiles = await listFilesRecursive(path.join(ROOT, 'content', 'pages'), (filePath) => filePath.endsWith('.md'));
+  if (!pageSync && pageContentFiles.length > 0) {
+    pushIssue(issues, {
+      severity: 'warning',
+      code: 'PAGE_SYNC_DISABLED_WITH_CONTENT',
+      message: 'content/pages has markdown files, but app/site.json has content.collections.page.sync=false.',
+      path: 'content/pages',
+    });
+  }
+
+  const legacyPatterns = [
+    /portfolio_light_/g,
+    /PORTFOLIO_LIGHT/g,
+    /\/wp-json\/portfolio\/v1/g,
+    /portfolio-light/g,
+  ];
+  const legacySearchRoots = ['app', 'content', 'theme', 'blocks', 'admin', 'build']
+    .map((segment) => path.join(ROOT, segment))
+    .filter((segmentPath) => existsSync(segmentPath));
+  const checkFiles = (
+    await Promise.all(
+      legacySearchRoots.map((segmentPath) =>
+        listFilesRecursive(segmentPath, (filePath) => /\.(json|mjs|js|php|html|md|css)$/.test(filePath))
+      )
+    )
+  ).flat();
+  for (const filePath of checkFiles) {
+    const source = await readFile(filePath, 'utf8');
+    for (const pattern of legacyPatterns) {
+      if (pattern.test(source)) {
+        pushIssue(issues, {
+          severity: 'error',
+          code: 'LEGACY_RUNTIME_REFERENCE',
+          message: `Legacy runtime marker found (${pattern}).`,
+          path: path.relative(ROOT, filePath),
+        });
+        break;
+      }
+    }
+  }
+
+  const singletonValues = [];
+  const singletonFiles = await listFilesRecursive(path.join(ROOT, 'content', 'singletons'), (filePath) => filePath.endsWith('.json'));
+  for (const filePath of singletonFiles) {
+    try {
+      const parsed = JSON.parse(await readFile(filePath, 'utf8'));
+      const singletonId = parsed.singleton || path.basename(filePath, '.json');
+      const stack = [parsed.data ?? {}];
+      while (stack.length > 0) {
+        const value = stack.pop();
+        if (Array.isArray(value)) {
+          for (const item of value) stack.push(item);
+          continue;
+        }
+        if (value && typeof value === 'object') {
+          for (const next of Object.values(value)) stack.push(next);
+          continue;
+        }
+        if (typeof value === 'string') {
+          const normalized = value.trim();
+          if (normalized.length >= 18 && /\s/.test(normalized)) {
+            singletonValues.push({ singletonId, value: normalized });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const themeFiles = await listFilesRecursive(path.join(ROOT, 'theme'), (filePath) => filePath.endsWith('.html'));
+  for (const { singletonId, value } of singletonValues) {
+    for (const filePath of themeFiles) {
+      const source = await readFile(filePath, 'utf8');
+      if (source.includes(value)) {
+        pushIssue(issues, {
+          severity: 'warning',
+          code: 'MODELED_LITERAL_DUPLICATION',
+          message: `Theme literal duplicates singleton content from ${singletonId}.`,
+          path: path.relative(ROOT, filePath),
+        });
+        break;
+      }
+    }
+  }
+
+  const counts = {
+    errors: issues.filter((issue) => issue.severity === 'error').length,
+    warnings: issues.filter((issue) => issue.severity === 'warning').length,
+  };
+
+  const result = {
+    summary: counts.errors === 0
+      ? `Verify passed with ${counts.warnings} warning(s).`
+      : `Verify failed with ${counts.errors} error(s) and ${counts.warnings} warning(s).`,
+    data: {
+      counts,
+      routeCount: routes.length,
+      issues,
+    },
+  };
+
+  if (counts.errors > 0) {
+    const verifyError = new Error(result.summary);
+    verifyError.details = result;
+    throw verifyError;
+  }
+
+  return result;
 }
 
 const commands = {
   init: initCommand,
   build: buildCommand,
   apply: applyCommand,
+  seed: seedCommand,
   dev: devCommand,
   pull: pullCommand,
+  verify: verifyCommand,
   eject: ejectCommand,
 };
 
 if (!commands[command]) {
-  process.stderr.write(`Unknown wp-light command: ${command}\n`);
+  if (OUTPUT_JSON) {
+    emitResult({
+      ok: false,
+      command,
+      error: `Unknown wp-light command: ${command}`,
+    });
+  } else {
+    errorOut(`Unknown wp-light command: ${command}`);
+  }
   process.exitCode = 1;
 } else {
-  commands[command]().catch((error) => {
-    process.stderr.write(`${error.stack || error.message}\n`);
-    process.exitCode = 1;
-  });
+  commands[command]()
+    .then((result) => {
+      emitResult({
+        ok: true,
+        command,
+        ...(result ?? {}),
+      });
+    })
+    .catch((error) => {
+      if (OUTPUT_JSON) {
+        emitResult({
+          ok: false,
+          command,
+          error: error.message,
+          ...(error.details ?? {}),
+        });
+      } else {
+        errorOut(`${error.stack || error.message}`);
+      }
+      process.exitCode = 1;
+    });
 }

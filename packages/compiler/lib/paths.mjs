@@ -13,8 +13,8 @@ export function resolveRoot() {
 export function resolvePaths(root, site = {}) {
   const generatedRoot = path.join(root, 'generated');
   const wpContentRoot = path.join(generatedRoot, 'wp-content');
-  const pluginSlug = site.plugin?.slug ?? 'portfolio-light-app';
-  const themeSlug = site.theme?.slug ?? 'portfolio-light-theme';
+  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const themeSlug = site.theme?.slug ?? 'wp-light-theme';
   return {
     root,
     generatedRoot,

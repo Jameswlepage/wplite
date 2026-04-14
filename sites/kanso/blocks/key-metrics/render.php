@@ -23,39 +23,6 @@ foreach ( $profile_fields as $f ) {
 }
 $profile_pct = (int) round( ( $profile_filled / max( count( $profile_fields ), 1 ) ) * 100 );
 
-function portfolio_light_sparkline_svg( $series, $color ) {
-	if ( empty( $series ) ) return '';
-	$w = 70; $h = 24;
-	$max = max( $series ); $min = min( $series );
-	$range = ( $max - $min ) ?: 1;
-	$step = $w / max( count( $series ) - 1, 1 );
-	$points = [];
-	foreach ( $series as $i => $v ) {
-		$x = $i * $step;
-		$y = $h - ( ( $v - $min ) / $range ) * $h;
-		$points[] = sprintf( '%.1f,%.1f', $x, $y );
-	}
-	$line = 'M ' . implode( ' L ', $points );
-	$area = 'M 0,' . $h . ' L ' . implode( ' L ', $points ) . ' L ' . $w . ',' . $h . ' Z';
-	return sprintf(
-		'<svg class="sparkline" width="%d" height="%d" viewBox="0 0 %d %d" preserveAspectRatio="none" style="color:%s"><path d="%s" fill="currentColor" opacity="0.12"/><path d="%s" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/></svg>',
-		$w, $h, $w, $h,
-		esc_attr( $color ),
-		esc_attr( $area ),
-		esc_attr( $line )
-	);
-}
-
-function portfolio_light_trend_badge( $pct ) {
-	if ( ! $pct ) {
-		return '<span class="trend trend--flat">—</span>';
-	}
-	$positive = $pct > 0;
-	$arrow    = $positive ? '↗' : '↘';
-	$cls      = $positive ? 'trend--up' : 'trend--down';
-	return sprintf( '<span class="trend %s"><span aria-hidden="true">%s</span>%d%%</span>', esc_attr( $cls ), $arrow, abs( $pct ) );
-}
-
 $cards = [
 	[
 		'label'  => 'Visitors',

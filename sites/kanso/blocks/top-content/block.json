@@ -6,5 +6,6 @@
   "icon": "awards",
   "description": "Leaderboard of the highest-traffic content over the last 30 days.",
   "supports": { "html": false },
+  "dashboard": { "priority": 40, "span": "half" },
   "render": "file:./render.php"
 }

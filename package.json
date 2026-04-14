@@ -3,13 +3,9 @@
   "private": true,
   "workspaces": ["packages/*", "sites/*"],
   "scripts": {
-    "build:kanso": "npm --workspace @wplite/kanso run build",
-    "apply:kanso": "npm --workspace @wplite/kanso run apply",
-    "dev:kanso": "npm --workspace @wplite/kanso run dev",
-    "pull:kanso": "npm --workspace @wplite/kanso run pull",
-    "build:portfolio": "npm --workspace @wplite/portfolio run build",
-    "apply:portfolio": "npm --workspace @wplite/portfolio run apply",
-    "dev:portfolio": "npm --workspace @wplite/portfolio run dev",
-    "pull:portfolio": "npm --workspace @wplite/portfolio run pull"
+    "site": "node scripts/site.mjs",
+    "build:all": "npm run build --workspaces --if-present",
+    "apply:all": "npm run apply --workspaces --if-present",
+    "verify:all": "npm run verify --workspaces --if-present"
   }
 }

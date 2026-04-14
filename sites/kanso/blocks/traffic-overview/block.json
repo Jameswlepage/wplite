@@ -6,6 +6,7 @@
   "icon": "chart-line",
   "description": "30-day traffic chart with visitor/session tab switcher and hover readout.",
   "supports": { "html": false, "interactivity": true, "align": ["full"] },
+  "dashboard": { "priority": 10, "span": "full" },
   "render": "file:./render.php",
   "viewScriptModule": "file:./view.js"
 }

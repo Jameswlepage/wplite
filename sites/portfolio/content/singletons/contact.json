@@ -1,8 +1,0 @@
-{
-  "singleton": "contact",
-  "data": {
-    "email": "hello@example.com",
-    "phone": "+1 (212) 555-0144",
-    "calendar_url": "https://example.com/book"
-  }
-}

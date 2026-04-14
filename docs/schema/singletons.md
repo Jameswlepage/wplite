@@ -81,5 +81,7 @@ Current supported sources are:
 
 - Use singletons for settings-like data that should exist once per site.
 - Put contact info, SEO defaults, organization metadata, and reusable CTA content here.
+- Do not model logged-in WordPress user preferences here. User profile fields like admin color, locale, password, editor toggles, and admin-bar visibility belong to the WordPress user record.
+- Do not model native WordPress site settings here. Homepage behavior, posts-per-page, timezone, and discussion defaults like comment enablement belong to Site Settings.
 - Do not use singletons as an excuse to hardcode the same data again in theme templates.
 - If the theme needs singleton data and the compiler does not yet expose it cleanly through native WordPress mechanisms, document that as compiler debt rather than adding site-local duplication.

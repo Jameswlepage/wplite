@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "field-notes/note-head",
+  "title": "Note Head",
+  "category": "widgets",
+  "icon": "editor-kitchensink",
+  "description": "Title, lede, and the fact strip (date, place, coordinates, weather) for a single field note.",
+  "supports": { "html": false, "inserter": false },
+  "usesContext": ["postId"],
+  "render": "file:./render.php"
+}

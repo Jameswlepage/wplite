@@ -128,16 +128,35 @@ npm run pull:kanso
 
 `wp-light` commands:
 
+- `init`  
+  Scaffold a contract-valid site source tree. Supports `--brief <file.json>` and emits structured output with `--json`.
 - `build`  
   Compile source files into generated WordPress outputs.
 - `apply`  
   Build, boot the target WP instance, sync plugin/theme, and seed content.
+- `seed`  
+  Reseed content into the running runtime without a full authoring workflow change.
 - `dev`  
   Watch source and compiler changes, rebuild, reseed, and refresh the site/app.
 - `pull`  
   Pull supported WordPress state back into markdown and singleton JSON.
+- `verify`  
+  Run strict contract checks for agent safety and consistency.
 - `eject`  
   Mark a site as graduating away from the light layer.
+
+For agent-safe automation, pass `--json` to any command and parse stdout.
+
+## Agentic Workflow
+
+For deterministic agent loops:
+
+1. `wp-light init --brief brief.json --json`
+2. `wp-light apply --json`
+3. `wp-light verify --json`
+4. `wp-light pull --json` (if runtime edits should be written back to files)
+
+Scaffolded sites include an `AGENTS.md` with local project rules and the expected compile/sync workflow.
 
 ## Authoring Model
 

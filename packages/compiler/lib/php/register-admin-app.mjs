@@ -16,7 +16,16 @@ add_filter(
 \t}
 );
 
-add_filter( 'show_admin_bar', '__return_false' );
+add_filter(
+\t'show_admin_bar',
+\tfunction( $show ) {
+\t\tif ( get_query_var( 'portfolio_app' ) || portfolio_light_is_app_request() ) {
+\t\t\treturn false;
+\t\t}
+
+\t\treturn $show;
+\t}
+);
 
 add_action(
 \t'admin_init',
@@ -55,6 +64,7 @@ add_action(
 \t\t\t'nonce'       => wp_create_nonce( 'wp_rest' ),
 \t\t\t'appBase'     => home_url( '/app' ),
 \t\t\t'currentUser' => $current_user->user_login,
+\t\t\t'currentUserId' => (int) $current_user->ID,
 \t\t];
 
 \t\tstatus_header( 200 );
@@ -121,4 +131,3 @@ add_action(
 );
 `;
 }
-

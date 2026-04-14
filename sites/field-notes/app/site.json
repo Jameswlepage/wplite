@@ -1,0 +1,26 @@
+{
+  "id": "field-notes",
+  "title": "Field Notes",
+  "tagline": "A travelogue of small observations from specific places.",
+  "mode": "light",
+  "content": {
+    "mode": "files",
+    "format": "markdown",
+    "pull": true,
+    "push": true,
+    "databaseFirst": false,
+    "collections": {
+      "note": { "sync": true },
+      "page": { "sync": false }
+    }
+  },
+  "frontPage": "home",
+  "postsPage": "field",
+  "theme": {
+    "slug": "field-notes-theme",
+    "sourceDir": "theme"
+  },
+  "plugin": {
+    "slug": "field-notes-app"
+  }
+}

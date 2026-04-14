@@ -50,6 +50,9 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           show_on_front: settings.show_on_front ?? 'posts',
           page_on_front: settings.page_on_front ?? 0,
           page_for_posts: settings.page_for_posts ?? 0,
+          default_comment_status:
+            settings.default_comment_status
+            ?? (bootstrap.site?.commentsEnabled ? 'open' : 'closed'),
         });
         setPages(pageItems.map(normalizePageRecord));
       } catch (error) {
@@ -85,6 +88,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           show_on_front: draft.show_on_front,
           page_on_front: draft.show_on_front === 'page' ? Number(draft.page_on_front || 0) : 0,
           page_for_posts: draft.show_on_front === 'page' ? Number(draft.page_for_posts || 0) : 0,
+          default_comment_status: draft.default_comment_status === 'open' ? 'open' : 'closed',
         },
       });
 
@@ -92,6 +96,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
         ...current,
         title: payload.title ?? current.title,
         description: payload.description ?? current.description,
+        default_comment_status: payload.default_comment_status ?? current.default_comment_status,
       }));
       setBootstrap((current) => ({
         ...current,
@@ -99,6 +104,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
           ...current.site,
           title: payload.title ?? current.site.title,
           tagline: payload.description ?? current.site.tagline,
+          commentsEnabled: (payload.default_comment_status ?? draft.default_comment_status) === 'open',
         },
       }));
       pushNotice({ status: 'success', message: 'Site settings saved.' });
@@ -202,6 +208,25 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
                   type="number"
                   value={String(draft.posts_per_page)}
                   onChange={(value) => setDraft((c) => ({ ...c, posts_per_page: Number(value || 10) }))}
+                  __next40pxDefaultSize
+                />
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card className="surface-card">
+            <CardHeader><h2>Discussion</h2></CardHeader>
+            <CardBody>
+              <div className="settings-field-group">
+                <SelectControl
+                  label="Comments"
+                  value={draft.default_comment_status ?? 'closed'}
+                  options={[
+                    { value: 'closed', label: 'Disabled' },
+                    { value: 'open', label: 'Enabled' },
+                  ]}
+                  onChange={(value) => setDraft((c) => ({ ...c, default_comment_status: value }))}
+                  help="Sets the default comment state for new posts and pages. Individual entries can override it."
                   __next40pxDefaultSize
                 />
               </div>

@@ -1,0 +1,29 @@
+<!--
+Title: Latest Notes
+Slug: field-notes-theme/latest-notes
+Inserter: no
+-->
+<!-- wp:group {"className":"fn-field","layout":{"type":"default"}} -->
+<div class="wp-block-group fn-field">
+
+<!-- wp:group {"className":"fn-field__head","layout":{"type":"default"}} -->
+<div class="wp-block-group fn-field__head">
+<!-- wp:heading {"level":2,"className":"fn-field__title"} -->
+<h2 class="wp-block-heading fn-field__title">Latest<br>Entries</h2>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"className":"fn-label fn-label--muted"} -->
+<p class="fn-label fn-label--muted">— Ledger, reverse chronological</p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:query {"queryId":10,"query":{"perPage":6,"postType":"note","order":"desc","orderBy":"date"},"className":"fn-field__grid"} -->
+<div class="wp-block-query fn-field__grid">
+<!-- wp:post-template -->
+<!-- wp:field-notes/note-card /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->

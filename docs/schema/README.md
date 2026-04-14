@@ -63,7 +63,7 @@ sites/<site-name>/
 
 - [`site.md`](./site.md) for `app/site.json`
 - [`models.md`](./models.md) for collection schemas
-- [`singletons.md`](./singletons.md) for option-backed site settings
+- [`singletons.md`](./singletons.md) for custom option-backed site settings
 - [`routes-and-menus.md`](./routes-and-menus.md) for page shells and navigation
 - [`content.md`](./content.md) for markdown, singleton seeds, and media
 - [`theme-and-blocks.md`](./theme-and-blocks.md) for the native WordPress frontend contract

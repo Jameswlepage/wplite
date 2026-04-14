@@ -1,0 +1,5 @@
+[
+  { "label": "The Field", "type": "page", "object": "field" },
+  { "label": "Map",       "type": "page", "object": "map" },
+  { "label": "Colophon",  "type": "page", "object": "colophon" }
+]

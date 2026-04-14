@@ -1,10 +1,14 @@
 {
   "apiVersion": 3,
   "name": "kanso/collections-overview",
-  "title": "Collections overview",
+  "title": "Collection",
   "category": "dashboard",
   "icon": "category",
-  "description": "Per-collection strip with the 5 most recently updated records.",
-  "supports": { "html": false, "align": ["full"] },
+  "description": "Recent records for a single collection.",
+  "attributes": {
+    "modelId": { "type": "string", "default": "" }
+  },
+  "supports": { "html": false, "align": ["half", "full"] },
+  "dashboard": { "priority": 70, "span": "half", "expandPer": "collection" },
   "render": "file:./render.php"
 }

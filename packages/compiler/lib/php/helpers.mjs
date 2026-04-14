@@ -53,8 +53,129 @@ function portfolio_light_get_site_config() {
 \t\t'iconUrl'     => function_exists( 'get_site_icon_url' ) ? get_site_icon_url( 512 ) : '',
 \t\t'adminEmail'  => get_option( 'admin_email' ),
 \t\t'timezone'    => wp_timezone_string(),
+\t\t'commentsEnabled' => 'open' === get_option( 'default_comment_status', 'closed' ),
 \t];
 \treturn array_merge( $base, array_filter( $canonical, fn( $v ) => $v !== null && $v !== '' ) );
+}
+
+function portfolio_light_normalize_admin_color( $value ) {
+\t$allowed = [ 'modern', 'light', 'blue', 'coffee', 'ectoplasm', 'midnight', 'ocean', 'sunrise' ];
+\t$value   = sanitize_key( (string) $value );
+
+\tif ( 'fresh' === $value || '' === $value || 'default' === $value ) {
+\t\treturn 'modern';
+\t}
+
+\tif ( in_array( $value, $allowed, true ) ) {
+\t\treturn $value;
+\t}
+
+\treturn 'modern';
+}
+
+function portfolio_light_sanitize_user_toggle( $value, $default = false ) {
+\tif ( is_bool( $value ) ) {
+\t\treturn $value;
+\t}
+
+\tif ( is_numeric( $value ) ) {
+\t\treturn (bool) $value;
+\t}
+
+\tif ( is_string( $value ) ) {
+\t\t$normalized = strtolower( trim( $value ) );
+\t\tif ( in_array( $normalized, [ '1', 'true', 'yes', 'on' ], true ) ) {
+\t\t\treturn true;
+\t\t}
+\t\tif ( in_array( $normalized, [ '0', 'false', 'no', 'off' ], true ) ) {
+\t\t\treturn false;
+\t\t}
+\t}
+
+\treturn (bool) $default;
+}
+
+function portfolio_light_get_user_preferences( $user_id ) {
+\t$user_id = (int) $user_id;
+\tif ( $user_id <= 0 ) {
+\t\treturn [
+\t\t\t'adminColor'       => 'modern',
+\t\t\t'richEditing'      => true,
+\t\t\t'syntaxHighlighting' => true,
+\t\t\t'commentShortcuts' => false,
+\t\t\t'showAdminBarFront' => true,
+\t\t];
+\t}
+
+\t$admin_color = get_user_option( 'admin_color', $user_id );
+
+\treturn [
+\t\t'adminColor'         => portfolio_light_normalize_admin_color( $admin_color ),
+\t\t'richEditing'        => 'false' !== (string) get_user_option( 'rich_editing', $user_id ),
+\t\t'syntaxHighlighting' => 'false' !== (string) get_user_option( 'syntax_highlighting', $user_id ),
+\t\t'commentShortcuts'   => 'true' === (string) get_user_option( 'comment_shortcuts', $user_id ),
+\t\t'showAdminBarFront'  => 'false' !== (string) get_user_option( 'show_admin_bar_front', $user_id ),
+\t];
+}
+
+function portfolio_light_update_user_preferences( $user_id, $preferences ) {
+\t$user_id = (int) $user_id;
+\tif ( $user_id <= 0 ) {
+\t\treturn new WP_Error( 'portfolio_light_invalid_user', 'Invalid user.', [ 'status' => 400 ] );
+\t}
+
+\tif ( ! is_array( $preferences ) ) {
+\t\treturn true;
+\t}
+
+\tif ( array_key_exists( 'adminColor', $preferences ) ) {
+\t\tupdate_user_option( $user_id, 'admin_color', portfolio_light_normalize_admin_color( $preferences['adminColor'] ), true );
+\t}
+
+\tif ( array_key_exists( 'richEditing', $preferences ) ) {
+\t\tupdate_user_option( $user_id, 'rich_editing', portfolio_light_sanitize_user_toggle( $preferences['richEditing'], true ) ? 'true' : 'false', true );
+\t}
+
+\tif ( array_key_exists( 'syntaxHighlighting', $preferences ) ) {
+\t\tupdate_user_option( $user_id, 'syntax_highlighting', portfolio_light_sanitize_user_toggle( $preferences['syntaxHighlighting'], true ) ? 'true' : 'false', true );
+\t}
+
+\tif ( array_key_exists( 'commentShortcuts', $preferences ) ) {
+\t\tupdate_user_option( $user_id, 'comment_shortcuts', portfolio_light_sanitize_user_toggle( $preferences['commentShortcuts'], false ) ? 'true' : 'false', true );
+\t}
+
+\tif ( array_key_exists( 'showAdminBarFront', $preferences ) ) {
+\t\tupdate_user_option( $user_id, 'show_admin_bar_front', portfolio_light_sanitize_user_toggle( $preferences['showAdminBarFront'], true ) ? 'true' : 'false', true );
+\t}
+
+\treturn true;
+}
+
+function portfolio_light_prepare_user( $user ) {
+\tif ( is_numeric( $user ) ) {
+\t\t$user = get_user_by( 'id', (int) $user );
+\t}
+
+\tif ( ! ( $user instanceof WP_User ) ) {
+\t\treturn null;
+\t}
+
+\treturn [
+\t\t'id'                => (int) $user->ID,
+\t\t'slug'              => (string) $user->user_nicename,
+\t\t'username'          => (string) $user->user_login,
+\t\t'name'              => (string) $user->display_name,
+\t\t'first_name'        => (string) get_user_meta( $user->ID, 'first_name', true ),
+\t\t'last_name'         => (string) get_user_meta( $user->ID, 'last_name', true ),
+\t\t'nickname'          => (string) get_user_meta( $user->ID, 'nickname', true ),
+\t\t'email'             => (string) $user->user_email,
+\t\t'url'               => (string) $user->user_url,
+\t\t'description'       => (string) get_user_meta( $user->ID, 'description', true ),
+\t\t'locale'            => (string) get_user_locale( $user ),
+\t\t'roles'             => array_values( $user->roles ?? [] ),
+\t\t'avatar_urls'       => function_exists( 'rest_get_avatar_urls' ) ? rest_get_avatar_urls( $user ) : [],
+\t\t'wplitePreferences' => portfolio_light_get_user_preferences( $user->ID ),
+\t];
 }
 
 function portfolio_light_get_builtin_post_model() {
@@ -65,7 +186,7 @@ function portfolio_light_get_builtin_post_model() {
 \t\t'type'          => 'collection',
 \t\t'postType'      => 'post',
 \t\t'public'        => true,
-\t\t'supports'      => [ 'title', 'editor', 'excerpt', 'thumbnail', 'revisions' ],
+\t\t'supports'      => [ 'title', 'editor', 'excerpt', 'thumbnail', 'revisions', 'comments' ],
 \t\t'taxonomies'    => [ 'category', 'post_tag' ],
 \t\t'adminPath'     => 'posts',
 \t\t'fields'        => [],
@@ -80,7 +201,7 @@ function portfolio_light_get_builtin_page_model() {
 \t\t'type'          => 'collection',
 \t\t'postType'      => 'page',
 \t\t'public'        => true,
-\t\t'supports'      => [ 'title', 'editor', 'excerpt', 'thumbnail', 'revisions', 'page-attributes' ],
+\t\t'supports'      => [ 'title', 'editor', 'excerpt', 'thumbnail', 'revisions', 'page-attributes', 'comments' ],
 \t\t'taxonomies'    => [],
 \t\t'adminPath'     => 'pages',
 \t\t'fields'        => [],
@@ -150,49 +271,87 @@ function portfolio_light_get_blocks() {
 \treturn $compiled['blocks'] ?? [];
 }
 
+/**
+ * Build the list of dashboard widgets exposed to /app.
+ *
+ * This is fully generic: any block whose block.json declares
+ * "category": "dashboard" is picked up. Sites can refine a widget with
+ * an optional "dashboard" metadata object on the block.json:
+ *
+ *   "dashboard": {
+ *     "priority":    <int>   // lower shows first, default 500
+ *     "span":        "full" | "half"  // falls back to supports.align
+ *     "chromeless":  <bool>  // drop the outer widget card frame
+ *     "expandPer":   "collection"  // multiply into one widget per model
+ *     "attributes":  { ... } // default attributes for the ServerSideRender call
+ *   }
+ *
+ * When expandPer === "collection" the compiler emits one widget per
+ * collection model, passing { modelId } as an attribute so the block
+ * render.php can use it.
+ */
 function portfolio_light_get_dashboard_widgets() {
-\t$blocks   = portfolio_light_get_blocks();
-\t$widgets  = [];
-\t$priority = [
-\t\t'kanso/welcome'          => 0,
-\t\t'kanso/traffic-overview' => 10,
-\t\t'kanso/key-metrics'      => 20,
-\t\t'kanso/site-pulse'       => 30,
-\t\t'kanso/top-content'      => 40,
-\t\t'kanso/top-referrers'    => 50,
-\t\t'kanso/recent-activity'  => 60,
-\t];
+\t$blocks  = portfolio_light_get_blocks();
+\t$widgets = [];
 
 \tforeach ( $blocks as $block ) {
 \t\tif ( ( $block['category'] ?? '' ) !== 'dashboard' ) {
 \t\t\tcontinue;
 \t\t}
 
-\t\t$supports = $block['supports'] ?? [];
+\t\t$meta     = is_array( $block['dashboard'] ?? null ) ? $block['dashboard'] : [];
+\t\t$supports = is_array( $block['supports'] ?? null ) ? $block['supports'] : [];
 \t\t$align    = $supports['align'] ?? [];
 \t\tif ( ! is_array( $align ) ) {
 \t\t\t$align = [ $align ];
 \t\t}
+\t\t$default_span = in_array( 'full', $align, true ) ? 'full' : 'half';
+\t\t$span         = $meta['span'] ?? $default_span;
+\t\t$priority     = isset( $meta['priority'] ) ? (int) $meta['priority'] : 500;
+\t\t$chromeless   = ! empty( $meta['chromeless'] );
+\t\t$base_attrs   = is_array( $meta['attributes'] ?? null ) ? $meta['attributes'] : [];
+\t\t$expand       = $meta['expandPer'] ?? null;
+\t\t$base_id      = sanitize_key( str_replace( '/', '-', $block['name'] ) );
+
+\t\tif ( $expand === 'collection' ) {
+\t\t\t$collections = array_values( array_filter( portfolio_light_get_models(), function( $m ) {
+\t\t\t\treturn ( $m['type'] ?? '' ) === 'collection';
+\t\t\t} ) );
+\t\t\tforeach ( $collections as $index => $model ) {
+\t\t\t\t$widgets[] = [
+\t\t\t\t\t'id'          => $base_id . '--' . sanitize_key( $model['id'] ),
+\t\t\t\t\t'name'        => $block['name'],
+\t\t\t\t\t'title'       => $model['label'],
+\t\t\t\t\t'description' => sprintf( 'Recent %s', strtolower( $model['label'] ) ),
+\t\t\t\t\t'icon'        => $block['icon'] ?? null,
+\t\t\t\t\t'span'        => $span,
+\t\t\t\t\t'chromeless'  => $chromeless,
+\t\t\t\t\t'priority'    => $priority + $index,
+\t\t\t\t\t'attributes'  => array_merge( $base_attrs, [ 'modelId' => $model['id'] ] ),
+\t\t\t\t];
+\t\t\t}
+\t\t\tcontinue;
+\t\t}
 
 \t\t$widgets[] = [
-\t\t\t'id'          => sanitize_key( str_replace( '/', '-', $block['name'] ) ),
+\t\t\t'id'          => $base_id,
 \t\t\t'name'        => $block['name'],
 \t\t\t'title'       => $block['title'] ?? $block['name'],
 \t\t\t'description' => $block['description'] ?? '',
 \t\t\t'icon'        => $block['icon'] ?? null,
-\t\t\t'span'        => in_array( 'full', $align, true ) ? 'full' : 'half',
+\t\t\t'span'        => $span,
+\t\t\t'chromeless'  => $chromeless,
+\t\t\t'priority'    => $priority,
+\t\t\t'attributes'  => (object) $base_attrs,
 \t\t];
 \t}
 
 \tusort(
 \t\t$widgets,
-\t\tfunction( $left, $right ) use ( $priority ) {
-\t\t\t$left_priority  = $priority[ $left['name'] ] ?? 500;
-\t\t\t$right_priority = $priority[ $right['name'] ] ?? 500;
-\t\t\tif ( $left_priority !== $right_priority ) {
-\t\t\t\treturn $left_priority <=> $right_priority;
+\t\tfunction( $left, $right ) {
+\t\t\tif ( $left['priority'] !== $right['priority'] ) {
+\t\t\t\treturn $left['priority'] <=> $right['priority'];
 \t\t\t}
-
 \t\t\treturn strcmp( $left['title'], $right['title'] );
 \t\t}
 \t);
@@ -574,6 +733,10 @@ function portfolio_light_prepare_record( $post, $model ) {
 \t\t'link'       => get_permalink( $post ),
 \t];
 
+\tif ( post_type_supports( $model['postType'], 'comments' ) ) {
+\t\t$record['commentStatus'] = $post->comment_status;
+\t}
+
 \tforeach ( $model['fields'] ?? [] as $field_id => $field ) {
 \t\t$value = get_post_meta( $post->ID, $field_id, true );
 \t\tif ( 'boolean' === ( $field['type'] ?? '' ) ) {
@@ -598,6 +761,7 @@ function portfolio_light_prepare_page_record( $post ) {
 \t\t'title'      => $post->post_title,
 \t\t'slug'       => $post->post_name,
 \t\t'postStatus' => $post->post_status,
+\t\t'commentStatus' => $post->comment_status,
 \t\t'content'    => $post->post_content,
 \t\t'excerpt'    => $post->post_excerpt,
 \t\t'parent'     => (int) $post->post_parent,
@@ -655,6 +819,10 @@ function portfolio_light_upsert_record( $model, $payload, $existing_id = 0 ) {
 \t\t'post_excerpt' => sanitize_textarea_field( $payload['excerpt'] ?? '' ),
 \t\t'post_content' => wp_kses_post( $payload['content'] ?? '' ),
 \t];
+
+\tif ( array_key_exists( 'commentStatus', $payload ) && post_type_supports( $model['postType'], 'comments' ) ) {
+\t\t$postarr['comment_status'] = 'open' === sanitize_key( (string) $payload['commentStatus'] ) ? 'open' : 'closed';
+\t}
 
 \tif ( ! empty( $payload['slug'] ) ) {
 \t\t$postarr['post_name'] = sanitize_title( $payload['slug'] );
@@ -937,6 +1105,39 @@ function portfolio_light_trend_pct( $series ) {
 \t$prev = array_sum( array_slice( $series, 0, $mid ) ) ?: 1;
 \t$curr = array_sum( array_slice( $series, $mid ) );
 \treturn (int) round( ( ( $curr - $prev ) / $prev ) * 100 );
+}
+
+function portfolio_light_trend_badge( $pct ) {
+\tif ( ! $pct ) {
+\t\treturn '<span class="trend trend--flat">—</span>';
+\t}
+\t$positive = $pct > 0;
+\t$arrow    = $positive ? '↗' : '↘';
+\t$cls      = $positive ? 'trend--up' : 'trend--down';
+\treturn sprintf( '<span class="trend %s"><span aria-hidden="true">%s</span>%d%%</span>', esc_attr( $cls ), $arrow, abs( $pct ) );
+}
+
+function portfolio_light_sparkline_svg( $series, $color ) {
+\tif ( empty( $series ) ) return '';
+\t$w = 70; $h = 24;
+\t$max = max( $series ); $min = min( $series );
+\t$range = ( $max - $min ) ?: 1;
+\t$step = $w / max( count( $series ) - 1, 1 );
+\t$points = [];
+\tforeach ( $series as $i => $v ) {
+\t\t$x = $i * $step;
+\t\t$y = $h - ( ( $v - $min ) / $range ) * $h;
+\t\t$points[] = sprintf( '%.1f,%.1f', $x, $y );
+\t}
+\t$line = 'M ' . implode( ' L ', $points );
+\t$area = 'M 0,' . $h . ' L ' . implode( ' L ', $points ) . ' L ' . $w . ',' . $h . ' Z';
+\treturn sprintf(
+\t\t'<svg class="sparkline" width="%d" height="%d" viewBox="0 0 %d %d" preserveAspectRatio="none" style="color:%s"><path d="%s" fill="currentColor" opacity="0.12"/><path d="%s" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+\t\t$w, $h, $w, $h,
+\t\tesc_attr( $color ),
+\t\tesc_attr( $area ),
+\t\tesc_attr( $line )
+\t);
 }
 
 function portfolio_light_format_compact( $n ) {

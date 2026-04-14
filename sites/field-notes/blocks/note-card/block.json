@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "field-notes/note-card",
+  "title": "Note Card",
+  "category": "widgets",
+  "icon": "book",
+  "description": "A taped-down card for one field note. Reads observed_on/place/coords meta from the current note post.",
+  "supports": { "html": false, "inserter": false },
+  "usesContext": ["postId"],
+  "render": "file:./render.php"
+}

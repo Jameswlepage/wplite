@@ -1,0 +1,13 @@
+{
+  "apiVersion": 3,
+  "name": "field-notes/note-map",
+  "title": "Note Map",
+  "category": "widgets",
+  "icon": "location-alt",
+  "description": "An annotated world map with one pin per field note. Pins reveal typographic postcards on hover.",
+  "supports": { "html": false },
+  "attributes": {
+    "perPage": { "type": "number", "default": 40 }
+  },
+  "render": "file:./render.php"
+}

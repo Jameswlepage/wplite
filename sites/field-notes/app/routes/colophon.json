@@ -1,0 +1,12 @@
+{
+  "id": "colophon",
+  "type": "page",
+  "slug": "colophon",
+  "title": "Colophon",
+  "template": "colophon",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": ""
+  }
+}

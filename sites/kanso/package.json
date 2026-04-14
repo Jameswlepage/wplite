@@ -7,11 +7,12 @@
     "dev": "wp-light dev",
     "apply": "wp-light apply",
     "pull": "wp-light pull",
+    "verify": "wp-light verify --json",
     "eject": "wp-light eject",
     "wp-env:start": "npm run build && npx wp-env start",
     "wp-env:stop": "wp-env stop",
     "wp-env:destroy": "wp-env destroy",
-    "seed": "npx wp-env run cli wp eval 'portfolio_light_seed_site();'",
+    "seed": "wp-light seed",
     "rebuild": "npm run build && npm run seed"
   },
   "dependencies": {

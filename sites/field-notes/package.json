@@ -1,0 +1,21 @@
+{
+  "name": "@wplite/field-notes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wp-light build",
+    "dev": "wp-light dev",
+    "apply": "wp-light apply",
+    "pull": "wp-light pull",
+    "eject": "wp-light eject",
+    "wp-env:start": "npm run build && npx wp-env start",
+    "wp-env:stop": "wp-env stop",
+    "wp-env:destroy": "wp-env destroy"
+  },
+  "dependencies": {
+    "@wplite/compiler": "*"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^11.2.0"
+  }
+}

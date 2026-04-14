@@ -48,6 +48,7 @@ The compiler and generated runtime should own:
 - post type, taxonomy, meta, and singleton registration
 - REST endpoints and bootstrap payloads
 - `/app` admin screens and dashboard/workspace behavior
+- native WordPress settings bridges so things like discussion defaults stay native instead of being remapped into site-local schema
 - content push/pull and local dev workflow
 - data bridges that let themes read modeled data without site-specific hacks
 - compatibility shims for WordPress features that are not yet exposed cleanly in the flat source model

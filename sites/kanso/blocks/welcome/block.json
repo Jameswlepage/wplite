@@ -6,5 +6,6 @@
   "icon": "admin-home",
   "description": "Greets the user and surfaces quick actions for the site.",
   "supports": { "html": false, "align": ["full"] },
+  "dashboard": { "priority": 0, "span": "full", "chromeless": true },
   "render": "file:./render.php"
 }

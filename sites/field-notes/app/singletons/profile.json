@@ -1,0 +1,54 @@
+{
+  "id": "profile",
+  "label": "Field Journal Profile",
+  "icon": "UserAvatar",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "organization_type": {
+      "type": "select",
+      "label": "Entity Type",
+      "options": ["Person", "Organization"],
+      "help": "Used for JSON-LD schema.org output."
+    },
+    "display_name": {
+      "type": "text",
+      "label": "Display Name",
+      "inheritsFrom": "site.title"
+    },
+    "short_bio": {
+      "type": "richtext",
+      "label": "Short Bio",
+      "inheritsFrom": "site.description"
+    },
+    "author_name": {
+      "type": "text",
+      "label": "Author"
+    },
+    "author_role": {
+      "type": "text",
+      "label": "Author Role"
+    },
+    "home_base": {
+      "type": "text",
+      "label": "Home Base",
+      "help": "Where entries are written up from."
+    },
+    "avatar": {
+      "type": "image",
+      "label": "Author Portrait"
+    },
+    "logo": {
+      "type": "image",
+      "label": "Journal Mark",
+      "inheritsFrom": "site.icon"
+    },
+    "same_as": {
+      "type": "repeater",
+      "label": "Linked Profiles",
+      "item": {
+        "url": { "type": "url", "label": "URL" }
+      }
+    }
+  }
+}

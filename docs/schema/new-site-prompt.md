@@ -49,6 +49,9 @@ Implementation rules:
 - Prefer core/post-* blocks and post-meta bindings for collection templates.
 - Prefer patterns and template parts over hardcoded repeated markup.
 - Keep theme copy and contact data in content/singletons when it is editable content.
+- Do not model logged-in user profile preferences in singletons; use native WordPress users for admin color, locale, password, and editor preferences.
+- Do not model native WordPress site settings in singletons or app/site.json; use Site Settings for homepage behavior, timezone, posts-per-page, and discussion defaults.
+- Treat comments as disabled by default unless the site brief explicitly says discussion is part of the product.
 - If the compiler does not expose a clean native bridge for some site data, flag that gap instead of inventing extra site-local complexity.
 ```
 
@@ -62,3 +65,5 @@ Implementation rules:
 6. Is `blocks/` limited to real public runtime needs?
 7. Is editable site copy modeled in singletons instead of duplicated in templates?
 8. Did the AI avoid site-local dashboard/admin runtime code?
+9. Did the AI keep logged-in user preferences on WordPress users instead of inventing singleton fields for them?
+10. Did the AI avoid inventing schema for native WordPress site settings like discussion defaults?

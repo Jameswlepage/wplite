@@ -13,11 +13,12 @@ import {
   CardBody,
 } from '@wordpress/components';
 import { CarbonIcon, ChevronLeft, OpenPanelLeft, Menu, getNavIcon } from '../lib/icons.jsx';
-import { collectionPathForModel, toTitleCase } from '../lib/helpers.js';
+import { collectionPathForModel, normalizeAdminColor, toTitleCase } from '../lib/helpers.js';
 import { NoticeStack } from './controls.jsx';
 import { NotificationBell, SidekickPanel, useNotificationArchive } from './notifications.jsx';
 import { DashboardPage } from './dashboard.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
+import { CommentsPage, CommentEditorPage } from './comments.jsx';
 import { MediaPage, MediaEditorPage } from './media.jsx';
 import { UsersPage, UserEditorPage } from './users.jsx';
 import { CollectionListPage, CollectionEditorPage } from './collections.jsx';
@@ -70,11 +71,15 @@ export function NavigationGroup({ id, title, items, state, onToggle }) {
 }
 
 /* ── Sidebar User Menu ── */
-function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
+function SidebarUserMenu({ currentUser, sidebarCollapsed, navigate }) {
   const [open, setOpen] = useState(false);
   const ref = React.useRef(null);
   const triggerRef = React.useRef(null);
   const [popoverStyle, setPopoverStyle] = useState(null);
+  const displayName = currentUser?.name || currentUser?.displayName || currentUser?.username || 'User';
+  const username = currentUser?.username ? `@${currentUser.username}` : '';
+  const primaryRole = currentUser?.roles?.[0] ? toTitleCase(currentUser.roles[0]) : 'User';
+  const avatarUrl = currentUser?.avatarUrl || currentUser?.avatarUrls?.['96'] || currentUser?.avatar_urls?.['96'] || '';
 
   const updatePopoverPosition = React.useCallback(() => {
     const trigger = triggerRef.current;
@@ -134,18 +139,16 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
         ref={triggerRef}
         className="sidebar__user-profile"
         onClick={() => setOpen((v) => !v)}
-        title={sidebarCollapsed ? (singletonData.profile?.full_name || 'User') : undefined}
+        title={sidebarCollapsed ? displayName : undefined}
         type="button"
       >
         <div className="sidebar__user-avatar">
-          <CarbonIcon name="UserAvatar" size={20} />
+          {avatarUrl ? <img src={avatarUrl} alt="" /> : <CarbonIcon name="UserAvatar" size={20} />}
         </div>
         {!sidebarCollapsed && (
           <div className="sidebar__user-info">
-            <span className="sidebar__user-name">
-              {singletonData.profile?.full_name || 'User'}
-            </span>
-            <span className="sidebar__user-role">Administrator</span>
+            <span className="sidebar__user-name">{displayName}</span>
+            <span className="sidebar__user-role">{primaryRole}</span>
           </div>
         )}
       </button>
@@ -156,15 +159,17 @@ function SidebarUserMenu({ sidebarCollapsed, singletonData, navigate }) {
         >
           <div className="sidebar-popover__header">
             <div className="sidebar__user-avatar" style={{ width: 36, height: 36 }}>
-              <CarbonIcon name="UserAvatar" size={22} />
+              {avatarUrl ? <img src={avatarUrl} alt="" /> : <CarbonIcon name="UserAvatar" size={22} />}
             </div>
             <div>
-              <strong>{singletonData.profile?.full_name || 'User'}</strong>
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--wp-admin-text-muted)' }}>Administrator</span>
+              <strong>{displayName}</strong>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--wp-admin-text-muted)' }}>
+                {username || primaryRole}
+              </span>
             </div>
           </div>
           <div className="sidebar-popover__items">
-            <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/settings/profile'); }}>
+            <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/users/me'); }}>
               Edit Profile
             </button>
             <button className="sidebar-popover__item" onClick={() => { setOpen(false); navigate('/docs'); }}>
@@ -290,6 +295,8 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
   }
 
   const groupedNavigation = useMemo(() => {
+    const commentsEnabled = bootstrap.site?.commentsEnabled === true;
+
     // Top-level items (not collapsible)
     const topLevel = [
       { id: 'dashboard', label: 'Dashboard', path: '/', kind: 'dashboard' },
@@ -300,6 +307,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     const core = [
       { id: 'pages', label: 'Pages', path: '/pages', kind: 'core' },
       { id: 'post', label: 'Posts', path: '/posts', kind: 'core' },
+      ...(commentsEnabled ? [{ id: 'comments', label: 'Comments', path: '/comments', kind: 'core' }] : []),
       { id: 'media', label: 'Media', path: '/media', kind: 'core' },
     ];
 
@@ -319,7 +327,7 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
     ];
 
     return { topLevel, core, collections, settings };
-  }, [bootstrap.navigation]);
+  }, [bootstrap.navigation, bootstrap.site?.commentsEnabled]);
 
   const breadcrumbSegments = useMemo(() => {
     if (location.pathname === '/') return [{ label: 'Dashboard', path: '/' }];
@@ -342,9 +350,12 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
       return location.pathname.startsWith(path) && rest.length > 1 && rest.startsWith('/');
     });
   }, [bootstrap.models, location.pathname]);
+  const adminColorScheme = normalizeAdminColor(
+    bootstrap.currentUser?.preferences?.adminColor ?? singletonData.profile?.color_scheme
+  );
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${sidekickOpen ? ' sidekick-open' : ''}${singletonData.profile?.color_scheme && singletonData.profile.color_scheme !== 'default' ? ` color-scheme-${singletonData.profile.color_scheme}` : ''}`}>
+    <div className={`app-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}${mobileOpen ? ' sidebar-mobile-open' : ''}${isEditorRoute ? ' is-editor-route' : ''}${sidekickOpen ? ' sidekick-open' : ''} color-scheme-${adminColorScheme}`}>
       <div className="sidebar-overlay" onClick={closeMobileSidebar} />
       <aside className="sidebar">
         <div className="sidebar__brand">
@@ -420,8 +431,8 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
         </nav>
 
         <SidebarUserMenu
+          currentUser={bootstrap.currentUser}
           sidebarCollapsed={sidebarCollapsed}
-          singletonData={singletonData}
           navigate={navigate}
         />
       </aside>
@@ -492,10 +503,12 @@ export function AppShell({ bootstrap, setBootstrap, recordsByModel, setRecordsBy
               />
               <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
               <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              <Route path="/comments/:commentId" element={<CommentEditorPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
               <Route path="/media" element={<MediaPage pushNotice={pushNotice} />} />
               <Route path="/media/:mediaId" element={<MediaEditorPage pushNotice={pushNotice} />} />
-              <Route path="/users" element={<UsersPage pushNotice={pushNotice} />} />
-              <Route path="/users/:userId" element={<UserEditorPage pushNotice={pushNotice} />} />
+              <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
+              <Route path="/users/:userId" element={<UserEditorPage bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
               <Route
                 path="/:collectionPath"
                 element={<CollectionListPage bootstrap={bootstrap} recordsByModel={recordsByModel} />}

@@ -7,6 +7,30 @@ function portfolio_light_rest_can_edit() {
 \treturn current_user_can( 'edit_posts' );
 }
 
+function portfolio_light_normalize_comment_default_status( $value ) {
+\t$value = sanitize_key( (string) $value );
+\treturn 'open' === $value ? 'open' : 'closed';
+}
+
+add_action( 'init', function() {
+\tregister_setting(
+\t\t'discussion',
+\t\t'default_comment_status',
+\t\t[
+\t\t\t'type'              => 'string',
+\t\t\t'description'       => 'Default comment state for new posts and pages.',
+\t\t\t'sanitize_callback' => 'portfolio_light_normalize_comment_default_status',
+\t\t\t'default'           => 'closed',
+\t\t\t'show_in_rest'      => [
+\t\t\t\t'schema' => [
+\t\t\t\t\t'type' => 'string',
+\t\t\t\t\t'enum' => [ 'open', 'closed' ],
+\t\t\t\t],
+\t\t\t],
+\t\t]
+\t);
+} );
+
 add_action( 'rest_api_init', function() {
 \tregister_rest_field(
 \t\t'page',
@@ -19,6 +43,34 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t'description' => 'Compiler-managed route identifier for seeded pages.',
 \t\t\t\t'type'        => 'string',
 \t\t\t\t'context'     => [ 'view', 'edit' ],
+\t\t\t],
+\t\t]
+\t);
+
+\tregister_rest_field(
+\t\t'user',
+\t\t'wplitePreferences',
+\t\t[
+\t\t\t'get_callback'    => function( $user ) {
+\t\t\t\treturn portfolio_light_get_user_preferences( (int) ( $user['id'] ?? 0 ) );
+\t\t\t},
+\t\t\t'update_callback' => function( $value, $user ) {
+\t\t\t\t$user_id = 0;
+
+\t\t\t\tif ( is_array( $user ) ) {
+\t\t\t\t\t$user_id = (int) ( $user['id'] ?? 0 );
+\t\t\t\t} elseif ( is_object( $user ) && isset( $user->ID ) ) {
+\t\t\t\t\t$user_id = (int) $user->ID;
+\t\t\t\t} elseif ( is_numeric( $user ) ) {
+\t\t\t\t\t$user_id = (int) $user;
+\t\t\t\t}
+
+\t\t\t\treturn portfolio_light_update_user_preferences( $user_id, $value );
+\t\t\t},
+\t\t\t'schema'          => [
+\t\t\t\t'description' => 'WPLite user preferences used by the admin app.',
+\t\t\t\t'type'        => 'object',
+\t\t\t\t'context'     => [ 'edit' ],
 \t\t\t],
 \t\t]
 \t);
@@ -77,6 +129,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t\treturn new WP_REST_Response(
 \t\t\t\t\t[
 \t\t\t\t\t\t'site'          => portfolio_light_get_site_config(),
+\t\t\t\t\t\t'currentUser'   => portfolio_light_prepare_user( wp_get_current_user() ),
 \t\t\t\t\t\t'generatedAt'   => portfolio_light_get_compiled_generated_at(),
 \t\t\t\t\t\t'blocks'        => portfolio_light_get_blocks(),
 \t\t\t\t\t\t'dashboardWidgets' => portfolio_light_get_dashboard_widgets(),

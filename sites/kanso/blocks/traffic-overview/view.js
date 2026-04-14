@@ -5,7 +5,7 @@
 
 import { store } from '@wordpress/interactivity';
 
-const CHART = { w: 800, h: 220, pad: { top: 16, right: 16, bottom: 24, left: 36 } };
+const CHART = { w: 1200, h: 240, pad: { top: 16, right: 16, bottom: 28, left: 44 } };
 
 function formatCompact(n) {
 	if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -82,9 +82,8 @@ const { state } = store('kanso/traffic-overview', {
 			}
 			state.hoverIdx = idx;
 			const max = Math.max(...series);
-			const min = Math.min(...series);
-			const niceMax = Math.ceil(max * 1.1);
-			const niceMin = Math.max(0, Math.floor(min * 0.8));
+			const niceMax = Math.ceil((max * 1.15) / 10) * 10;
+			const niceMin = 0;
 			const range = niceMax - niceMin || 1;
 			const ih = CHART.h - CHART.pad.top - CHART.pad.bottom;
 			state._point = {
@@ -103,9 +102,8 @@ function redrawChart(svg, series) {
 	const iw = CHART.w - CHART.pad.left - CHART.pad.right;
 	const ih = CHART.h - CHART.pad.top - CHART.pad.bottom;
 	const max = Math.max(...series);
-	const min = Math.min(...series);
-	const niceMax = Math.ceil(max * 1.1);
-	const niceMin = Math.max(0, Math.floor(min * 0.8));
+	const niceMax = Math.ceil((max * 1.15) / 10) * 10;
+	const niceMin = 0;
 	const range = niceMax - niceMin || 1;
 	const step = iw / Math.max(series.length - 1, 1);
 	const pts = series.map((v, i) => [

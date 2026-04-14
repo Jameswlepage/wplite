@@ -82,6 +82,8 @@ It controls:
 - Page content sync is controlled by `content.collections.page.sync`.
 - If page sync is `false`, do not treat `content/pages/*.md` as part of the site contract.
 - If you are creating a clean new site, prefer `page.sync = false` unless you explicitly want page bodies authored in markdown.
+- Native WordPress site settings like homepage display, posts-per-page, timezone, and default discussion state live in `/app/settings/site`, not in `app/site.json`.
+- Default comment behavior is a native WordPress discussion setting. In `wplite`, comments should be treated as off by default unless the site explicitly enables them in Site Settings.
 
 ## AI Guidance
 

@@ -8,6 +8,7 @@ import {
   ArrowDownRight,
   Blog,
   ChartLine,
+  Chat,
   ChevronLeft,
   Close,
   Copy,
@@ -52,6 +53,7 @@ export const iconRegistry = {
   Api,
   ArrowLeft,
   Blog,
+  Chat,
   Dashboard: DashboardIcon,
   Document,
   Earth,
@@ -81,6 +83,7 @@ export function CarbonIcon({ name, size = 20, ...props }) {
 /* ── Default icon map for built-in nav items ── */
 export const defaultIconMap = {
   api: 'Api',
+  comments: 'Chat',
   dashboard: 'Dashboard',
   domains: 'Earth',
   docs: 'Document',
@@ -112,6 +115,7 @@ export {
   ArrowDownRight,
   Blog,
   ChartLine,
+  Chat,
   ChevronLeft,
   Close,
   Copy,

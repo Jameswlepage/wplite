@@ -93,7 +93,7 @@ add_action(
 \t\t\treturn;
 \t\t}
 \t\t?>
-\t\t<div class="wplite-frontend-launcher" data-wplite-launcher>
+\t\t<div class="wplite-frontend-launcher" data-wplite-launcher style="--wplite-launcher-items: <?php echo (int) count( $items ); ?>;">
 \t\t\t<div class="wplite-frontend-launcher__dock">
 \t\t\t\t<button
 \t\t\t\t\ttype="button"
@@ -110,7 +110,6 @@ add_action(
 \t\t\t\t\t\t\tclass="wplite-frontend-launcher__item"
 \t\t\t\t\t\t\thref="<?php echo esc_url( $item['url'] ); ?>"
 \t\t\t\t\t\t\tdata-tooltip="<?php echo esc_attr( $item['label'] ); ?>"
-\t\t\t\t\t\t\ttitle="<?php echo esc_attr( $item['label'] ); ?>"
 \t\t\t\t\t\t\taria-label="<?php echo esc_attr( $item['label'] ); ?>"
 \t\t\t\t\t\t>
 \t\t\t\t\t\t\t<span class="wplite-frontend-launcher__item-icon" aria-hidden="true"><?php echo $item['icon']; ?></span>
@@ -126,24 +125,19 @@ add_action(
 }
 
 export function frontendLauncherCss() {
-  return `:root {
+  return `.wplite-frontend-launcher {
   --wplite-launcher-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-  --wplite-launcher-panel: rgba(246, 247, 247, 0.96);
-  --wplite-launcher-panel-border: rgba(220, 220, 222, 0.96);
-  --wplite-launcher-button: rgba(80, 87, 94, 0.96);
-  --wplite-launcher-button-hover: rgba(61, 68, 74, 0.98);
-  --wplite-launcher-button-icon: #f6f7f7;
-  --wplite-launcher-item-surface: rgba(255, 255, 255, 0.98);
-  --wplite-launcher-item-border: #dcdcde;
-  --wplite-launcher-item-icon: #50575e;
-  --wplite-launcher-item-hover: #3858e9;
-  --wplite-launcher-tooltip-bg: #1d2327;
-  --wplite-launcher-tooltip-text: #f6f7f7;
-  --wplite-launcher-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+  --wplite-launcher-surface: #1d2327;
+  --wplite-launcher-surface-hover: #2c3338;
+  --wplite-launcher-border: #3c434a;
+  --wplite-launcher-icon: #ffffff;
+  --wplite-launcher-icon-muted: rgba(255, 255, 255, 0.82);
+  --wplite-launcher-focus: #72aee6;
+  --wplite-launcher-tooltip-bg: #f6f7f7;
+  --wplite-launcher-tooltip-border: #dcdcde;
+  --wplite-launcher-tooltip-text: #1d2327;
+  --wplite-launcher-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
   --wplite-launcher-radius: 999px;
-}
-
-.wplite-frontend-launcher {
   position: fixed;
   left: 24px;
   bottom: 24px;
@@ -157,10 +151,17 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__dock {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  min-height: 46px;
+  padding: 2px;
+  border: 1px solid var(--wplite-launcher-border);
+  border-radius: var(--wplite-launcher-radius);
+  background: var(--wplite-launcher-surface);
+  box-shadow: var(--wplite-launcher-shadow);
+  overflow: hidden;
   pointer-events: auto;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .wplite-frontend-launcher__toggle {
@@ -169,27 +170,27 @@ export function frontendLauncherCss() {
   justify-content: center;
   width: 42px;
   height: 42px;
+  flex: 0 0 42px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--wplite-launcher-radius);
-  background: var(--wplite-launcher-button);
-  color: var(--wplite-launcher-button-icon);
-  box-shadow: var(--wplite-launcher-shadow);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wplite-launcher-icon);
   cursor: pointer;
   appearance: none;
-  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .wplite-frontend-launcher__toggle:hover,
 .wplite-frontend-launcher__toggle:focus-visible,
-.wplite-frontend-launcher.is-open .wplite-frontend-launcher__toggle {
-  background: var(--wplite-launcher-button-hover);
-  transform: translateY(-1px);
+.wplite-frontend-launcher.is-open .wplite-frontend-launcher__toggle,
+.wplite-frontend-launcher:hover .wplite-frontend-launcher__toggle {
+  background: var(--wplite-launcher-surface-hover);
 }
 
 .wplite-frontend-launcher__toggle:focus-visible,
 .wplite-frontend-launcher__item:focus-visible {
-  outline: 2px solid #3858e9;
+  outline: 2px solid var(--wplite-launcher-focus);
   outline-offset: 2px;
 }
 
@@ -199,40 +200,28 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__menu {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   max-width: 0;
   overflow: hidden;
-  padding: 6px 0 6px 0;
-  border: 1px solid transparent;
-  border-radius: var(--wplite-launcher-radius);
-  background: transparent;
-  box-shadow: none;
+  padding: 0;
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-12px);
+  transform: translateX(-4px);
   transition:
     max-width 220ms cubic-bezier(0.2, 0.7, 0, 1),
     opacity 140ms ease,
     transform 220ms cubic-bezier(0.2, 0.7, 0, 1),
-    padding 220ms cubic-bezier(0.2, 0.7, 0, 1),
-    background-color 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+    padding-inline 220ms cubic-bezier(0.2, 0.7, 0, 1);
 }
 
 .wplite-frontend-launcher:hover .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher:focus-within .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher.is-open .wplite-frontend-launcher__menu {
-  max-width: 240px;
+  max-width: calc((var(--wplite-launcher-items, 3) * 42px) + 8px);
   overflow: visible;
-  padding: 6px 10px 6px 6px;
-  border-color: var(--wplite-launcher-panel-border);
-  background: var(--wplite-launcher-panel);
-  box-shadow: var(--wplite-launcher-shadow);
+  padding-right: 4px;
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -240,29 +229,29 @@ export function frontendLauncherCss() {
 
 .wplite-frontend-launcher__item {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--wplite-launcher-item-border);
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 0;
   border-radius: 999px;
-  background: var(--wplite-launcher-item-surface);
-  color: var(--wplite-launcher-item-icon);
+  background: transparent;
+  color: var(--wplite-launcher-icon-muted);
   text-decoration: none;
   box-shadow: none;
   transition:
-    transform 140ms ease,
+    opacity 140ms ease,
     color 140ms ease,
-    border-color 140ms ease,
     background-color 140ms ease;
 }
 
 .wplite-frontend-launcher__item:hover,
 .wplite-frontend-launcher__item:focus-visible {
-  color: var(--wplite-launcher-item-hover);
-  border-color: #b9ccff;
-  transform: translateY(-1px);
+  background: var(--wplite-launcher-surface-hover);
+  color: var(--wplite-launcher-icon);
+  opacity: 1;
 }
 
 .wplite-frontend-launcher__item::after {
@@ -274,6 +263,7 @@ export function frontendLauncherCss() {
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--wplite-launcher-tooltip-bg);
+  border: 1px solid var(--wplite-launcher-tooltip-border);
   color: var(--wplite-launcher-tooltip-text);
   font-size: 11px;
   font-weight: 600;
@@ -306,7 +296,7 @@ export function frontendLauncherCss() {
   .wplite-frontend-launcher:hover .wplite-frontend-launcher__menu,
   .wplite-frontend-launcher:focus-within .wplite-frontend-launcher__menu,
   .wplite-frontend-launcher.is-open .wplite-frontend-launcher__menu {
-    max-width: calc(100vw - 96px);
+    max-width: min(calc(100vw - 84px), calc((var(--wplite-launcher-items, 3) * 42px) + 8px));
   }
 }
 `;

@@ -102,12 +102,17 @@ function BlockWidget({ widget }) {
     return () => observer.disconnect();
   }, [widget.blockName]);
 
+  const attributes =
+    widget.attributes && typeof widget.attributes === 'object' && !Array.isArray(widget.attributes)
+      ? widget.attributes
+      : {};
+
   return (
-    <section className="dash-card">
+    <div className="dash-card" data-widget={widget.blockName} data-chromeless={widget.chromeless ? 'true' : undefined}>
       <div ref={hostRef} className="block-widget-host">
         <ServerSideRender
           block={widget.blockName}
-          attributes={{}}
+          attributes={attributes}
           EmptyResponsePlaceholder={() => (
             <p className="dash-empty__text">Widget returned no content.</p>
           )}
@@ -119,7 +124,7 @@ function BlockWidget({ widget }) {
           )}
         />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -152,21 +157,12 @@ export function DashboardSettingsButton({ widgets, onToggle, onReset }) {
 }
 
 /* ── Dashboard Page — pure host for block widgets registered in bootstrap ── */
-const DASH_STORAGE_KEY = 'portfolio-light-dash-widgets-v5';
-const DASHBOARD_WIDGET_PRIORITY = {
-  'kanso-welcome': 0,
-  'kanso-traffic-overview': 10,
-  'kanso-key-metrics': 20,
-  'kanso-site-pulse': 30,
-  'kanso-top-content': 40,
-  'kanso-top-referrers': 50,
-  'kanso-recent-activity': 60,
-};
+const DASH_STORAGE_KEY = 'portfolio-light-dash-widgets-v7';
 
 function sortDashboardWidgets(widgets) {
   return [...widgets].sort((left, right) => {
-    const leftPriority = DASHBOARD_WIDGET_PRIORITY[left.id] ?? 500;
-    const rightPriority = DASHBOARD_WIDGET_PRIORITY[right.id] ?? 500;
+    const leftPriority = Number.isFinite(left.priority) ? left.priority : 500;
+    const rightPriority = Number.isFinite(right.priority) ? right.priority : 500;
     if (leftPriority !== rightPriority) return leftPriority - rightPriority;
     return String(left.label ?? left.id).localeCompare(String(right.label ?? right.id));
   });
@@ -183,6 +179,12 @@ export function DashboardPage({ bootstrap, onWidgetConfig }) {
       description: widget.description,
       visible: true,
       span: widget.span === 'full' ? 'full' : 'half',
+      chromeless: Boolean(widget.chromeless),
+      priority: Number.isFinite(widget.priority) ? widget.priority : 500,
+      attributes:
+        widget.attributes && typeof widget.attributes === 'object' && !Array.isArray(widget.attributes)
+          ? widget.attributes
+          : {},
     })));
   }, [bootstrap.dashboardWidgets]);
 
@@ -206,7 +208,9 @@ export function DashboardPage({ bootstrap, onWidgetConfig }) {
     setWidgetState(next);
     try {
       window.localStorage.setItem(DASH_STORAGE_KEY, JSON.stringify(
-        next.map(({ id, type, blockName, label, visible, span }) => ({ id, type, blockName, label, visible, span }))
+        next.map(({ id, type, blockName, label, visible, span, chromeless, priority, attributes }) => ({
+          id, type, blockName, label, visible, span, chromeless, priority, attributes,
+        }))
       ));
     } catch {}
   }

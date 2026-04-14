@@ -1,0 +1,39 @@
+{
+  "id": "note",
+  "label": "Field Notes",
+  "icon": "Notebook",
+  "type": "collection",
+  "postType": "note",
+  "archiveSlug": "field",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
+  "taxonomies": ["region"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Hero Image URL" },
+    "observed_on": { "type": "text", "label": "Observed On", "help": "ISO date, e.g. 2026-03-14." },
+    "place": { "type": "text", "label": "Place", "help": "Human-readable locality (e.g. 'Big Sur, California')." },
+    "lat": { "type": "text", "label": "Latitude" },
+    "lng": { "type": "text", "label": "Longitude" },
+    "elevation_m": { "type": "integer", "label": "Elevation (m)" },
+    "weather": { "type": "text", "label": "Weather", "help": "One-line summary: '52°F, high fog, no wind'." },
+    "species": { "type": "text", "label": "Species / Subject", "help": "What the note is primarily about." },
+    "ink_color": {
+      "type": "select",
+      "label": "Pin Color",
+      "options": ["ink", "iron", "moss", "rust", "indigo"],
+      "help": "Which ink color to use for this note's pin on the map."
+    },
+    "featured": { "type": "boolean", "label": "Featured" }
+  },
+  "editorTemplate": [
+    ["core/paragraph", { "placeholder": "A single sentence describing what you saw." }],
+    ["core/image", {}],
+    ["core/heading", { "content": "Conditions", "level": 2 }],
+    ["core/paragraph", { "placeholder": "Weather, light, sound, mood." }],
+    ["core/heading", { "content": "Observation", "level": 2 }],
+    ["core/paragraph", { "placeholder": "What happened, in detail." }],
+    ["core/heading", { "content": "Note to Self", "level": 2 }],
+    ["core/paragraph", { "placeholder": "Something to remember next time." }]
+  ],
+  "templateLock": "insert"
+}

@@ -23,15 +23,18 @@ foreach ( $post_types as $pt ) {
 $total_published = array_sum( array_column( $counts, 'published' ) );
 $total_draft     = array_sum( array_column( $counts, 'draft' ) );
 
-wp_interactivity_state(
-	'kanso/site-pulse',
-	[
-		'activeTab'      => 'published',
-		'counts'         => $counts,
-		'totalPublished' => $total_published,
-		'totalDraft'     => $total_draft,
-	]
-);
+$initial_state = [
+	'activeTab'      => 'published',
+	'counts'         => $counts,
+	'totalPublished' => $total_published,
+	'totalDraft'     => $total_draft,
+];
+// Seed every per-type derived value so the data-wp-text bindings have a value
+// before the view module's prime loop runs (otherwise hydration blanks them).
+foreach ( $counts as $row ) {
+	$initial_state[ 'valueFor' . ucfirst( $row['type'] ) ] = $row['published'];
+}
+wp_interactivity_state( 'kanso/site-pulse', $initial_state );
 
 $wrapper_attrs = get_block_wrapper_attributes(
 	[ 'class' => 'site-pulse' ]
@@ -41,37 +44,44 @@ $wrapper_attrs = get_block_wrapper_attributes(
 	<?php echo $wrapper_attrs; ?>
 	data-wp-interactive="kanso/site-pulse"
 >
-	<div class="site-pulse__tabs" role="tablist">
-		<button
-			type="button"
-			role="tab"
-			class="site-pulse__tab"
-			data-wp-on--click="actions.setTab"
-			data-wp-class--is-active="state.isPublishedTab"
-			data-tab="published"
-		>
-			Published <span class="site-pulse__count"><?php echo (int) $total_published; ?></span>
-		</button>
-		<button
-			type="button"
-			role="tab"
-			class="site-pulse__tab"
-			data-wp-on--click="actions.setTab"
-			data-wp-class--is-active="state.isDraftTab"
-			data-tab="draft"
-		>
-			Drafts <span class="site-pulse__count"><?php echo (int) $total_draft; ?></span>
-		</button>
+	<div class="dash-card__header">
+		<div class="dash-card__titles">
+			<span class="dash-card__eyebrow">Content</span>
+			<h2 class="dash-card__title">Site pulse</h2>
+		</div>
+		<div class="site-pulse__tabs metric-toggle" role="tablist">
+			<button
+				type="button"
+				role="tab"
+				class="metric-toggle__btn"
+				data-wp-on--click="actions.setTab"
+				data-wp-class--is-active="state.isPublishedTab"
+				data-tab="published"
+			>
+				Published <span class="site-pulse__count"><?php echo (int) $total_published; ?></span>
+			</button>
+			<button
+				type="button"
+				role="tab"
+				class="metric-toggle__btn"
+				data-wp-on--click="actions.setTab"
+				data-wp-class--is-active="state.isDraftTab"
+				data-tab="draft"
+			>
+				Drafts <span class="site-pulse__count"><?php echo (int) $total_draft; ?></span>
+			</button>
+		</div>
 	</div>
-
-	<ul class="site-pulse__list">
-		<?php foreach ( $counts as $row ) : ?>
-		<li class="site-pulse__row" data-type="<?php echo esc_attr( $row['type'] ); ?>">
-			<span class="site-pulse__label"><?php echo esc_html( $row['label'] ); ?></span>
-			<strong class="site-pulse__value" data-wp-text="state.valueFor<?php echo esc_attr( ucfirst( $row['type'] ) ); ?>">
-				<?php echo (int) $row['published']; ?>
-			</strong>
-		</li>
-		<?php endforeach; ?>
-	</ul>
+	<div class="dash-card__body">
+		<ul class="site-pulse__list">
+			<?php foreach ( $counts as $row ) : ?>
+			<li class="site-pulse__row" data-type="<?php echo esc_attr( $row['type'] ); ?>">
+				<span class="site-pulse__label"><?php echo esc_html( $row['label'] ); ?></span>
+				<strong class="site-pulse__value" data-wp-text="state.valueFor<?php echo esc_attr( ucfirst( $row['type'] ) ); ?>">
+					<?php echo (int) $row['published']; ?>
+				</strong>
+			</li>
+			<?php endforeach; ?>
+		</ul>
+	</div>
 </div>

@@ -1,0 +1,23 @@
+{
+  "id": "seo",
+  "label": "SEO",
+  "icon": "Search",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "default_title": {
+      "type": "text",
+      "label": "Default Title",
+      "inheritsFrom": "site.title"
+    },
+    "default_description": {
+      "type": "textarea",
+      "label": "Default Description",
+      "inheritsFrom": "site.description"
+    },
+    "og_image": {
+      "type": "image",
+      "label": "Open Graph Image"
+    }
+  }
+}

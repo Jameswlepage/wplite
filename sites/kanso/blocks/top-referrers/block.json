@@ -6,5 +6,6 @@
   "icon": "share",
   "description": "Traffic source breakdown with share bars.",
   "supports": { "html": false },
+  "dashboard": { "priority": 50, "span": "half" },
   "render": "file:./render.php"
 }

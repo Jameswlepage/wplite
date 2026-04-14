@@ -34,7 +34,13 @@ async function ensureDir(dirPath) {
 }
 
 async function readJsonDirectory(dirPath) {
-  const entries = await readdir(dirPath, { withFileTypes: true });
+  let entries = [];
+
+  try {
+    entries = await readdir(dirPath, { withFileTypes: true });
+  } catch {
+    return {};
+  }
   const data = {};
 
   for (const entry of entries) {
@@ -101,15 +107,30 @@ async function readBlockDirectory(dirPath) {
 
     try {
       const metadata = await readJson(blockJsonPath);
+      const {
+        apiVersion,
+        name,
+        title,
+        category,
+        icon,
+        description,
+        attributes,
+        supports,
+        ...rest
+      } = metadata;
       blocks.push({
-        apiVersion: metadata.apiVersion,
-        name: metadata.name,
-        title: metadata.title,
-        category: metadata.category,
-        icon: metadata.icon,
-        description: metadata.description,
-        attributes: metadata.attributes ?? {},
-        supports: metadata.supports ?? {},
+        apiVersion,
+        name,
+        title,
+        category,
+        icon,
+        description,
+        attributes: attributes ?? {},
+        supports: supports ?? {},
+        // Preserve any additional top-level block.json keys (e.g. a "dashboard"
+        // convention sites opt into) so downstream compiler and runtime code
+        // can read them without the compiler knowing specific block names.
+        ...rest,
       });
     } catch {
       // Ignore folders that are not valid blocks.
@@ -634,6 +655,7 @@ async function build(root) {
 
   const hashes = await computeInputHashes(root);
   const prior = await readCompileCache(paths.generatedRoot);
+  const adminBundleDirty = !prior || prior.adminApp !== hashes.adminApp;
 
   const needsFull =
     !prior ||
@@ -643,6 +665,12 @@ async function build(root) {
 
   if (needsFull) {
     await runFullBuild(root, site, paths, hashes);
+    return {
+      generatedRoot: paths.generatedRoot,
+      pluginRoot: paths.pluginRoot,
+      themeRoot: paths.themeRoot,
+      adminBundleDirty,
+    };
   } else {
     const changed = {
       app: prior.app !== hashes.app,
@@ -661,6 +689,7 @@ async function build(root) {
         pluginRoot: paths.pluginRoot,
         themeRoot: paths.themeRoot,
         incremental: { skipped: true },
+        adminBundleDirty: false,
       };
     }
 
@@ -689,18 +718,19 @@ async function build(root) {
         pluginRoot: paths.pluginRoot,
         themeRoot: paths.themeRoot,
         incremental: changed,
+        adminBundleDirty: changed.adminApp,
       };
     } catch (err) {
       // Fall back to a full rebuild if anything goes wrong incrementally.
       await runFullBuild(root, site, paths, hashes);
+      return {
+        generatedRoot: paths.generatedRoot,
+        pluginRoot: paths.pluginRoot,
+        themeRoot: paths.themeRoot,
+        adminBundleDirty,
+      };
     }
   }
-
-  return {
-    generatedRoot: paths.generatedRoot,
-    pluginRoot: paths.pluginRoot,
-    themeRoot: paths.themeRoot,
-  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
