@@ -3,24 +3,23 @@
   align-items: center;
   gap: 10px;
   min-width: 280px;
-  height: 36px;
+  height: 38px;
   padding: 0 12px;
-  border: 1px solid var(--wp-admin-border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--wp-admin-surface) 88%, transparent);
-  color: var(--wp-admin-text);
+  border: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
   cursor: pointer;
-  transition: border-color 100ms ease, background 100ms ease, box-shadow 100ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .command-bar-trigger:hover {
-  border-color: color-mix(in srgb, var(--wp-admin-accent) 25%, var(--wp-admin-border));
-  background: color-mix(in srgb, var(--wp-admin-surface) 94%, var(--wp-admin-accent) 6%);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .command-bar-trigger:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wp-admin-accent) 30%, transparent);
+  outline: 2px solid rgba(122, 159, 255, 0.9);
+  outline-offset: 2px;
 }
 
 .command-bar-trigger__label {
@@ -28,56 +27,52 @@
   min-width: 0;
   text-align: left;
   font-size: 13px;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .command-bar-trigger__shortcut {
   font-size: 11px;
   font-weight: 600;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.48);
   letter-spacing: 0.02em;
 }
 
-.components-modal__frame.command-bar-modal {
-  width: min(760px, calc(100vw - 32px));
-  max-width: 760px;
-  height: min(78vh, 720px);
-  margin-top: 10vh;
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--wp-admin-border) 82%, transparent);
-  background: var(--wp-admin-surface);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.16);
-  overflow: hidden;
-}
-
-.command-bar-modal .components-modal__content {
-  margin-top: 0;
-  padding: 0;
-  height: 100%;
-}
-
 .command-bar {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  background: var(--wp-admin-surface);
-  color: var(--wp-admin-text);
+  position: relative;
+  flex: 1 1 420px;
+  min-width: 240px;
+  max-width: 520px;
 }
 
 .command-bar__search {
+  width: 100%;
+}
+
+.command-bar__search-shell {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--wp-admin-border);
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 5px 0 12px;
+  border-radius: 4px;
+  background: rgba(246, 247, 249, 0.14);
+  color: #ffffff;
+  cursor: text;
+  transition: background 120ms ease;
+}
+
+.command-bar__search.is-active .command-bar__search-shell,
+.command-bar__search:hover .command-bar__search-shell {
+  background: rgba(246, 247, 249, 0.24);
 }
 
 .command-bar__search-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.54);
+  flex-shrink: 0;
 }
 
 .command-bar__input {
@@ -85,16 +80,49 @@
   min-width: 0;
   border: 0;
   background: transparent;
-  color: var(--wp-admin-text);
+  color: #ffffff;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.4;
   outline: none;
   padding: 0;
 }
 
 .command-bar__input::placeholder {
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.command-bar__search-shell kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.52);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.command-bar__dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: min(520px, calc(100vh - 160px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: #2d2d2d;
+  color: #ffffff;
+  box-shadow: none;
+  z-index: 30;
 }
 
 .command-bar__results {
@@ -114,7 +142,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .command-bar__section-list {
@@ -124,38 +152,42 @@
 
 .command-bar__item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   border: 0;
-  border-radius: 12px;
+  border-radius: 4px;
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 12px 10px;
+  padding: 6px 10px;
   cursor: pointer;
   transition: background 90ms ease, color 90ms ease;
 }
 
 .command-bar__item:hover,
 .command-bar__item.is-active {
-  background: color-mix(in srgb, var(--wp-admin-accent) 12%, transparent);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .command-bar__item-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  color: var(--wp-admin-text-muted);
+  width: 16px;
+  height: 16px;
+  color: rgba(255, 255, 255, 0.54);
   flex-shrink: 0;
+}
+
+.command-bar__item-icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .command-bar__item.is-active .command-bar__item-icon,
 .command-bar__item:hover .command-bar__item-icon {
-  color: var(--wp-admin-accent);
+  color: #ffffff;
 }
 
 .command-bar__item-body {
@@ -166,15 +198,15 @@
 }
 
 .command-bar__item-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--wp-admin-text);
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.96);
 }
 
 .command-bar__item-subtitle {
   font-size: 12px;
   line-height: 1.45;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.54);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -184,14 +216,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.42);
   flex-shrink: 0;
 }
 
 .command-bar__empty {
   display: grid;
   place-items: center;
-  min-height: 280px;
+  min-height: 240px;
   text-align: center;
   padding: 24px;
 }
@@ -199,12 +231,13 @@
 .command-bar__empty h2 {
   margin: 0 0 8px;
   font-size: 16px;
+  color: rgba(255, 255, 255, 0.94);
 }
 
 .command-bar__empty p {
   margin: 0;
   max-width: 420px;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.54);
   line-height: 1.55;
 }
 
@@ -215,8 +248,8 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 12px 16px;
-  border-top: 1px solid var(--wp-admin-border);
-  background: color-mix(in srgb, var(--wp-admin-canvas-bg) 70%, transparent);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .command-bar__footer-hints {
@@ -225,7 +258,7 @@
   gap: 12px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.46);
 }
 
 .command-bar__footer-hints span {
@@ -241,10 +274,10 @@
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  border-radius: 5px;
-  border: 1px solid var(--wp-admin-border);
-  background: var(--wp-admin-surface);
-  color: var(--wp-admin-text);
+  border-radius: 4px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
   font: inherit;
   font-size: 10px;
   font-weight: 700;
@@ -260,53 +293,93 @@
 .command-bar__status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--wp-admin-text-muted);
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .command-bar__status .components-spinner {
   margin: 0;
-  width: 14px;
-  height: 14px;
 }
 
 .command-bar__status--error {
-  color: #b32d2e;
+  color: #ffb4b4;
 }
 
 @media (max-width: 900px) {
-  .command-bar-trigger {
-    min-width: auto;
-    padding-inline: 10px;
+  .command-bar {
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .command-bar {
+    min-width: 0;
   }
 
-  .command-bar-trigger__label,
-  .command-bar-trigger__shortcut {
+  .command-bar__search-shell kbd,
+  .command-bar__footer {
     display: none;
   }
 }
 
-@media (max-width: 640px) {
-  .components-modal__frame.command-bar-modal {
-    width: calc(100vw - 16px);
-    height: min(82vh, 760px);
-    margin-top: 8px;
-  }
+/* ── Command bar: Ask AI fallback when no results ────────────── */
 
-  .command-bar__search {
-    padding: 16px;
-  }
+.command-bar__ask-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 8px 12px 8px 10px;
+  max-width: 100%;
+  background: rgba(217, 119, 87, 0.12);
+  border: 1px solid rgba(217, 119, 87, 0.35);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.94);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
 
-  .command-bar__results {
-    padding: 8px;
-  }
+.command-bar__ask-ai:hover,
+.command-bar__ask-ai:focus-visible {
+  background: rgba(217, 119, 87, 0.2);
+  border-color: rgba(217, 119, 87, 0.6);
+  outline: none;
+}
 
-  .command-bar__item-subtitle {
-    white-space: normal;
-  }
+.command-bar__ask-ai > svg {
+  flex: 0 0 auto;
+  color: #d97757;
+  fill: currentColor;
+}
 
-  .command-bar__footer {
-    align-items: flex-start;
-  }
+.command-bar__ask-ai-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.command-bar__ask-ai-query {
+  color: rgba(255, 255, 255, 0.96);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 380px;
+}
+
+.command-bar__ask-ai kbd {
+  margin-left: auto;
+  padding: 1px 6px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.62);
+  border-radius: 4px;
 }

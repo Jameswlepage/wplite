@@ -274,94 +274,6 @@ function portfolio_light_get_blocks() {
 \treturn $compiled['blocks'] ?? [];
 }
 
-/**
- * Build the list of dashboard widgets exposed to /app.
- *
- * This is fully generic: any block whose block.json declares
- * "category": "dashboard" is picked up. Sites can refine a widget with
- * an optional "dashboard" metadata object on the block.json:
- *
- *   "dashboard": {
- *     "priority":    <int>   // lower shows first, default 500
- *     "span":        "full" | "half"  // falls back to supports.align
- *     "chromeless":  <bool>  // drop the outer widget card frame
- *     "expandPer":   "collection"  // multiply into one widget per model
- *     "attributes":  { ... } // default attributes for the ServerSideRender call
- *   }
- *
- * When expandPer === "collection" the compiler emits one widget per
- * collection model, passing { modelId } as an attribute so the block
- * render.php can use it.
- */
-function portfolio_light_get_dashboard_widgets() {
-\t$blocks  = portfolio_light_get_blocks();
-\t$widgets = [];
-
-\tforeach ( $blocks as $block ) {
-\t\tif ( ( $block['category'] ?? '' ) !== 'dashboard' ) {
-\t\t\tcontinue;
-\t\t}
-
-\t\t$meta     = is_array( $block['dashboard'] ?? null ) ? $block['dashboard'] : [];
-\t\t$supports = is_array( $block['supports'] ?? null ) ? $block['supports'] : [];
-\t\t$align    = $supports['align'] ?? [];
-\t\tif ( ! is_array( $align ) ) {
-\t\t\t$align = [ $align ];
-\t\t}
-\t\t$default_span = in_array( 'full', $align, true ) ? 'full' : 'half';
-\t\t$span         = $meta['span'] ?? $default_span;
-\t\t$priority     = isset( $meta['priority'] ) ? (int) $meta['priority'] : 500;
-\t\t$chromeless   = ! empty( $meta['chromeless'] );
-\t\t$base_attrs   = is_array( $meta['attributes'] ?? null ) ? $meta['attributes'] : [];
-\t\t$expand       = $meta['expandPer'] ?? null;
-\t\t$base_id      = sanitize_key( str_replace( '/', '-', $block['name'] ) );
-
-\t\tif ( $expand === 'collection' ) {
-\t\t\t$collections = array_values( array_filter( portfolio_light_get_models(), function( $m ) {
-\t\t\t\treturn ( $m['type'] ?? '' ) === 'collection';
-\t\t\t} ) );
-\t\t\tforeach ( $collections as $index => $model ) {
-\t\t\t\t$widgets[] = [
-\t\t\t\t\t'id'          => $base_id . '--' . sanitize_key( $model['id'] ),
-\t\t\t\t\t'name'        => $block['name'],
-\t\t\t\t\t'title'       => $model['label'],
-\t\t\t\t\t'description' => sprintf( 'Recent %s', strtolower( $model['label'] ) ),
-\t\t\t\t\t'icon'        => $block['icon'] ?? null,
-\t\t\t\t\t'span'        => $span,
-\t\t\t\t\t'chromeless'  => $chromeless,
-\t\t\t\t\t'priority'    => $priority + $index,
-\t\t\t\t\t'attributes'  => array_merge( $base_attrs, [ 'modelId' => $model['id'] ] ),
-\t\t\t\t];
-\t\t\t}
-\t\t\tcontinue;
-\t\t}
-
-\t\t$widgets[] = [
-\t\t\t'id'          => $base_id,
-\t\t\t'name'        => $block['name'],
-\t\t\t'title'       => $block['title'] ?? $block['name'],
-\t\t\t'description' => $block['description'] ?? '',
-\t\t\t'icon'        => $block['icon'] ?? null,
-\t\t\t'span'        => $span,
-\t\t\t'chromeless'  => $chromeless,
-\t\t\t'priority'    => $priority,
-\t\t\t'attributes'  => (object) $base_attrs,
-\t\t];
-\t}
-
-\tusort(
-\t\t$widgets,
-\t\tfunction( $left, $right ) {
-\t\t\tif ( $left['priority'] !== $right['priority'] ) {
-\t\t\t\treturn $left['priority'] <=> $right['priority'];
-\t\t\t}
-\t\t\treturn strcmp( $left['title'], $right['title'] );
-\t\t}
-\t);
-
-\treturn $widgets;
-}
-
 function portfolio_light_get_menus() {
 \t$compiled = portfolio_light_get_compiled_site();
 \treturn $compiled['menus'] ?? [];
@@ -620,14 +532,7 @@ function portfolio_light_get_dev_state() {
 }
 
 function portfolio_light_get_admin_navigation() {
-\t$navigation = [
-\t\t[
-\t\t\t'id'    => 'dashboard',
-\t\t\t'label' => 'Dashboard',
-\t\t\t'path'  => '/',
-\t\t\t'kind'  => 'dashboard',
-\t\t],
-\t];
+\t$navigation = [];
 
 \tforeach ( portfolio_light_get_admin_models() as $model ) {
 \t\t$nav_item = [
@@ -866,82 +771,6 @@ function portfolio_light_upsert_record( $model, $payload, $existing_id = 0 ) {
 \t}
 
 \treturn get_post( $post_id );
-}
-
-function portfolio_light_profile_completeness() {
-\t$schema = portfolio_light_get_singleton_schema( 'profile' );
-\t$data   = get_option( 'portfolio_singleton_profile', [] );
-\t$fields = array_keys( $schema['fields'] ?? [] );
-\tif ( empty( $fields ) ) {
-\t\treturn 0;
-\t}
-
-\t$completed = 0;
-\tforeach ( $fields as $field ) {
-\t\tif ( ! empty( $data[ $field ] ) || false === empty( $data[ $field ] ) ) {
-\t\t\t$completed++;
-\t\t}
-\t}
-
-\treturn (int) round( ( $completed / count( $fields ) ) * 100 );
-}
-
-function portfolio_light_get_dashboard_data() {
-\t$projects_model = portfolio_light_get_model( 'project' );
-\t$inquiry_model  = portfolio_light_get_model( 'inquiry' );
-\t$featured_count = 0;
-\t$recent         = [];
-
-\tif ( $projects_model ) {
-\t\t$featured_query = new WP_Query(
-\t\t\t[
-\t\t\t\t'post_type'      => $projects_model['postType'],
-\t\t\t\t'post_status'    => 'any',
-\t\t\t\t'posts_per_page' => 1,
-\t\t\t\t'fields'         => 'ids',
-\t\t\t\t'meta_query'     => [
-\t\t\t\t\t[
-\t\t\t\t\t\t'key'   => 'featured',
-\t\t\t\t\t\t'value' => '1',
-\t\t\t\t\t],
-\t\t\t\t],
-\t\t\t]
-\t\t);
-\t\t$featured_count = (int) $featured_query->found_posts;
-\t}
-
-\tif ( $inquiry_model ) {
-\t\t$inquiries = get_posts(
-\t\t\t[
-\t\t\t\t'post_type'      => $inquiry_model['postType'],
-\t\t\t\t'post_status'    => 'any',
-\t\t\t\t'posts_per_page' => 5,
-\t\t\t\t'orderby'        => 'modified',
-\t\t\t\t'order'          => 'DESC',
-\t\t\t]
-\t\t);
-
-\t\t$recent = array_map(
-\t\t\tfunction( $post ) use ( $inquiry_model ) {
-\t\t\t\t$record = portfolio_light_prepare_record( $post, $inquiry_model );
-\t\t\t\treturn [
-\t\t\t\t\t'id'       => $record['id'],
-\t\t\t\t\t'title'    => $record['title'],
-\t\t\t\t\t'email'    => $record['email'] ?? '',
-\t\t\t\t\t'company'  => $record['company'] ?? '',
-\t\t\t\t\t'status'   => $record['status'] ?? '',
-\t\t\t\t\t'modified' => $record['modified'],
-\t\t\t\t];
-\t\t\t},
-\t\t\t$inquiries
-\t\t);
-\t}
-
-\treturn [
-\t\t'featuredProjects'   => $featured_count,
-\t\t'profileCompleteness'=> portfolio_light_profile_completeness(),
-\t\t'recentInquiries'    => $recent,
-\t];
 }
 
 function portfolio_light_export_pull_data() {

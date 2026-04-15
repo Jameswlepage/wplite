@@ -1,0 +1,24 @@
+{
+  "name": "@wplite/elsewhere",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wp-light build",
+    "dev": "wp-light dev",
+    "apply": "wp-light apply",
+    "pull": "wp-light pull",
+    "verify": "wp-light verify --json",
+    "eject": "wp-light eject",
+    "wp-env:start": "npm run build && npx wp-env start",
+    "wp-env:stop": "wp-env stop",
+    "wp-env:destroy": "wp-env destroy",
+    "seed": "wp-light seed",
+    "rebuild": "npm run build && npm run seed"
+  },
+  "dependencies": {
+    "@wplite/compiler": "*"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^11.2.0"
+  }
+}

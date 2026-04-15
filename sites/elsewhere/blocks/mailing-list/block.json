@@ -1,0 +1,18 @@
+{
+  "apiVersion": 3,
+  "name": "elsewhere/mailing-list",
+  "title": "Mailing List",
+  "category": "widgets",
+  "icon": "email-alt",
+  "description": "Join-the-list signup. Posts to the inquiries endpoint with source=mailing_list.",
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "attributes": {
+    "heading":    { "type": "string", "default": "Join the list.\nHear it first." },
+    "subheading": { "type": "string", "default": "Early ticket access, mixes from the booth, and dispatches from the Bushwick floor." },
+    "cta":        { "type": "string", "default": "Sign me up →" },
+    "success":    { "type": "string", "default": "You're on the list. Watch your inbox for the next drop." }
+  },
+  "render": "file:./render.php",
+  "viewScript": "file:./view.js",
+  "style": "file:./style.css"
+}

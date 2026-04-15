@@ -1,0 +1,9 @@
+[
+  { "label": "Calendar",       "type": "page", "object": "calendar" },
+  { "label": "Artists",        "type": "archive", "object": "artist" },
+  { "label": "Rooms",          "type": "archive", "object": "room" },
+  { "label": "Sounds",         "type": "archive", "object": "release" },
+  { "label": "About",          "type": "page", "object": "about" },
+  { "label": "Contact",        "type": "page", "object": "contact" },
+  { "label": "News",           "type": "page", "object": "news" }
+]

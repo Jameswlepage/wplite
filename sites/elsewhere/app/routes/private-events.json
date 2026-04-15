@@ -1,0 +1,8 @@
+{
+  "id": "private-events",
+  "type": "page",
+  "slug": "private-events",
+  "title": "Private Events",
+  "template": "private-events",
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

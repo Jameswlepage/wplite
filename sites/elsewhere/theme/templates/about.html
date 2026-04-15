@@ -1,0 +1,39 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"layout":{"type":"constrained"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|40","bottom":"var:preset|spacing|50"}}}} -->
+<div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--50)">
+
+<!-- wp:heading {"level":1,"className":"e-hero__title"} --><h1 class="wp-block-heading e-hero__title">We Run<br>a Room.</h1><!-- /wp:heading -->
+
+<!-- wp:spacer {"height":"32px"} --><div style="height:32px" aria-hidden="true" class="wp-block-spacer"></div><!-- /wp:spacer -->
+
+<!-- wp:paragraph {"style":{"typography":{"fontSize":"1.25rem"}}} -->
+<p style="font-size:1.25rem">Elsewhere opened in 2017 in a former metal shop on Johnson Avenue. Four rooms, two bars, one rooftop, no headliner too small. We are a nonprofit, mission-led venue built by a team of musicians, promoters, and lifelong show-goers who got tired of good rooms closing.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>We book across genres — punk and rap, techno and folk, experimental and pop — and we trust audiences to follow a great booking into a room they'd never normally visit. About a third of our programming is free or pay-what-you-can. A third is dedicated to artists performing in New York for the first time. The rest keeps the lights on.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:heading {"level":2,"className":"e-section-title"} --><h2 class="wp-block-heading e-section-title">Rooms</h2><!-- /wp:heading -->
+
+<!-- wp:query {"queryId":50,"query":{"perPage":4,"postType":"room","inherit":false,"orderBy":"title","order":"asc"}} -->
+<div class="wp-block-query">
+<!-- wp:post-template {"layout":{"type":"grid","columnCount":2}} -->
+
+<!-- wp:group {"className":"e-event-card"} -->
+<div class="wp-block-group e-event-card">
+<!-- wp:post-featured-image {"className":"e-event-card__poster","aspectRatio":"16/9"} /-->
+<!-- wp:post-title {"level":3,"className":"e-event-card__title","isLink":true} /-->
+<!-- wp:post-excerpt /-->
+</div>
+<!-- /wp:group -->
+
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

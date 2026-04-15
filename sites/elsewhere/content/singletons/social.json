@@ -1,0 +1,11 @@
+{
+  "singleton": "social",
+  "data": {
+    "instagram_url": "https://instagram.com/elsewherespace",
+    "twitter_url":   "https://twitter.com/elsewherespace",
+    "tiktok_url":    "https://tiktok.com/@elsewherespace",
+    "youtube_url":   "https://youtube.com/@elsewherespace",
+    "mailing_list_url":   "https://elsewherebrooklyn.com/subscribe",
+    "mailing_list_blurb": "Early ticket access, mixes from the booth, and dispatches from the Bushwick floor."
+  }
+}

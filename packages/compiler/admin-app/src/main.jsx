@@ -31,6 +31,7 @@ if (runtimeConfig.nonce) {
   wpApiFetch.use(wpApiFetch.createNonceMiddleware(runtimeConfig.nonce));
 }
 import { registerRuntimeBlocks } from './lib/blocks.jsx';
+import { initDevHmr } from './lib/dev-hmr.js';
 import { AppLoadingSkeleton } from './components/skeletons.jsx';
 import { AppShell } from './components/shell.jsx';
 import { SpaNavBridge } from './lib/spa-nav.js';
@@ -46,9 +47,21 @@ function App() {
   const [singletonData, setSingletonData] = useState({});
   const [error, setError] = useState(null);
 
+  const refetchBootstrap = React.useCallback(async () => {
+    try {
+      const payload = await apiFetch('bootstrap');
+      registerRuntimeBlocks(payload.blocks ?? []);
+      setBootstrap(payload);
+      setRecordsByModel(payload.records ?? {});
+      setSingletonData(payload.singletonData ?? {});
+    } catch (loadError) {
+      setError(loadError);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    (async () => {
       try {
         const payload = await apiFetch('bootstrap');
         if (cancelled) return;
@@ -59,10 +72,15 @@ function App() {
       } catch (loadError) {
         if (!cancelled) setError(loadError);
       }
-    }
-    load();
+    })();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const handler = () => { refetchBootstrap(); };
+    window.addEventListener('wplite-dev-hmr:bootstrap-refresh', handler);
+    return () => window.removeEventListener('wplite-dev-hmr:bootstrap-refresh', handler);
+  }, [refetchBootstrap]);
 
   if (error) {
     const systemFont = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif";
@@ -98,6 +116,8 @@ function App() {
     </SlotFillProvider>
   );
 }
+
+initDevHmr();
 
 const root = createRoot(document.getElementById('portfolio-admin-root'));
 root.render(<App />);

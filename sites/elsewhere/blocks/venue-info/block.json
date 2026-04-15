@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "elsewhere/venue-info",
+  "title": "Venue Info",
+  "category": "widgets",
+  "icon": "location-alt",
+  "description": "Address, department emails, and hours from the Venue Info singleton.",
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "render": "file:./render.php"
+}

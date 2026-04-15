@@ -1,0 +1,30 @@
+<!-- wp:template-part {"slug":"header","tagName":"header"} /-->
+
+<!-- wp:group {"layout":{"type":"constrained"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|40","bottom":"var:preset|spacing|50"}}}} -->
+<div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--40);padding-bottom:var(--wp--preset--spacing--50)">
+<!-- wp:heading {"level":1,"className":"e-section-title"} --><h1 class="wp-block-heading e-section-title">Sounds</h1><!-- /wp:heading -->
+
+<!-- wp:query {"queryId":42,"query":{"perPage":30,"postType":"release","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:post-template {"className":"e-sounds__grid"} -->
+
+<!-- wp:group {"className":"e-release-card","layout":{"type":"default"}} -->
+<div class="wp-block-group e-release-card">
+<!-- wp:post-featured-image {"isLink":true,"className":"e-release-card__cover","aspectRatio":"1"} /-->
+<!-- wp:group {"className":"e-release-card__meta","layout":{"type":"default"}} -->
+<div class="wp-block-group e-release-card__meta">
+<!-- wp:paragraph {"className":"e-release-card__artist","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"artist_name"}}}}} --><p class="e-release-card__artist"></p><!-- /wp:paragraph -->
+<!-- wp:post-title {"level":3,"className":"e-release-card__title","isLink":true} /-->
+<!-- wp:post-excerpt /-->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer"} /-->

@@ -1,0 +1,6 @@
+[
+  { "label": "Calendar",        "type": "page", "object": "calendar" },
+  { "label": "Memberships",     "type": "page", "object": "memberships" },
+  { "label": "Private Events",  "type": "page", "object": "private-events" },
+  { "label": "Sponsorships",    "type": "page", "object": "sponsorships" }
+]

@@ -9,7 +9,7 @@ import {
   TextareaControl,
   ToggleControl,
 } from '@wordpress/components';
-import { DataForm } from '@wordpress/dataviews';
+import { DataForm, DataViews } from '@wordpress/dataviews';
 import { Add, CloudUpload, Document, DocumentPdf, Music, NotificationOff, Upload, Video } from '@carbon/icons-react';
 import {
   apiFetch,
@@ -19,6 +19,7 @@ import {
   createEmptySingleton,
   decodeRenderedText,
   formatDateTime,
+  normalizeCommentRecord,
   normalizeMediaRecord,
   normalizePageRecord,
   normalizeUserPreferences,
@@ -40,10 +41,11 @@ const ACCOUNT_COLOR_OPTIONS = [
   { value: 'sunrise', label: 'Sunrise' },
 ];
 
-function useAnchorPosition(anchorRef, { width = 280, offsetY = 10, align = 'left' } = {}) {
+function useAnchorPosition(anchorRef, { width = 280, offsetY = 10, align = 'left', open = true } = {}) {
   const [style, setStyle] = useState(null);
 
   useEffect(() => {
+    if (!open) return undefined;
     function update() {
       const anchor = anchorRef?.current;
       if (!anchor) return;
@@ -71,13 +73,20 @@ function useAnchorPosition(anchorRef, { width = 280, offsetY = 10, align = 'left
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [align, anchorRef, offsetY, width]);
+  }, [align, anchorRef, offsetY, width, open]);
 
   return style;
 }
 
-function OverlayBackdrop({ onClick }) {
-  return <button type="button" className="workspace-overlay-backdrop" onClick={onClick} aria-label="Close overlay" />;
+function OverlayBackdrop({ onClick, className = '' }) {
+  return (
+    <button
+      type="button"
+      className={`workspace-overlay-backdrop ${className}`.trim()}
+      onClick={onClick}
+      aria-label="Close overlay"
+    />
+  );
 }
 
 function OverlayPanel({ title, description, onClose, children, className = '' }) {
@@ -143,7 +152,7 @@ function statusClass(status) {
 }
 
 export function NotificationsPopover({ open, anchorRef, notifications, onClose, onMarkAllRead, onClearAll }) {
-  const style = useAnchorPosition(anchorRef, { width: 360, offsetY: 12, align: 'right' });
+  const style = useAnchorPosition(anchorRef, { width: 360, offsetY: 12, align: 'right', open });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -162,7 +171,7 @@ export function NotificationsPopover({ open, anchorRef, notifications, onClose, 
 
   return (
     <Fragment>
-      <OverlayBackdrop onClick={onClose} />
+      <OverlayBackdrop onClick={onClose} className="workspace-overlay-backdrop--clear" />
       <div className="workspace-flyout workspace-flyout--notifications" style={style}>
         <header className="workspace-flyout__header">
           <div>
@@ -208,6 +217,56 @@ export function NotificationsPopover({ open, anchorRef, notifications, onClose, 
   );
 }
 
+const CONTENT_FIELDS = [
+  {
+    id: 'title',
+    label: 'Title',
+    enableHiding: false,
+    enableGlobalSearch: true,
+    getValue: ({ item }) => item.title || '(untitled)',
+  },
+  {
+    id: 'slug',
+    label: 'Slug',
+    enableGlobalSearch: true,
+    getValue: ({ item }) => item.slug ? `/${item.slug}` : '—',
+  },
+  {
+    id: 'postStatus',
+    label: 'Status',
+    getValue: ({ item }) => item.postStatus || 'draft',
+    elements: [
+      { value: 'publish', label: 'Published' },
+      { value: 'draft', label: 'Draft' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'private', label: 'Private' },
+    ],
+    filterBy: { operators: ['is', 'isNot'] },
+    render: ({ item }) => (
+      <span className={`workspace-status-chip ${statusClass(item.postStatus)}`}>
+        {item.postStatus || 'draft'}
+      </span>
+    ),
+  },
+  {
+    id: 'modified',
+    label: 'Updated',
+    getValue: ({ item }) => item.modified || '',
+    render: ({ item }) => formatDateTime(item.modified),
+  },
+];
+
+const CONTENT_VIEW_DEFAULT = {
+  type: 'table',
+  page: 1,
+  perPage: 20,
+  search: '',
+  fields: ['slug', 'postStatus', 'modified'],
+  titleField: 'title',
+  layout: {},
+  filters: [],
+};
+
 export function ContentPopover({
   open,
   bootstrap,
@@ -218,12 +277,10 @@ export function ContentPopover({
   onOpenItem,
   onClose,
 }) {
-  const [search, setSearch] = useState('');
+  const [view, setView] = useState(CONTENT_VIEW_DEFAULT);
 
   useEffect(() => {
-    if (open) {
-      setSearch('');
-    }
+    if (open) setView(CONTENT_VIEW_DEFAULT);
   }, [open]);
 
   const sections = useMemo(() => {
@@ -270,18 +327,44 @@ export function ContentPopover({
 
   const activeSection = sections.find((section) => section.id === currentSection) ?? sections[0];
 
-  const filteredRecords = useMemo(() => {
-    const term = search.trim().toLowerCase();
+  const processed = useMemo(() => {
     const records = activeSection?.records ?? [];
-    if (!term) return records;
-    return records.filter((record) => {
-      const haystack = [record.title, record.slug, record.postStatus, record.routeId]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [activeSection, search]);
+    const term = (view.search || '').trim().toLowerCase();
+    let filtered = records;
+    if (term) {
+      filtered = filtered.filter((record) => {
+        const haystack = [record.title, record.slug, record.postStatus, record.routeId]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(term);
+      });
+    }
+    for (const filter of view.filters || []) {
+      if (filter.field === 'postStatus' && Array.isArray(filter.value) && filter.value.length) {
+        filtered = filtered.filter((record) => {
+          const status = record.postStatus || 'draft';
+          return filter.operator === 'isNot'
+            ? !filter.value.includes(status)
+            : filter.value.includes(status);
+        });
+      }
+    }
+    return filtered;
+  }, [activeSection, view.search, view.filters]);
+
+  const actions = useMemo(() => [
+    {
+      id: 'open',
+      label: 'Open',
+      isPrimary: true,
+      callback: (items) => {
+        if (!items?.length) return;
+        const item = items[0];
+        onOpenItem(activeSection.getPath(item.id));
+      },
+    },
+  ], [activeSection, onOpenItem]);
 
   if (!open) return null;
 
@@ -309,65 +392,34 @@ export function ContentPopover({
               </button>
             ))}
           </aside>
-          <section className="workspace-browser__main">
+          <section className="workspace-browser__main workspace-browser__main--dataviews">
             <div className="workspace-browser__toolbar">
               <div>
                 <h3>{activeSection?.label}</h3>
                 <p>{activeSection?.records.length ?? 0} items</p>
               </div>
               <div className="workspace-browser__toolbar-actions">
-                <TextControl
-                  label="Search content"
-                  hideLabelFromVision
-                  value={search}
-                  onChange={setSearch}
-                  placeholder={`Search ${activeSection?.label?.toLowerCase() ?? 'content'}...`}
-                  __next40pxDefaultSize
-                  __nextHasNoMarginBottom
-                />
                 <Button variant="primary" onClick={() => onOpenItem(activeSection.getNewPath())}>
                   {activeSection?.createLabel || 'New'}
                 </Button>
               </div>
             </div>
-            <div className="workspace-browser__table-shell">
-              <table className="workspace-browser__table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRecords.map((record) => {
-                    const path = activeSection.getPath(record.id);
-                    const isActive = currentPath === path;
-                    return (
-                      <tr key={`${activeSection.id}:${record.id}`} className={isActive ? 'is-active' : ''}>
-                        <td>
-                          <button type="button" className="workspace-browser__row-link" onClick={() => onOpenItem(path)}>
-                            <strong>{record.title || '(untitled)'}</strong>
-                            <span>{record.slug ? `/${record.slug}` : 'No slug yet'}</span>
-                          </button>
-                        </td>
-                        <td>
-                          <span className={`workspace-status-chip ${statusClass(record.postStatus)}`}>
-                            {record.postStatus || 'draft'}
-                          </span>
-                        </td>
-                        <td>{formatDateTime(record.modified)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filteredRecords.length === 0 ? (
-                <div className="workspace-empty-panel workspace-empty-panel--compact">
-                  <strong>No matching {activeSection?.label?.toLowerCase() ?? 'items'}</strong>
-                  <p>Try a different search term or create a new item from this section.</p>
-                </div>
-              ) : null}
+            <div className="workspace-dataviews-shell">
+              <DataViews
+                key={activeSection?.id}
+                data={processed}
+                fields={CONTENT_FIELDS}
+                view={view}
+                onChangeView={setView}
+                paginationInfo={{ totalItems: processed.length, totalPages: Math.max(1, Math.ceil(processed.length / (view.perPage || 20))) }}
+                defaultLayouts={{ table: {} }}
+                getItemId={(item) => String(item.id)}
+                isLoading={false}
+                actions={actions}
+                onClickItem={(item) => onOpenItem(activeSection.getPath(item.id))}
+                selection={[]}
+                onChangeSelection={() => {}}
+              />
             </div>
           </section>
         </div>
@@ -404,13 +456,29 @@ function getTitle(item) {
   return decodeRenderedText(item.title?.rendered) || item.slug || '(untitled)';
 }
 
+const MEDIA_VIEW_DEFAULT = {
+  type: 'grid',
+  page: 1,
+  perPage: 40,
+  search: '',
+  fields: ['mimeBucket'],
+  titleField: 'title',
+  mediaField: 'thumb',
+  descriptionField: 'mimeType',
+  layout: {},
+  filters: [],
+};
+
 export function MediaPopover({ open, onClose, onOpenItem, pushNotice }) {
   const [media, setMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [search, setSearch] = useState('');
-  const [mimeFilter, setMimeFilter] = useState('all');
+  const [view, setView] = useState(MEDIA_VIEW_DEFAULT);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) setView(MEDIA_VIEW_DEFAULT);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -456,15 +524,90 @@ export function MediaPopover({ open, onClose, onOpenItem, pushNotice }) {
     }
   }, [pushNotice]);
 
+  const items = useMemo(() => media.map((item) => {
+    const normalized = normalizeMediaRecord(item);
+    return {
+      id: String(item.id),
+      title: normalized.title || getTitle(item),
+      mimeType: normalized.mimeType || item.mime_type || 'Media',
+      mimeBucket: getMimeBucket(item.mime_type),
+      thumb: getThumb(item),
+      sourceUrl: normalized.sourceUrl,
+      alt: item.alt_text || '',
+    };
+  }), [media]);
+
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return media.filter((item) => {
-      if (mimeFilter !== 'all' && getMimeBucket(item.mime_type) !== mimeFilter) return false;
-      if (!query) return true;
-      const title = getTitle(item).toLowerCase();
-      return title.includes(query) || (item.mime_type || '').includes(query);
-    });
-  }, [media, mimeFilter, search]);
+    const query = (view.search || '').trim().toLowerCase();
+    let list = items;
+    for (const filter of view.filters || []) {
+      if (filter.field === 'mimeBucket' && Array.isArray(filter.value) && filter.value.length) {
+        list = list.filter((it) =>
+          filter.operator === 'isNot'
+            ? !filter.value.includes(it.mimeBucket)
+            : filter.value.includes(it.mimeBucket)
+        );
+      }
+    }
+    if (!query) return list;
+    return list.filter((it) => it.title.toLowerCase().includes(query) || it.mimeType.toLowerCase().includes(query));
+  }, [items, view.search, view.filters]);
+
+  const fields = useMemo(() => [
+    {
+      id: 'title',
+      label: 'Title',
+      enableHiding: false,
+      enableGlobalSearch: true,
+    },
+    {
+      id: 'thumb',
+      label: 'Preview',
+      render: ({ item }) => (
+        <div className="workspace-media-card__preview">
+          {item.mimeBucket === 'image' && item.thumb ? (
+            <img src={item.thumb} alt={item.alt} loading="lazy" />
+          ) : (
+            (() => {
+              const Icon = item.mimeBucket === 'video' ? Video
+                : item.mimeBucket === 'audio' ? Music
+                : item.mimeBucket === 'document' ? DocumentPdf
+                : Document;
+              return <Icon size={36} />;
+            })()
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'mimeType',
+      label: 'Type',
+    },
+    {
+      id: 'mimeBucket',
+      label: 'Category',
+      elements: [
+        { value: 'image', label: 'Images' },
+        { value: 'video', label: 'Videos' },
+        { value: 'audio', label: 'Audio' },
+        { value: 'document', label: 'Documents' },
+        { value: 'other', label: 'Other' },
+      ],
+      filterBy: { operators: ['is', 'isNot'] },
+    },
+  ], []);
+
+  const actions = useMemo(() => [
+    {
+      id: 'open',
+      label: 'Open',
+      isPrimary: true,
+      callback: (rows) => {
+        if (!rows?.length) return;
+        onOpenItem(`/media/${rows[0].id}`);
+      },
+    },
+  ], [onOpenItem]);
 
   if (!open) return null;
 
@@ -478,37 +621,13 @@ export function MediaPopover({ open, onClose, onOpenItem, pushNotice }) {
         className="workspace-overlay--media"
       >
         <div className="workspace-browser workspace-browser--media">
-          <section className="workspace-browser__main">
+          <section className="workspace-browser__main workspace-browser__main--dataviews">
             <div className="workspace-browser__toolbar workspace-browser__toolbar--media">
               <div>
                 <h3>Library</h3>
                 <p>{filtered.length} of {media.length} assets</p>
               </div>
               <div className="workspace-browser__toolbar-actions">
-                <TextControl
-                  label="Search media"
-                  hideLabelFromVision
-                  value={search}
-                  onChange={setSearch}
-                  placeholder="Search media..."
-                  __next40pxDefaultSize
-                  __nextHasNoMarginBottom
-                />
-                <SelectControl
-                  label="Filter by type"
-                  hideLabelFromVision
-                  value={mimeFilter}
-                  onChange={setMimeFilter}
-                  options={[
-                    { label: 'All types', value: 'all' },
-                    { label: 'Images', value: 'image' },
-                    { label: 'Videos', value: 'video' },
-                    { label: 'Audio', value: 'audio' },
-                    { label: 'Documents', value: 'document' },
-                  ]}
-                  __next40pxDefaultSize
-                  __nextHasNoMarginBottom
-                />
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -524,55 +643,295 @@ export function MediaPopover({ open, onClose, onOpenItem, pushNotice }) {
                 </Button>
               </div>
             </div>
-            <div className="workspace-media-grid-shell">
-              {loading ? (
-                <div className="workspace-empty-panel workspace-empty-panel--compact">
-                  <strong>Loading media...</strong>
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="workspace-empty-panel">
-                  <CloudUpload size={32} />
-                  <strong>No assets match</strong>
-                  <p>Upload new files or clear the current filter to see the rest of the library.</p>
-                </div>
-              ) : (
-                <div className="workspace-media-grid">
-                  {filtered.map((item) => {
-                    const thumb = getThumb(item);
-                    const IconComp = getMimeIconComponent(item.mime_type);
-                    const normalized = normalizeMediaRecord(item);
-                    return (
-                      <article key={item.id} className="workspace-media-card">
-                        <button
-                          type="button"
-                          className="workspace-media-card__button"
-                          onClick={() => onOpenItem(`/media/${item.id}`)}
-                        >
-                          <div className="workspace-media-card__preview">
-                            {IconComp ? (
-                              <IconComp size={40} className="workspace-media-card__icon" />
-                            ) : (
-                              <img src={thumb} alt={item.alt_text || ''} loading="lazy" />
-                            )}
-                          </div>
-                          <div className="workspace-media-card__meta">
-                            <strong>{normalized.title || '(untitled)'}</strong>
-                            <span>{normalized.mimeType || 'Media'}</span>
-                          </div>
-                        </button>
-                        <div className="workspace-media-card__actions">
-                          <a href={normalized.sourceUrl} target="_blank" rel="noopener noreferrer">
-                            Open
-                          </a>
-                          <a href={normalized.sourceUrl} download>
-                            Download
-                          </a>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
+            <div className="workspace-dataviews-shell">
+              <DataViews
+                data={filtered}
+                fields={fields}
+                view={view}
+                onChangeView={setView}
+                paginationInfo={{ totalItems: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / (view.perPage || 40))) }}
+                defaultLayouts={{ grid: {}, table: {} }}
+                getItemId={(item) => item.id}
+                isLoading={loading}
+                actions={actions}
+                onClickItem={(item) => onOpenItem(`/media/${item.id}`)}
+                selection={[]}
+                onChangeSelection={() => {}}
+              />
+            </div>
+          </section>
+        </div>
+      </OverlayPanel>
+    </Fragment>
+  );
+}
+
+const USERS_VIEW_DEFAULT = {
+  type: 'table',
+  page: 1,
+  perPage: 20,
+  search: '',
+  fields: ['email', 'roles'],
+  titleField: 'name',
+  layout: {},
+  filters: [],
+};
+
+const USER_FIELDS = [
+  { id: 'name', label: 'Name', enableHiding: false, enableGlobalSearch: true },
+  { id: 'username', label: 'Username', enableGlobalSearch: true },
+  { id: 'email', label: 'Email', enableGlobalSearch: true },
+  { id: 'roles', label: 'Roles', getValue: ({ item }) => (item.roles || []).join(', ') },
+];
+
+export function UsersPopover({ open, onClose, onOpenItem, pushNotice }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState(USERS_VIEW_DEFAULT);
+
+  useEffect(() => {
+    if (open) setView(USERS_VIEW_DEFAULT);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await wpApiFetch('wp/v2/users?per_page=100&context=edit');
+        if (!cancelled) {
+          setUsers(rows.map((u) => {
+            const n = normalizeUserRecord(u);
+            return {
+              id: String(n.id),
+              name: n.name || n.displayName || n.username || 'User',
+              username: n.username || '',
+              email: n.email || '',
+              roles: n.roles || [],
+            };
+          }));
+        }
+      } catch (error) {
+        if (!cancelled) pushNotice?.({ status: 'error', message: `Failed to load users: ${error.message}` });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, pushNotice]);
+
+  const filtered = useMemo(() => {
+    const q = (view.search || '').trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => [u.name, u.username, u.email].some((v) => String(v).toLowerCase().includes(q)));
+  }, [users, view.search]);
+
+  const actions = useMemo(() => [
+    {
+      id: 'open',
+      label: 'Open',
+      isPrimary: true,
+      callback: (rows) => {
+        if (!rows?.length) return;
+        onOpenItem(`/users/${rows[0].id}`);
+      },
+    },
+  ], [onOpenItem]);
+
+  if (!open) return null;
+
+  return (
+    <Fragment>
+      <OverlayBackdrop onClick={onClose} />
+      <OverlayPanel
+        title="Users"
+        description="Manage WordPress users and roles."
+        onClose={onClose}
+        className="workspace-overlay--users"
+      >
+        <div className="workspace-browser workspace-browser--media">
+          <section className="workspace-browser__main workspace-browser__main--dataviews">
+            <div className="workspace-browser__toolbar">
+              <div>
+                <h3>People</h3>
+                <p>{filtered.length} of {users.length} users</p>
+              </div>
+              <div className="workspace-browser__toolbar-actions">
+                <Button variant="primary" onClick={() => onOpenItem('/users/new')}>New User</Button>
+              </div>
+            </div>
+            <div className="workspace-dataviews-shell">
+              <DataViews
+                data={filtered}
+                fields={USER_FIELDS}
+                view={view}
+                onChangeView={setView}
+                paginationInfo={{ totalItems: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / (view.perPage || 20))) }}
+                defaultLayouts={{ table: {} }}
+                getItemId={(item) => item.id}
+                isLoading={loading}
+                actions={actions}
+                onClickItem={(item) => onOpenItem(`/users/${item.id}`)}
+                selection={[]}
+                onChangeSelection={() => {}}
+              />
+            </div>
+          </section>
+        </div>
+      </OverlayPanel>
+    </Fragment>
+  );
+}
+
+const COMMENTS_VIEW_DEFAULT = {
+  type: 'table',
+  page: 1,
+  perPage: 20,
+  search: '',
+  fields: ['author', 'postTitle', 'status', 'date'],
+  titleField: 'excerpt',
+  layout: {},
+  filters: [],
+};
+
+const COMMENT_FIELDS = [
+  {
+    id: 'excerpt',
+    label: 'Comment',
+    enableHiding: false,
+    enableGlobalSearch: true,
+  },
+  {
+    id: 'author',
+    label: 'Author',
+    getValue: ({ item }) => item.authorName || '(unknown)',
+    enableGlobalSearch: true,
+  },
+  {
+    id: 'postTitle',
+    label: 'On',
+    getValue: ({ item }) => item.postTitle || '',
+    enableGlobalSearch: true,
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    getValue: ({ item }) => item.status || 'approved',
+    elements: [
+      { value: 'approved', label: 'Approved' },
+      { value: 'hold', label: 'Pending' },
+      { value: 'spam', label: 'Spam' },
+      { value: 'trash', label: 'Trash' },
+    ],
+    filterBy: { operators: ['is', 'isNot'] },
+    render: ({ item }) => (
+      <span className={`workspace-status-chip is-${item.status || 'approved'}`}>
+        {item.status || 'approved'}
+      </span>
+    ),
+  },
+  {
+    id: 'date',
+    label: 'Date',
+    getValue: ({ item }) => item.date || '',
+    render: ({ item }) => formatDateTime(item.date),
+  },
+];
+
+export function CommentsPopover({ open, onClose, onOpenItem, pushNotice }) {
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState(COMMENTS_VIEW_DEFAULT);
+
+  useEffect(() => {
+    if (open) setView(COMMENTS_VIEW_DEFAULT);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const rows = await wpApiFetch(
+          'wp/v2/comments?per_page=100&status=all&orderby=date_gmt&order=desc&context=edit&_embed=up'
+        );
+        if (!cancelled) setComments(rows.map((c) => {
+          const n = normalizeCommentRecord(c);
+          return { ...n, id: String(n.id) };
+        }));
+      } catch (error) {
+        if (!cancelled) pushNotice?.({ status: 'error', message: `Failed to load comments: ${error.message}` });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, pushNotice]);
+
+  const filtered = useMemo(() => {
+    const q = (view.search || '').trim().toLowerCase();
+    let list = comments;
+    for (const filter of view.filters || []) {
+      if (filter.field === 'status' && Array.isArray(filter.value) && filter.value.length) {
+        list = list.filter((c) =>
+          filter.operator === 'isNot'
+            ? !filter.value.includes(c.status)
+            : filter.value.includes(c.status)
+        );
+      }
+    }
+    if (!q) return list;
+    return list.filter((c) => [c.excerpt, c.authorName, c.postTitle].some((v) => String(v).toLowerCase().includes(q)));
+  }, [comments, view.search, view.filters]);
+
+  const actions = useMemo(() => [
+    {
+      id: 'open',
+      label: 'Open',
+      isPrimary: true,
+      callback: (rows) => {
+        if (!rows?.length) return;
+        onOpenItem(`/comments/${rows[0].id}`);
+      },
+    },
+  ], [onOpenItem]);
+
+  if (!open) return null;
+
+  return (
+    <Fragment>
+      <OverlayBackdrop onClick={onClose} />
+      <OverlayPanel
+        title="Comments"
+        description="Moderate discussion across the site."
+        onClose={onClose}
+        className="workspace-overlay--comments"
+      >
+        <div className="workspace-browser workspace-browser--media">
+          <section className="workspace-browser__main workspace-browser__main--dataviews">
+            <div className="workspace-browser__toolbar">
+              <div>
+                <h3>Discussion</h3>
+                <p>{filtered.length} of {comments.length} comments</p>
+              </div>
+            </div>
+            <div className="workspace-dataviews-shell">
+              <DataViews
+                data={filtered}
+                fields={COMMENT_FIELDS}
+                view={view}
+                onChangeView={setView}
+                paginationInfo={{ totalItems: filtered.length, totalPages: Math.max(1, Math.ceil(filtered.length / (view.perPage || 20))) }}
+                defaultLayouts={{ table: {} }}
+                getItemId={(item) => item.id}
+                isLoading={loading}
+                actions={actions}
+                onClickItem={(item) => onOpenItem(`/comments/${item.id}`)}
+                selection={[]}
+                onChangeSelection={() => {}}
+              />
             </div>
           </section>
         </div>
@@ -1242,8 +1601,78 @@ export function SettingsPopover({
   );
 }
 
-export function WordPressMenuPopover({ open, anchorRef, menuTree, menuPath, onChangePath, onClose }) {
-  const style = useAnchorPosition(anchorRef, { width: 260, offsetY: 12, align: 'left' });
+function CascadingMenu({ items, onClose, style, className = '' }) {
+  const [openId, setOpenId] = useState(null);
+  const itemRefs = useRef({});
+
+  function submenuStyle(id) {
+    const anchor = itemRefs.current[id];
+    if (!anchor) return null;
+    const rect = anchor.getBoundingClientRect();
+    const width = 240;
+    const gap = 4;
+    let left = rect.right + gap;
+    if (left + width > window.innerWidth - 12) {
+      left = Math.max(12, rect.left - width - gap);
+    }
+    return {
+      position: 'fixed',
+      top: `${Math.max(12, Math.min(rect.top, window.innerHeight - 240))}px`,
+      left: `${left}px`,
+      width: `${width}px`,
+    };
+  }
+
+  return (
+    <div className={`workspace-menu ${className}`.trim()} style={style} role="menu">
+      {items.map((item) => {
+        const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+        const isOpen = openId === item.id;
+        return (
+          <Fragment key={item.id}>
+            <button
+              ref={(el) => { itemRefs.current[item.id] = el; }}
+              type="button"
+              role="menuitem"
+              className={`workspace-menu__item${isOpen ? ' is-active' : ''}`}
+              onMouseEnter={() => {
+                if (hasChildren) setOpenId(item.id);
+                else setOpenId(null);
+              }}
+              onFocus={() => {
+                if (hasChildren) setOpenId(item.id);
+              }}
+              onClick={() => {
+                if (hasChildren) {
+                  setOpenId((current) => (current === item.id ? null : item.id));
+                  return;
+                }
+                item.onSelect?.();
+              }}
+              aria-haspopup={hasChildren ? 'menu' : undefined}
+              aria-expanded={hasChildren ? isOpen : undefined}
+            >
+              <span>{item.label}</span>
+              {item.shortcut ? <span className="workspace-menu__shortcut">{item.shortcut}</span> : null}
+              {hasChildren ? <CarbonIcon name="ChevronRight" size={14} /> : null}
+            </button>
+            {hasChildren && isOpen ? (
+              <CascadingMenu
+                items={item.children}
+                onClose={onClose}
+                style={submenuStyle(item.id)}
+                className="workspace-menu--submenu"
+              />
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+export function WordPressMenuPopover({ open, anchorRef, menuTree, onClose }) {
+  const style = useAnchorPosition(anchorRef, { width: 240, offsetY: 8, align: 'left', open });
 
   useEffect(() => {
     if (!open) return undefined;
@@ -1254,57 +1683,12 @@ export function WordPressMenuPopover({ open, anchorRef, menuTree, menuPath, onCh
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose, open]);
 
-  const activeSubmenu = menuTree.find((item) => item.id === menuPath[0])?.children ?? [];
-  const nestedSubmenu = activeSubmenu.find((item) => item.id === menuPath[1])?.children ?? [];
-
   if (!open || !style) return null;
-
-  function renderItem(item, depth = 0) {
-    const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-    const currentId = menuPath[depth];
-
-    return (
-      <button
-        key={item.id}
-        type="button"
-        className={`workspace-menu__item${currentId === item.id ? ' is-active' : ''}`}
-        onMouseEnter={() => {
-          if (depth === 0) onChangePath([item.id]);
-          if (depth === 1) onChangePath([menuPath[0], item.id]);
-        }}
-        onClick={() => {
-          if (hasChildren) {
-            if (depth === 0) onChangePath([item.id]);
-            if (depth === 1) onChangePath([menuPath[0], item.id]);
-            return;
-          }
-          item.onSelect?.();
-        }}
-      >
-        <span>{item.label}</span>
-        {hasChildren ? <CarbonIcon name="ArrowUpRight" size={14} /> : null}
-      </button>
-    );
-  }
 
   return (
     <Fragment>
-      <OverlayBackdrop onClick={onClose} />
-      <div className="workspace-menu" style={style}>
-        <div className="workspace-menu__column">
-          {menuTree.map((item) => renderItem(item, 0))}
-        </div>
-        {activeSubmenu.length > 0 ? (
-          <div className="workspace-menu__column workspace-menu__column--submenu">
-            {activeSubmenu.map((item) => renderItem(item, 1))}
-          </div>
-        ) : null}
-        {nestedSubmenu.length > 0 ? (
-          <div className="workspace-menu__column workspace-menu__column--submenu">
-            {nestedSubmenu.map((item) => renderItem(item, 2))}
-          </div>
-        ) : null}
-      </div>
+      <OverlayBackdrop onClick={onClose} className="workspace-overlay-backdrop--clear" />
+      <CascadingMenu items={menuTree} onClose={onClose} style={style} />
     </Fragment>
   );
 }

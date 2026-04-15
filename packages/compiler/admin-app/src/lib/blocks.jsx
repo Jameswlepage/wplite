@@ -8,6 +8,22 @@ import {
   registerBlockType,
 } from '@wordpress/blocks';
 import ServerSideRender from '@wordpress/server-side-render';
+import { wpApiFetch } from './helpers.js';
+
+/**
+ * When a dynamic block is rendered inside a post-template or other iterating
+ * context, WP's block editor supplies `postId`, `postType`, `queryId`, etc.
+ * via block context. The REST /block-renderer endpoint doesn't receive block
+ * context by default, so forward the iteration's postId/postType as query
+ * args so the PHP render callback sees the right current post.
+ */
+function buildBlockRendererQueryArgs(context) {
+  if (!context || typeof context !== 'object') return undefined;
+  const args = {};
+  if (context.postId != null) args.post_id = context.postId;
+  if (context.postType) args.post_type = context.postType;
+  return Object.keys(args).length > 0 ? args : undefined;
+}
 
 /**
  * Register site-specific dynamic blocks shipped in the bootstrap payload.
@@ -34,10 +50,15 @@ export function registerRuntimeBlocks(blocks = []) {
       parent: metadata.parent,
       ancestor: metadata.ancestor,
       example: metadata.example,
-      edit({ attributes }) {
+      edit({ attributes, context }) {
+        const urlQueryArgs = buildBlockRendererQueryArgs(context);
         return (
           <div className="server-block-preview">
-            <ServerSideRender block={metadata.name} attributes={attributes} />
+            <ServerSideRender
+              block={metadata.name}
+              attributes={attributes}
+              urlQueryArgs={urlQueryArgs}
+            />
           </div>
         );
       },
@@ -84,10 +105,15 @@ export function registerServerBlockTypes(blockTypes = []) {
       parent: bt.parent ?? undefined,
       ancestor: bt.ancestor ?? undefined,
       example: bt.example ?? undefined,
-      edit({ attributes }) {
+      edit({ attributes, context }) {
+        const urlQueryArgs = buildBlockRendererQueryArgs(context);
         return (
           <div className="server-block-preview">
-            <ServerSideRender block={bt.name} attributes={attributes} />
+            <ServerSideRender
+              block={bt.name}
+              attributes={attributes}
+              urlQueryArgs={urlQueryArgs}
+            />
           </div>
         );
       },
@@ -195,11 +221,112 @@ export function blocksFromContent(content) {
 }
 
 /**
+ * Upload a list of files to the WP media library. Mirrors the signature
+ * `@wordpress/media-utils` exposes so block-editor internals (Image block,
+ * Gallery, MediaPlaceholder, etc.) can call it the way they expect.
+ */
+function mediaUpload({
+  filesList,
+  onFileChange,
+  onError,
+  additionalData = {},
+  allowedTypes,
+}) {
+  const files = Array.from(filesList ?? []);
+  if (files.length === 0) return;
+
+  function matchesAllowed(file) {
+    if (!allowedTypes || allowedTypes.length === 0) return true;
+    return allowedTypes.some((type) => {
+      if (!type) return true;
+      if (type.includes('/')) return file.type === type;
+      return file.type?.startsWith(`${type}/`);
+    });
+  }
+
+  const uploads = files.map(async (file) => {
+    if (!matchesAllowed(file)) {
+      throw new Error(`${file.name}: file type ${file.type || 'unknown'} is not allowed here.`);
+    }
+    const form = new FormData();
+    form.append('file', file, file.name);
+    for (const [key, value] of Object.entries(additionalData)) {
+      if (value != null) form.append(key, value);
+    }
+    return wpApiFetch('wp/v2/media', { method: 'POST', body: form });
+  });
+
+  Promise.allSettled(uploads).then((results) => {
+    const uploaded = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        uploaded.push(result.value);
+      } else if (onError) {
+        const message = result.reason?.message || 'Upload failed.';
+        onError({ message, code: 'upload_failed' });
+      }
+    }
+    if (uploaded.length > 0) onFileChange?.(uploaded);
+  });
+}
+
+/**
+ * Search handler for link popovers and page pickers. Gutenberg passes
+ * `(search, { type, subtype, page, perPage })` and expects back
+ * `[{ id, url, type, kind, title }]` items from WP's /search endpoint.
+ */
+async function fetchLinkSuggestions(search, { type, subtype, page = 1, perPage = 20 } = {}) {
+  if (!search?.trim()) return [];
+  const params = new URLSearchParams({
+    search,
+    per_page: String(perPage),
+    page: String(page),
+    _fields: 'id,title,url,type,subtype',
+  });
+  if (type) params.set('type', type);
+  if (subtype) params.set('subtype', subtype);
+
+  try {
+    const results = await wpApiFetch(`wp/v2/search?${params.toString()}`);
+    return (Array.isArray(results) ? results : []).map((item) => ({
+      id: item.id,
+      url: item.url,
+      type: item.subtype || item.type || 'post',
+      kind: item.type || 'post-type',
+      title: item.title || item.url || '',
+    }));
+  } catch (error) {
+    if (typeof console !== 'undefined') {
+      console.warn('[wplite] Link suggestion lookup failed:', error);
+    }
+    return [];
+  }
+}
+
+/**
+ * Fetch rich metadata for an external URL (title, icon, image, description)
+ * so the link UI can show a preview card.
+ */
+async function fetchUrlData(url) {
+  if (!url) return {};
+  try {
+    const params = new URLSearchParams({ url });
+    return await wpApiFetch(`wp-block-editor/v1/url-details?${params.toString()}`);
+  } catch (error) {
+    if (typeof console !== 'undefined') {
+      console.warn('[wplite] URL metadata lookup failed:', error);
+    }
+    return {};
+  }
+}
+
+/**
  * Build the settings object for BlockEditorProvider. Starts from the
  * server's canonical `get_block_editor_settings()` output (delivered via
  * the /editor-bundle REST endpoint) so every preset, fontFamily, color,
  * resolvedAsset, and layout feature WP would give its own editor flows
- * through unchanged. Our only overrides are UI prefs.
+ * through unchanged. We layer in JS handlers (mediaUpload, link
+ * suggestions, URL metadata) that PHP can't serialize.
  */
 export function buildBlockEditorSettings(bundle) {
   const serverSettings = bundle?.editorSettings ?? {};
@@ -209,18 +336,156 @@ export function buildBlockEditorSettings(bundle) {
     hasFixedToolbar: true,
     focusMode: false,
     keepCaretInsideBlock: true,
+    mediaUpload,
+    __experimentalFetchLinkSuggestions: fetchLinkSuggestions,
+    __experimentalFetchUrlData: fetchUrlData,
   };
 }
+
+/**
+ * Dark-theme CSS for popovers/quick-inserter that render INSIDE the iframed
+ * editor canvas. These don't get our outer admin-app stylesheet, so we inject
+ * them through BlockCanvas `styles` prop.
+ */
+const IFRAME_ADMIN_CSS = `
+.components-popover.block-editor-inserter__popover .components-popover__content {
+  background: #2d2d2d !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+  padding: 8px !important;
+}
+
+.block-editor-inserter__quick-inserter {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: 320px !important;
+}
+
+.block-editor-inserter__quick-inserter-separator,
+.block-editor-inserter__quick-inserter .components-panel__body,
+.block-editor-inserter__quick-inserter .components-panel__header,
+.block-editor-inserter__quick-inserter .block-editor-inserter__tabs,
+.block-editor-inserter__quick-inserter .block-editor-inserter__block-list,
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-content {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__search,
+.block-editor-inserter__quick-inserter .components-search-control {
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control input,
+.block-editor-inserter__quick-inserter .components-search-control__input,
+.block-editor-inserter__search input {
+  background: #1e1e1e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control input::placeholder,
+.block-editor-inserter__quick-inserter .components-search-control__input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control__icon svg,
+.block-editor-inserter__search svg {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Let Gutenberg keep its native layout; only re-skin colors + borders. */
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item {
+  color: #ffffff !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:focus,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:focus {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
+  color: #ffffff !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-title,
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-header,
+.block-editor-inserter__quick-inserter .components-panel__header,
+.block-editor-inserter__quick-inserter .block-editor-inserter__category-tabs {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand,
+.block-editor-inserter__quick-inserter .components-button {
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand:hover,
+.block-editor-inserter__quick-inserter .components-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__no-results {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+`;
 
 /**
  * Return the canvas styles array WP would pass to its own iframed editor.
  * These entries include the global stylesheet (theme.json-derived presets,
  * element styles, layout) and the theme stylesheet, resolved server-side.
+ * We append our iframe-scoped admin CSS so popovers/quick-inserter that
+ * render inside the iframe can be dark-themed to match the outer chrome.
+ *
+ * Note: we intentionally preserve server-provided `id` fields on style
+ * entries. Stripping them triggered stale core-data cycles inside the
+ * iframe (e.g. query-loop stuck on its spinner). The "global-styles-inline-css
+ * was added incorrectly" warning that appears in dev is cosmetic and comes
+ * from running outside the wp-admin enqueue lifecycle — safe to ignore.
  */
 export function buildCanvasStyles(bundle) {
-  return Array.isArray(bundle?.editorSettings?.styles)
+  const serverStyles = Array.isArray(bundle?.editorSettings?.styles)
     ? [...bundle.editorSettings.styles]
     : [];
+  return [...serverStyles, { css: IFRAME_ADMIN_CSS }];
 }
 
-export const defaultCanvasStyles = [];
+export const defaultCanvasStyles = [{ css: IFRAME_ADMIN_CSS }];

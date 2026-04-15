@@ -239,62 +239,35 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 12px;
+  height: 28px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 999px;
+  border-radius: 4px;
   color: var(--wp-admin-text-muted) !important;
-  background: #ffffff !important;
-  border: 1px solid var(--wp-admin-border) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
   box-shadow: none !important;
 }
 
 .logs-toolbar .components-button.logs-level-chip:hover:not(:disabled) {
-  background: var(--wp-admin-surface) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
   color: var(--wp-admin-text) !important;
-  border-color: color-mix(in srgb, var(--wp-admin-accent) 20%, var(--wp-admin-border)) !important;
 }
 
 .logs-toolbar .components-button.logs-level-chip.is-pressed,
 .logs-toolbar .components-button.logs-level-chip.is-pressed:hover,
 .logs-toolbar .components-button.logs-level-chip.is-pressed:focus {
-  background: color-mix(in srgb, var(--wp-admin-accent) 10%, #ffffff) !important;
+  background: rgba(0, 0, 0, 0.06) !important;
   color: var(--wp-admin-text) !important;
-  border-color: color-mix(in srgb, var(--wp-admin-accent) 34%, var(--wp-admin-border)) !important;
-  box-shadow: none !important;
-}
-
-.logs-level-chip__dot {
-  display: inline-flex;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  flex-shrink: 0;
-}
-
-.logs-level-chip__dot--fatal,
-.logs-level-chip__dot--error {
-  background: #b91c1c;
-}
-
-.logs-level-chip__dot--warning {
-  background: #b45309;
-}
-
-.logs-level-chip__dot--notice {
-  background: #6b7280;
-}
-
-.logs-level-chip__dot--info {
-  background: var(--wp-admin-accent);
+  border-color: transparent !important;
 }
 
 .logs-level-chip__count {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--wp-admin-text-muted);
-  opacity: 0.8;
+  opacity: 0.75;
 }
 
 .logs-count {
@@ -365,8 +338,8 @@
 
 .log-entry__level--fatal,
 .log-entry__level--error { color: #b91c1c; }
-.log-entry__level--warning { color: #b45309; }
-.log-entry__level--notice { color: var(--wp-admin-text-muted); }
+.log-entry__level--warning,
+.log-entry__level--notice,
 .log-entry__level--info { color: var(--wp-admin-text-muted); }
 
 .log-entry__timestamp {

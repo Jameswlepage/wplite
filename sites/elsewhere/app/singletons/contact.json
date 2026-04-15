@@ -1,0 +1,26 @@
+{
+  "id": "contact",
+  "label": "Venue Info",
+  "icon": "Email",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "email": { "type": "email", "label": "General Email", "inheritsFrom": "site.admin_email" },
+    "booking_email": { "type": "email", "label": "Booking Email" },
+    "press_email": { "type": "email", "label": "Press Email" },
+    "phone": { "type": "text", "label": "Phone" },
+    "address_street": { "type": "text", "label": "Street" },
+    "address_locality": { "type": "text", "label": "City" },
+    "address_region": { "type": "text", "label": "State" },
+    "address_postal": { "type": "text", "label": "ZIP" },
+    "map_url": { "type": "url", "label": "Map URL" },
+    "hours": {
+      "type": "repeater",
+      "label": "Hours",
+      "item": {
+        "label": { "type": "text", "label": "Days" },
+        "hours": { "type": "text", "label": "Hours" }
+      }
+    }
+  }
+}

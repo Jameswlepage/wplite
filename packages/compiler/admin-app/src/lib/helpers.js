@@ -614,6 +614,20 @@ export function normalizeCommentRecord(comment) {
 
 export function normalizeUserRecord(user) {
   const avatarUrls = user.avatar_urls ?? user.avatarUrls ?? {};
+  const customAvatarUrl =
+    user.meta?.wplite_avatar_url
+    || user.wpliteAvatarUrl
+    || '';
+  const customAvatarId =
+    user.meta?.wplite_avatar_id
+    || user.wpliteAvatarId
+    || 0;
+  const avatarUrl =
+    customAvatarUrl
+    || avatarUrls['96']
+    || avatarUrls['48']
+    || avatarUrls['24']
+    || '';
   return {
     id: user.id,
     displayName: user.name ?? '',
@@ -627,8 +641,12 @@ export function normalizeUserRecord(user) {
     description: user.description ?? '',
     locale: user.locale ?? '',
     roles: user.roles ?? [],
-    avatarUrls,
-    avatarUrl: avatarUrls['96'] ?? avatarUrls['48'] ?? avatarUrls['24'] ?? '',
+    avatarUrls: customAvatarUrl
+      ? { ...avatarUrls, 24: customAvatarUrl, 48: customAvatarUrl, 96: customAvatarUrl }
+      : avatarUrls,
+    avatarUrl,
+    wpliteAvatarId: Number(customAvatarId) || 0,
+    wpliteAvatarUrl: customAvatarUrl,
     preferences: normalizeUserPreferences(user.wplitePreferences ?? user.preferences),
   };
 }

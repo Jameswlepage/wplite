@@ -194,7 +194,6 @@ These outputs are used by `apply`, `dev`, and `pull`.
 The repo still contains some older patterns that should be understood as debt rather than the target contract:
 
 - legacy runtime names such as `portfolio_light_*`, `PORTFOLIO_LIGHT`, and `/wp-json/portfolio/v1/*`
-- example-site dashboard widgets implemented as site-local blocks
 - templates that hardcode content already modeled in `app/` or `content/`
 - older documentation that implied page sync was universal
 

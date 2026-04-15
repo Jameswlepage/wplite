@@ -1,0 +1,50 @@
+<!--
+Title: Sounds from the Club
+Slug: elsewhere-theme/sounds
+Inserter: no
+-->
+<!-- wp:group {"className":"e-sounds","layout":{"type":"default"}} -->
+<div class="wp-block-group e-sounds">
+
+<!-- wp:heading {"level":2,"className":"e-sounds__marquee"} -->
+<h2 class="wp-block-heading e-sounds__marquee">Sounds from the Club · Sounds from the <em>Club</em></h2>
+<!-- /wp:heading -->
+
+<!-- wp:group {"className":"e-sounds__inner","layout":{"type":"default"}} -->
+<div class="wp-block-group e-sounds__inner">
+
+<!-- wp:query {"queryId":31,"query":{"perPage":8,"pages":0,"offset":0,"postType":"release","order":"desc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:post-template {"className":"e-sounds__track"} -->
+
+<!-- wp:group {"className":"e-sounds__card","layout":{"type":"default"}} -->
+<div class="wp-block-group e-sounds__card">
+<!-- wp:post-featured-image {"className":"e-sounds__card-cover"} /-->
+<!-- wp:group {"className":"e-sounds__card-meta","layout":{"type":"default"}} -->
+<div class="wp-block-group e-sounds__card-meta">
+<!-- wp:paragraph {"className":"e-sounds__card-kicker","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"release_type"}}}}} --><p class="e-sounds__card-kicker"></p><!-- /wp:paragraph -->
+<!-- wp:paragraph {"className":"e-sounds__card-artist","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"artist_name"}}}}} --><p class="e-sounds__card-artist"></p><!-- /wp:paragraph -->
+<!-- wp:post-title {"level":3,"className":"e-sounds__card-title","isLink":true} /-->
+<!-- wp:buttons -->
+<div class="wp-block-buttons">
+<!-- wp:button {"metadata":{"bindings":{"url":{"source":"core/post-meta","args":{"key":"listen_url"}}}}} -->
+<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="#">▶ Listen</a></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:buttons -->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+
+<!-- wp:paragraph {"className":"e-sounds__hint"} --><p class="e-sounds__hint">← scroll for more mixes →</p><!-- /wp:paragraph -->
+
+</div>
+<!-- /wp:group -->
+
+</div>
+<!-- /wp:group -->

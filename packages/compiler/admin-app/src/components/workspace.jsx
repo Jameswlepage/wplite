@@ -1066,10 +1066,9 @@ export function LogsPage() {
     <div className="screen">
       <header className="screen-header">
         <div>
-          <p className="eyebrow">Settings</p>
           <h1>Logs</h1>
           <p className="screen-header__lede">
-            WordPress error log (<code>debug.log</code>)
+            WordPress error log — <code>debug.log</code>
           </p>
         </div>
         <div className="screen-header__actions">
@@ -1135,21 +1134,12 @@ export function LogsPage() {
                     onClick={() => toggleLevel(lvl.id)}
                     className={`logs-level-chip logs-level-chip--${lvl.id}`}
                   >
-                    <span className={`logs-level-chip__dot logs-level-chip__dot--${lvl.id}`} aria-hidden="true" />
                     {lvl.label}
                     <span className="logs-level-chip__count">{levelCounts[lvl.id] ?? 0}</span>
                   </Button>
                 ))}
               </div>
               <div className="dataviews-toolbar__spacer" />
-              <Button
-                variant="tertiary"
-                size="small"
-                isPressed={showLineNumbers}
-                onClick={() => setShowLineNumbers((v) => !v)}
-              >
-                #
-              </Button>
               <span className="logs-count">{linesLabel}</span>
             </div>
             {loading ? (

@@ -1,0 +1,32 @@
+{
+  "singleton": "memberships",
+  "data": {
+    "intro": "Members fund our independent bookings, keep ticket prices affordable, and get first look at everything we do. Memberships are month-to-month and help us stay a nonprofit that books on merit rather than margin.",
+    "tiers": [
+      {
+        "name": "Friend",
+        "price": "$15 / month",
+        "tagline": "Start here.",
+        "perks": "Early access to tickets\n10% off at every bar\nMembers-only mixtapes\nQuarterly print zine",
+        "signup_url": "https://elsewherebrooklyn.com/join/friend",
+        "featured": false
+      },
+      {
+        "name": "Regular",
+        "price": "$30 / month",
+        "tagline": "Most popular.",
+        "perks": "Everything in Friend\nTwo free club entries per month\n20% off at every bar\nPlus-one privileges on any show\nMerch discount",
+        "signup_url": "https://elsewherebrooklyn.com/join/regular",
+        "featured": true
+      },
+      {
+        "name": "Patron",
+        "price": "$90 / month",
+        "tagline": "Ride-or-die.",
+        "perks": "Everything in Regular\nUnlimited club entry\nReserved table at Zone One\nInvite to the annual programming dinner\nNamed in the quarterly program\nOne guest pass per month",
+        "signup_url": "https://elsewherebrooklyn.com/join/patron",
+        "featured": false
+      }
+    ]
+  }
+}

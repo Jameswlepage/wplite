@@ -1,0 +1,9 @@
+{
+  "id": "news",
+  "type": "page",
+  "slug": "news",
+  "title": "News",
+  "template": "index",
+  "postsPage": true,
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

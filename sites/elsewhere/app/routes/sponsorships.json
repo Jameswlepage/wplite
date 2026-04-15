@@ -1,0 +1,8 @@
+{
+  "id": "sponsorships",
+  "type": "page",
+  "slug": "sponsorships",
+  "title": "Sponsorships",
+  "template": "sponsorships",
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

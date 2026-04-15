@@ -1,0 +1,21 @@
+{
+  "id": "inquiry",
+  "label": "Inquiries & Signups",
+  "singularLabel": "Inquiry",
+  "icon": "Email",
+  "type": "collection",
+  "postType": "inquiry",
+  "archiveSlug": null,
+  "public": false,
+  "supports": ["title", "editor"],
+  "fields": {
+    "email":   { "type": "email", "label": "Email" },
+    "company": { "type": "text",  "label": "Company / Referrer" },
+    "source":  { "type": "text",  "label": "Source",  "placeholder": "mailing_list, contact_form, private_event" },
+    "status":  {
+      "type": "select",
+      "label": "Status",
+      "options": ["new", "confirmed", "archived", "unsubscribed"]
+    }
+  }
+}

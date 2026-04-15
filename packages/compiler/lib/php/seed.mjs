@@ -278,14 +278,15 @@ function portfolio_light_find_theme_template_post( $slug, $stylesheet ) {
 }
 
 function portfolio_light_sync_managed_templates() {
+\t$templates = [];
 \t$stylesheet = (string) get_stylesheet();
 \tif ( '' === $stylesheet ) {
-\t\treturn;
+\t\treturn $templates;
 \t}
 
 \t$template_dir = trailingslashit( get_stylesheet_directory() ) . 'templates/';
 \tif ( ! is_dir( $template_dir ) ) {
-\t\treturn;
+\t\treturn $templates;
 \t}
 
 \t$slugs = [];
@@ -302,7 +303,7 @@ function portfolio_light_sync_managed_templates() {
 
 \t$slugs = array_values( array_unique( $slugs ) );
 \tif ( empty( $slugs ) ) {
-\t\treturn;
+\t\treturn $templates;
 \t}
 
 \t$theme_term = term_exists( $stylesheet, 'wp_theme' );
@@ -311,7 +312,7 @@ function portfolio_light_sync_managed_templates() {
 \t}
 
 \tif ( is_wp_error( $theme_term ) || empty( $theme_term['term_id'] ) ) {
-\t\treturn;
+\t\treturn $templates;
 \t}
 
 \t$theme_term_id = (int) $theme_term['term_id'];
@@ -344,7 +345,58 @@ function portfolio_light_sync_managed_templates() {
 \t\t}
 
 \t\twp_set_post_terms( (int) $template_id, [ $theme_term_id ], 'wp_theme', false );
+\t\t$templates[] = [
+\t\t\t'postType' => 'wp_template',
+\t\t\t'id'       => (int) $template_id,
+\t\t\t'slug'     => $slug,
+\t\t];
 \t}
+
+\treturn $templates;
+}
+
+function portfolio_light_apply_site_settings() {
+\t$site = portfolio_light_get_site_config();
+
+\tif ( ! empty( $site['title'] ) ) {
+\t\tupdate_option( 'blogname', $site['title'] );
+\t}
+
+\tif ( ! empty( $site['tagline'] ) ) {
+\t\tupdate_option( 'blogdescription', $site['tagline'] );
+\t}
+
+\t$page_index = portfolio_light_build_post_index( 'page' );
+\t$front_id   = 0;
+\t$posts_id   = 0;
+
+\tforeach ( portfolio_light_get_routes() as $route ) {
+\t\t$route_id = (string) ( $route['id'] ?? '' );
+\t\tif ( '' === $route_id ) {
+\t\t\tcontinue;
+\t\t}
+\t\t$post = portfolio_light_find_route_page_in_index( $route, $page_index );
+\t\tif ( ! $post ) {
+\t\t\tcontinue;
+\t\t}
+\t\tif ( $route_id === ( $site['frontPage'] ?? '' ) ) {
+\t\t\t$front_id = (int) $post->ID;
+\t\t}
+\t\tif ( $route_id === ( $site['postsPage'] ?? '' ) ) {
+\t\t\t$posts_id = (int) $post->ID;
+\t\t}
+\t}
+
+\tif ( $front_id ) {
+\t\tupdate_option( 'show_on_front', 'page' );
+\t\tupdate_option( 'page_on_front', $front_id );
+\t}
+
+\tif ( $posts_id ) {
+\t\tupdate_option( 'page_for_posts', $posts_id );
+\t}
+
+\tupdate_option( 'permalink_structure', '/%postname%/' );
 }
 
 function portfolio_light_cleanup_default_content() {
@@ -364,8 +416,179 @@ function portfolio_light_cleanup_default_content() {
 \t}
 }
 
+function portfolio_light_seed_content_entry( $entry, $indexes, $site ) {
+\t$model_id = (string) ( $entry['model'] ?? '' );
+
+\tif ( 'page' === $model_id ) {
+\t\tif ( ! empty( $site['content']['collections']['page'] ) && empty( $site['content']['collections']['page']['sync'] ) ) {
+\t\t\treturn null;
+\t\t}
+
+\t\t$route = null;
+\t\tif ( ! empty( $entry['routeId'] ) ) {
+\t\t\t$route = portfolio_light_get_route( (string) $entry['routeId'] );
+\t\t}
+
+\t\t$page_index = $indexes['page'] ?? null;
+\t\tif ( $route ) {
+\t\t\t$existing = $page_index
+\t\t\t\t? portfolio_light_find_route_page_in_index( $route, $page_index )
+\t\t\t\t: portfolio_light_find_route_page( $route );
+\t\t} else {
+\t\t\t$existing = null;
+\t\t\tif ( ! empty( $entry['sourceId'] ) && $page_index && isset( $page_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t\t\t$existing = $page_index['by_source_id'][ $entry['sourceId'] ];
+\t\t\t}
+
+\t\t\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
+\t\t\t\tif ( $page_index && isset( $page_index['by_slug'][ $entry['slug'] ] ) ) {
+\t\t\t\t\t$existing = $page_index['by_slug'][ $entry['slug'] ];
+\t\t\t\t} else {
+\t\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, 'page' );
+\t\t\t\t}
+\t\t\t}
+\t\t}
+
+\t\t$payload = [
+\t\t\t'post_type'    => 'page',
+\t\t\t'post_status'  => $route['seed']['status'] ?? ( $entry['status'] ?? 'publish' ),
+\t\t\t'post_title'   => $route['title'] ?? ( $entry['title'] ?? 'Page' ),
+\t\t\t'post_name'    => $route['slug'] ?? ( $entry['slug'] ?? '' ),
+\t\t\t'post_excerpt' => $entry['excerpt'] ?? '',
+\t\t\t'post_content' => $entry['body'] ?? '',
+\t\t];
+
+\t\tif ( $existing ) {
+\t\t\t$payload['ID'] = $existing->ID;
+\t\t\t$page_id       = wp_update_post( wp_slash( $payload ), true );
+\t\t} else {
+\t\t\t$page_id = wp_insert_post( wp_slash( $payload ), true );
+\t\t}
+
+\t\tif ( is_wp_error( $page_id ) ) {
+\t\t\treturn null;
+\t\t}
+
+\t\tupdate_post_meta( $page_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
+\t\tif ( $route ) {
+\t\t\tupdate_post_meta( $page_id, '_portfolio_route_id', (string) ( $route['id'] ?? '' ) );
+\t\t\tif ( ! empty( $route['template'] ) && ! in_array( $route['template'], [ 'front-page', 'page' ], true ) ) {
+\t\t\t\tupdate_post_meta( $page_id, '_wp_page_template', $route['template'] );
+\t\t\t} else {
+\t\t\t\tdelete_post_meta( $page_id, '_wp_page_template' );
+\t\t\t}
+\t\t} elseif ( array_key_exists( 'template', $entry ) ) {
+\t\t\tif ( ! empty( $entry['template'] ) && ! in_array( $entry['template'], [ 'default', 'page', 'front-page' ], true ) ) {
+\t\t\t\tupdate_post_meta( $page_id, '_wp_page_template', $entry['template'] );
+\t\t\t} else {
+\t\t\t\tdelete_post_meta( $page_id, '_wp_page_template' );
+\t\t\t}
+\t\t}
+
+\t\treturn [
+\t\t\t'postType' => 'page',
+\t\t\t'id'       => (int) $page_id,
+\t\t\t'model'    => 'page',
+\t\t\t'slug'     => (string) ( $route['slug'] ?? $entry['slug'] ?? '' ),
+\t\t];
+\t}
+
+\tif ( 'post' === $model_id ) {
+\t\t$post_index = $indexes['post'] ?? null;
+\t\t$existing   = null;
+\t\tif ( ! empty( $entry['sourceId'] ) && $post_index && isset( $post_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t\t$existing = $post_index['by_source_id'][ $entry['sourceId'] ];
+\t\t} elseif ( ! empty( $entry['slug'] ) ) {
+\t\t\t$existing = $post_index && isset( $post_index['by_slug'][ $entry['slug'] ] )
+\t\t\t\t? $post_index['by_slug'][ $entry['slug'] ]
+\t\t\t\t: get_page_by_path( $entry['slug'], OBJECT, 'post' );
+\t\t}
+\t\t$payload = [
+\t\t\t'post_type'    => 'post',
+\t\t\t'post_status'  => $entry['status'] ?? 'publish',
+\t\t\t'post_title'   => $entry['title'],
+\t\t\t'post_name'    => $entry['slug'],
+\t\t\t'post_excerpt' => $entry['excerpt'] ?? '',
+\t\t\t'post_content' => $entry['body'] ?? '',
+\t\t];
+
+\t\tif ( $existing ) {
+\t\t\t$payload['ID'] = $existing->ID;
+\t\t\t$post_id       = wp_update_post( wp_slash( $payload ), true );
+\t\t} else {
+\t\t\t$post_id = wp_insert_post( wp_slash( $payload ), true );
+\t\t}
+
+\t\tif ( is_wp_error( $post_id ) ) {
+\t\t\treturn null;
+\t\t}
+
+\t\tupdate_post_meta( $post_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
+
+\t\treturn [
+\t\t\t'postType' => 'post',
+\t\t\t'id'       => (int) $post_id,
+\t\t\t'model'    => 'post',
+\t\t\t'slug'     => (string) ( $entry['slug'] ?? '' ),
+\t\t];
+\t}
+
+\t$model = portfolio_light_get_model( $model_id );
+\tif ( ! $model ) {
+\t\treturn null;
+\t}
+
+\tif ( ! empty( $site['content']['collections'][ $model_id ] ) && empty( $site['content']['collections'][ $model_id ]['sync'] ) ) {
+\t\treturn null;
+\t}
+
+\t$model_index = $indexes[ $model['postType'] ] ?? null;
+\t$existing    = null;
+\tif ( ! empty( $entry['sourceId'] ) && $model_index && isset( $model_index['by_source_id'][ $entry['sourceId'] ] ) ) {
+\t\t$existing = $model_index['by_source_id'][ $entry['sourceId'] ];
+\t}
+
+\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
+\t\t$existing = $model_index && isset( $model_index['by_slug'][ $entry['slug'] ] )
+\t\t\t? $model_index['by_slug'][ $entry['slug'] ]
+\t\t\t: get_page_by_path( $entry['slug'], OBJECT, $model['postType'] );
+\t}
+
+\t$payload = [
+\t\t'title'      => $entry['title'] ?? '',
+\t\t'slug'       => $entry['slug'] ?? '',
+\t\t'excerpt'    => $entry['excerpt'] ?? '',
+\t\t'postStatus' => $entry['status'] ?? 'publish',
+\t\t'content'    => $entry['body'] ?? '',
+\t];
+
+\tforeach ( $entry['fields'] ?? [] as $field_id => $value ) {
+\t\t$payload[ $field_id ] = $value;
+\t}
+
+\tforeach ( $entry['terms'] ?? [] as $taxonomy => $terms ) {
+\t\t$payload[ $taxonomy ] = $terms;
+\t}
+
+\t$saved = portfolio_light_upsert_record( $model, $payload, $existing ? $existing->ID : 0 );
+\tif ( is_wp_error( $saved ) ) {
+\t\treturn null;
+\t}
+
+\tif ( ! empty( $entry['sourceId'] ) ) {
+\t\tupdate_post_meta( $saved->ID, '_portfolio_source_id', $entry['sourceId'] );
+\t}
+
+\treturn [
+\t\t'postType' => (string) ( $model['postType'] ?? '' ),
+\t\t'id'       => (int) $saved->ID,
+\t\t'model'    => $model_id,
+\t\t'slug'     => (string) ( $entry['slug'] ?? '' ),
+\t];
+}
+
 function portfolio_light_seed_collection_items( $indexes = null ) {
-\t$site        = portfolio_light_get_site_config();
+\t$site = portfolio_light_get_site_config();
 \tif (
 \t\tempty( $site['content']['push'] ) ||
 \t\t'database' === ( $site['content']['mode'] ?? 'files' ) ||
@@ -379,149 +602,146 @@ function portfolio_light_seed_collection_items( $indexes = null ) {
 \t}
 
 \t$collections = portfolio_light_get_content_collections();
-\tforeach ( $collections as $directory => $items ) {
+\tforeach ( $collections as $items ) {
 \t\tforeach ( $items as $entry ) {
-\t\t\tif ( 'page' === ( $entry['model'] ?? '' ) ) {
-\t\t\t\tif ( ! empty( $site['content']['collections']['page'] ) && empty( $site['content']['collections']['page']['sync'] ) ) {
-\t\t\t\t\tcontinue;
-\t\t\t\t}
+\t\t\tportfolio_light_seed_content_entry( $entry, $indexes, $site );
+\t\t}
+\t}
+}
 
-\t\t\t\t$route = null;
-\t\t\t\tif ( ! empty( $entry['routeId'] ) ) {
-\t\t\t\t\t$route = portfolio_light_get_route( (string) $entry['routeId'] );
-\t\t\t\t}
+function portfolio_light_seed_single_singleton( $singleton_id ) {
+\t$site = portfolio_light_get_site_config();
+\tif (
+\t\tempty( $site['content']['push'] ) ||
+\t\t'database' === ( $site['content']['mode'] ?? 'files' ) ||
+\t\t! empty( $site['content']['databaseFirst'] )
+\t) {
+\t\treturn false;
+\t}
 
-\t\t\t\t$page_index = $indexes['page'] ?? null;
-\t\t\t\tif ( $route ) {
-\t\t\t\t\t$existing = $page_index
-\t\t\t\t\t\t? portfolio_light_find_route_page_in_index( $route, $page_index )
-\t\t\t\t\t\t: portfolio_light_find_route_page( $route );
-\t\t\t\t} else {
-\t\t\t\t\t$existing = null;
-\t\t\t\t\tif ( ! empty( $entry['sourceId'] ) && $page_index && isset( $page_index['by_source_id'][ $entry['sourceId'] ] ) ) {
-\t\t\t\t\t\t$existing = $page_index['by_source_id'][ $entry['sourceId'] ];
-\t\t\t\t\t}
+\t$entries = portfolio_light_get_content_singletons();
+\tif ( ! isset( $entries[ $singleton_id ] ) ) {
+\t\treturn false;
+\t}
 
-\t\t\t\t\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
-\t\t\t\t\t\tif ( $page_index && isset( $page_index['by_slug'][ $entry['slug'] ] ) ) {
-\t\t\t\t\t\t\t$existing = $page_index['by_slug'][ $entry['slug'] ];
-\t\t\t\t\t\t} else {
-\t\t\t\t\t\t\t$existing = get_page_by_path( $entry['slug'], OBJECT, 'page' );
-\t\t\t\t\t\t}
-\t\t\t\t\t}
-\t\t\t\t}
+\tupdate_option( 'portfolio_singleton_' . $singleton_id, $entries[ $singleton_id ]['data'] ?? [] );
+\treturn true;
+}
 
-\t\t\t\t$payload = [
-\t\t\t\t\t'post_type'    => 'page',
-\t\t\t\t\t'post_status'  => $route['seed']['status'] ?? ( $entry['status'] ?? 'publish' ),
-\t\t\t\t\t'post_title'   => $route['title'] ?? ( $entry['title'] ?? 'Page' ),
-\t\t\t\t\t'post_name'    => $route['slug'] ?? ( $entry['slug'] ?? '' ),
-\t\t\t\t\t'post_excerpt' => $entry['excerpt'] ?? '',
-\t\t\t\t\t'post_content' => $entry['body'] ?? '',
+function portfolio_light_seed_partial( $payload ) {
+\t$result = [
+\t\t'posts'      => [],
+\t\t'singletons' => [],
+\t\t'templates'  => [],
+\t\t'routes'     => [],
+\t];
+
+\t$site = portfolio_light_get_site_config();
+
+\tif ( ! empty( $payload['defaults'] ) ) {
+\t\tportfolio_light_apply_site_defaults();
+\t}
+
+\t$route_ids = isset( $payload['routes'] ) && is_array( $payload['routes'] )
+\t\t? $payload['routes']
+\t\t: [];
+
+\tif ( ! empty( $route_ids ) ) {
+\t\t$page_index = portfolio_light_build_post_index( 'page' );
+\t\tforeach ( $route_ids as $route_id ) {
+\t\t\t$route_id = (string) $route_id;
+\t\t\tif ( '' === $route_id ) {
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\t$route = portfolio_light_get_route( $route_id );
+\t\t\tif ( ! $route ) {
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\t$page_id = portfolio_light_seed_page_from_route( $route, $page_index );
+\t\t\tif ( $page_id ) {
+\t\t\t\t$result['posts'][] = [
+\t\t\t\t\t'postType' => 'page',
+\t\t\t\t\t'id'       => (int) $page_id,
+\t\t\t\t\t'routeId'  => $route_id,
+\t\t\t\t\t'slug'     => (string) ( $route['slug'] ?? '' ),
 \t\t\t\t];
-
-\t\t\t\tif ( $existing ) {
-\t\t\t\t\t$payload['ID'] = $existing->ID;
-\t\t\t\t\t$page_id       = wp_update_post( wp_slash( $payload ), true );
-\t\t\t\t} else {
-\t\t\t\t\t$page_id = wp_insert_post( wp_slash( $payload ), true );
-\t\t\t\t}
-
-\t\t\t\tif ( ! is_wp_error( $page_id ) ) {
-\t\t\t\t\tupdate_post_meta( $page_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
-\t\t\t\t\tif ( $route ) {
-\t\t\t\t\t\tupdate_post_meta( $page_id, '_portfolio_route_id', (string) ( $route['id'] ?? '' ) );
-\t\t\t\t\t\tif ( ! empty( $route['template'] ) && ! in_array( $route['template'], [ 'front-page', 'page' ], true ) ) {
-\t\t\t\t\t\t\tupdate_post_meta( $page_id, '_wp_page_template', $route['template'] );
-\t\t\t\t\t\t} else {
-\t\t\t\t\t\t\tdelete_post_meta( $page_id, '_wp_page_template' );
-\t\t\t\t\t\t}
-\t\t\t\t\t} elseif ( array_key_exists( 'template', $entry ) ) {
-\t\t\t\t\t\tif ( ! empty( $entry['template'] ) && ! in_array( $entry['template'], [ 'default', 'page', 'front-page' ], true ) ) {
-\t\t\t\t\t\t\tupdate_post_meta( $page_id, '_wp_page_template', $entry['template'] );
-\t\t\t\t\t\t} else {
-\t\t\t\t\t\t\tdelete_post_meta( $page_id, '_wp_page_template' );
-\t\t\t\t\t\t}
-\t\t\t\t\t}
-\t\t\t\t}
-\t\t\t\tcontinue;
-\t\t\t}
-
-\t\t\tif ( 'post' === ( $entry['model'] ?? '' ) ) {
-\t\t\t\t$post_index = $indexes['post'] ?? null;
-\t\t\t\t$existing   = null;
-\t\t\t\tif ( ! empty( $entry['sourceId'] ) && $post_index && isset( $post_index['by_source_id'][ $entry['sourceId'] ] ) ) {
-\t\t\t\t\t$existing = $post_index['by_source_id'][ $entry['sourceId'] ];
-\t\t\t\t} elseif ( ! empty( $entry['slug'] ) ) {
-\t\t\t\t\t$existing = $post_index && isset( $post_index['by_slug'][ $entry['slug'] ] )
-\t\t\t\t\t\t? $post_index['by_slug'][ $entry['slug'] ]
-\t\t\t\t\t\t: get_page_by_path( $entry['slug'], OBJECT, 'post' );
-\t\t\t\t}
-\t\t\t\t$payload  = [
-\t\t\t\t\t'post_type'    => 'post',
-\t\t\t\t\t'post_status'  => $entry['status'] ?? 'publish',
-\t\t\t\t\t'post_title'   => $entry['title'],
-\t\t\t\t\t'post_name'    => $entry['slug'],
-\t\t\t\t\t'post_excerpt' => $entry['excerpt'] ?? '',
-\t\t\t\t\t'post_content' => $entry['body'] ?? '',
-\t\t\t\t];
-
-\t\t\t\tif ( $existing ) {
-\t\t\t\t\t$payload['ID'] = $existing->ID;
-\t\t\t\t\t$post_id       = wp_update_post( wp_slash( $payload ), true );
-\t\t\t\t} else {
-\t\t\t\t\t$post_id = wp_insert_post( wp_slash( $payload ), true );
-\t\t\t\t}
-
-\t\t\t\tif ( ! is_wp_error( $post_id ) ) {
-\t\t\t\t\tupdate_post_meta( $post_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
-\t\t\t\t}
-\t\t\t\tcontinue;
-\t\t\t}
-
-\t\t\t$model = portfolio_light_get_model( $entry['model'] ?? '' );
-\t\t\tif ( ! $model ) {
-\t\t\t\tcontinue;
-\t\t\t}
-
-\t\t\t$model_index = $indexes[ $model['postType'] ] ?? null;
-\t\t\t$existing    = null;
-\t\t\tif ( ! empty( $entry['sourceId'] ) && $model_index && isset( $model_index['by_source_id'][ $entry['sourceId'] ] ) ) {
-\t\t\t\t$existing = $model_index['by_source_id'][ $entry['sourceId'] ];
-\t\t\t}
-
-\t\t\tif ( ! $existing && ! empty( $entry['slug'] ) ) {
-\t\t\t\t$existing = $model_index && isset( $model_index['by_slug'][ $entry['slug'] ] )
-\t\t\t\t\t? $model_index['by_slug'][ $entry['slug'] ]
-\t\t\t\t\t: get_page_by_path( $entry['slug'], OBJECT, $model['postType'] );
-\t\t\t}
-
-\t\t\tif ( ! empty( $site['content']['collections'][ $entry['model'] ] ) && empty( $site['content']['collections'][ $entry['model'] ]['sync'] ) ) {
-\t\t\t\tcontinue;
-\t\t\t}
-
-\t\t\t$payload = [
-\t\t\t\t'title'      => $entry['title'] ?? '',
-\t\t\t\t'slug'       => $entry['slug'] ?? '',
-\t\t\t\t'excerpt'    => $entry['excerpt'] ?? '',
-\t\t\t\t'postStatus' => $entry['status'] ?? 'publish',
-\t\t\t\t'content'    => $entry['body'] ?? '',
-\t\t\t];
-
-\t\t\tforeach ( $entry['fields'] ?? [] as $field_id => $value ) {
-\t\t\t\t$payload[ $field_id ] = $value;
-\t\t\t}
-
-\t\t\tforeach ( $entry['terms'] ?? [] as $taxonomy => $terms ) {
-\t\t\t\t$payload[ $taxonomy ] = $terms;
-\t\t\t}
-
-\t\t\t$saved = portfolio_light_upsert_record( $model, $payload, $existing ? $existing->ID : 0 );
-\t\t\tif ( ! is_wp_error( $saved ) && ! empty( $entry['sourceId'] ) ) {
-\t\t\t\tupdate_post_meta( $saved->ID, '_portfolio_source_id', $entry['sourceId'] );
+\t\t\t\t$result['routes'][] = $route_id;
 \t\t\t}
 \t\t}
 \t}
+
+\t$collection_items = isset( $payload['collectionItems'] ) && is_array( $payload['collectionItems'] )
+\t\t? $payload['collectionItems']
+\t\t: [];
+
+\tif ( ! empty( $collection_items ) ) {
+\t\t$indexes = [];
+\t\t$collections = portfolio_light_get_content_collections();
+\t\t$wanted = [];
+\t\tforeach ( $collection_items as $target ) {
+\t\t\t$model = (string) ( $target['model'] ?? '' );
+\t\t\t$slug  = (string) ( $target['slug'] ?? '' );
+\t\t\tif ( '' === $model || '' === $slug ) {
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\t$wanted[ $model . '::' . $slug ] = true;
+\t\t}
+
+\t\tforeach ( $collections as $items ) {
+\t\t\tforeach ( $items as $entry ) {
+\t\t\t\t$model = (string) ( $entry['model'] ?? '' );
+\t\t\t\t$slug  = (string) ( $entry['slug'] ?? '' );
+\t\t\t\tif ( empty( $wanted[ $model . '::' . $slug ] ) ) {
+\t\t\t\t\tcontinue;
+\t\t\t\t}
+
+\t\t\t\t$post_type = $model;
+\t\t\t\tif ( ! in_array( $post_type, [ 'page', 'post' ], true ) ) {
+\t\t\t\t\t$model_def = portfolio_light_get_model( $model );
+\t\t\t\t\tif ( $model_def ) {
+\t\t\t\t\t\t$post_type = (string) ( $model_def['postType'] ?? $post_type );
+\t\t\t\t\t}
+\t\t\t\t}
+\t\t\t\tif ( $post_type && ! isset( $indexes[ $post_type ] ) ) {
+\t\t\t\t\t$indexes[ $post_type ] = portfolio_light_build_post_index( $post_type );
+\t\t\t\t}
+
+\t\t\t\t$row = portfolio_light_seed_content_entry( $entry, $indexes, $site );
+\t\t\t\tif ( is_array( $row ) ) {
+\t\t\t\t\t$result['posts'][] = $row;
+\t\t\t\t}
+\t\t\t}
+\t\t}
+\t}
+
+\tif ( isset( $payload['singletons'] ) && is_array( $payload['singletons'] ) ) {
+\t\tforeach ( $payload['singletons'] as $singleton_id ) {
+\t\t\t$singleton_id = (string) $singleton_id;
+\t\t\tif ( '' === $singleton_id ) {
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\tif ( portfolio_light_seed_single_singleton( $singleton_id ) ) {
+\t\t\t\t$result['singletons'][] = $singleton_id;
+\t\t\t}
+\t\t}
+\t}
+
+\tif ( ! empty( $payload['templates'] ) ) {
+\t\t$template_targets = portfolio_light_sync_managed_templates();
+\t\tif ( is_array( $template_targets ) ) {
+\t\t\t$result['templates'] = $template_targets;
+\t\t}
+\t}
+
+\tif ( ! empty( $payload['siteSettings'] ) ) {
+\t\tportfolio_light_apply_site_settings();
+\t}
+
+\tif ( ! empty( $payload['flushRewrites'] ) ) {
+\t\tflush_rewrite_rules( false );
+\t}
+
+\treturn $result;
 }
 
 function portfolio_light_apply_site_defaults() {

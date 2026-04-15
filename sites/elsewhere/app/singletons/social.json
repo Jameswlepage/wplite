@@ -1,0 +1,15 @@
+{
+  "id": "social",
+  "label": "Social & Newsletter",
+  "icon": "Hash",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "instagram_url": { "type": "url", "label": "Instagram" },
+    "twitter_url": { "type": "url", "label": "Twitter / X" },
+    "tiktok_url": { "type": "url", "label": "TikTok" },
+    "youtube_url": { "type": "url", "label": "YouTube" },
+    "mailing_list_url": { "type": "url", "label": "Mailing list URL" },
+    "mailing_list_blurb": { "type": "text", "label": "Mailing list blurb" }
+  }
+}

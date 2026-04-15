@@ -1,0 +1,99 @@
+.e-mailing {
+	background: var(--wp--preset--color--violet, #6a4cff);
+	color: var(--wp--preset--color--paper, #f4ead8);
+	border-bottom: 1px solid var(--wp--preset--color--ink, #0a0a0a);
+	padding: clamp(48px, 8vw, 120px) clamp(20px, 4vw, 60px);
+}
+.e-mailing__inner {
+	max-width: 720px;
+	margin: 0 auto;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+.e-mailing__heading {
+	font-family: var(--wp--preset--font-family--display, 'Archivo Black', sans-serif);
+	font-size: clamp(2rem, 6vw, 4rem);
+	line-height: 0.95;
+	text-transform: uppercase;
+	letter-spacing: -0.01em;
+	color: var(--wp--preset--color--paper, #f4ead8);
+	margin: 0;
+}
+.e-mailing__sub {
+	font-size: 1.125rem;
+	max-width: 520px;
+	margin: 0 auto;
+	opacity: 0.92;
+}
+.e-mailing__form {
+	display: flex;
+	gap: 12px;
+	max-width: 520px;
+	width: 100%;
+	margin: 16px auto 0;
+	background: var(--wp--preset--color--paper, #f4ead8);
+	border: 1px solid var(--wp--preset--color--ink, #0a0a0a);
+	border-radius: 999px;
+	padding: 6px;
+	align-items: stretch;
+}
+.e-mailing__form input[type="email"] {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	background: transparent;
+	padding: 10px 18px;
+	font: inherit;
+	color: var(--wp--preset--color--ink, #0a0a0a);
+	outline: none;
+	font-size: 1rem;
+}
+.e-mailing__form input[type="email"]::placeholder {
+	color: rgba(10, 10, 10, 0.4);
+}
+.e-mailing__button {
+	appearance: none;
+	border: none;
+	background: var(--wp--preset--color--lime, #c9f765);
+	color: var(--wp--preset--color--ink, #0a0a0a);
+	font-family: var(--wp--preset--font-family--mono, monospace);
+	font-size: 0.75rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.14em;
+	padding: 10px 22px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.e-mailing__button:hover:not([disabled]) {
+	transform: translate(-2px, -2px);
+	box-shadow: 4px 4px 0 var(--wp--preset--color--ink, #0a0a0a);
+}
+.e-mailing__button[disabled] { opacity: 0.6; cursor: wait; }
+.e-mailing__status {
+	min-height: 1.5em;
+	margin: 0;
+	font-family: var(--wp--preset--font-family--mono, monospace);
+	font-size: 0.8125rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.e-mailing__status[data-state="error"]   { color: #ffd1d1; }
+.e-mailing__status[data-state="success"] { color: var(--wp--preset--color--lime, #c9f765); font-size: 1rem; text-transform: none; letter-spacing: 0; }
+.e-mailing__status[data-state="pending"] { opacity: 0.75; }
+
+.screen-reader-text {
+	position: absolute !important;
+	width: 1px; height: 1px;
+	padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+@media (max-width: 560px) {
+	.e-mailing__form { flex-direction: column; border-radius: 24px; padding: 10px; }
+	.e-mailing__form input[type="email"] { text-align: center; }
+	.e-mailing__button { width: 100%; }
+}

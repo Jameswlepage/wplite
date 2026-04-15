@@ -15,7 +15,7 @@ import { phpRegisterHeadFile } from './lib/php/register-head.mjs';
 import { phpRegisterRestFile } from './lib/php/register-rest.mjs';
 import { phpRegisterAdminAppFile } from './lib/php/register-admin-app.mjs';
 import { phpRegisterFrontendLauncherFile, frontendLauncherCss, frontendLauncherJs } from './lib/php/register-frontend-launcher.mjs';
-import { phpRegisterLoginStyleFile, loginStyleCss } from './lib/php/register-login-style.mjs';
+import { phpRegisterLoginStyleFile } from './lib/php/register-login-style.mjs';
 import { phpSeedFile } from './lib/php/seed.mjs';
 import { writeGeneratedPlugin, writeStaticAssets, hashPath } from './lib/emit-plugin.mjs';
 import { resolveRoot, resolvePaths } from './lib/paths.mjs';
@@ -107,6 +107,9 @@ async function readBlockDirectory(dirPath) {
 
     try {
       const metadata = await readJson(blockJsonPath);
+      if ((metadata?.category ?? '') === 'dashboard') {
+        continue;
+      }
       const {
         apiVersion,
         name,
@@ -127,9 +130,9 @@ async function readBlockDirectory(dirPath) {
         description,
         attributes: attributes ?? {},
         supports: supports ?? {},
-        // Preserve any additional top-level block.json keys (e.g. a "dashboard"
-        // convention sites opt into) so downstream compiler and runtime code
-        // can read them without the compiler knowing specific block names.
+        // Preserve any additional top-level block.json keys so downstream
+        // compiler and runtime code can read them without hardcoding block
+        // specific behavior here.
         ...rest,
       });
     } catch {
@@ -359,7 +362,7 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
     path.join(themeTargetRoot, 'functions.php'),
     `<?php\nadd_action( 'init', function() {\n\tregister_block_pattern_category( '${themeSlug}', [\n\t\t'label' => __( '${toTitleCase(
       themeSlug
-    )}', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'enqueue_block_assets', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) {\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 1500);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
+    )}', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'after_setup_theme', function() {\n\tadd_theme_support( 'editor-styles' );\n\tadd_editor_style( 'style.css' );\n} );\n\nadd_action( 'enqueue_block_assets', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\t// Skip hot-reload inside an iframe (e.g. the Site Editor preview).\n\tif (window.self !== window.top) return;\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\tif (document.visibilityState !== 'visible') return;\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) return;\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) return;\n\n\t\t\t// Only reload if heartbeat is fresh (watcher actively running).\n\t\t\tif (payload.heartbeatAt) {\n\t\t\t\tconst age = Date.now() - new Date(payload.heartbeatAt).getTime();\n\t\t\t\tif (age > 10000) return;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 3000);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
   );
 
   const headerPath = path.join(themeTargetRoot, 'parts', 'header.html');
@@ -417,6 +420,7 @@ function compilerSelfHash() {
     new URL('./lib/php/plugin-main.mjs', import.meta.url),
     new URL('./lib/php/register-head.mjs', import.meta.url),
     new URL('./lib/php/register-login-style.mjs', import.meta.url),
+    new URL('./lib/assets/login.css', import.meta.url),
     new URL('./lib/php/register-frontend-launcher.mjs', import.meta.url),
   ];
 
@@ -443,7 +447,6 @@ function compilerSelfHash() {
     .update(phpRegisterLoginStyleFile())
     .update(frontendLauncherCss())
     .update(frontendLauncherJs())
-    .update(loginStyleCss())
     .digest('hex');
 }
 
@@ -689,6 +692,7 @@ async function emitSchemaArtifacts(root, generatedRoot, site, siteSchema, adminS
   );
 
   await writeGeneratedPlugin(siteSchema, adminSchemas, site, rebased);
+  await writeStaticAssets(rebased.pluginRoot);
   return rebased;
 }
 

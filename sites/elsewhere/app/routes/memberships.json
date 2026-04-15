@@ -1,0 +1,8 @@
+{
+  "id": "memberships",
+  "type": "page",
+  "slug": "memberships",
+  "title": "Memberships",
+  "template": "memberships",
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

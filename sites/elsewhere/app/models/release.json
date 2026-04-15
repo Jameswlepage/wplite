@@ -1,0 +1,25 @@
+{
+  "id": "release",
+  "label": "Releases",
+  "singularLabel": "Release",
+  "icon": "Music",
+  "type": "collection",
+  "postType": "release",
+  "archiveSlug": "sounds",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Cover Art" },
+    "artist_name": { "type": "text", "label": "Artist" },
+    "artist_slug": { "type": "text", "label": "Artist slug (optional)" },
+    "release_type": {
+      "type": "select",
+      "label": "Type",
+      "options": ["mix", "single", "ep", "album", "live-recording"]
+    },
+    "release_date": { "type": "text", "label": "Release Date (YYYY-MM-DD)" },
+    "listen_url": { "type": "url", "label": "Listen URL", "placeholder": "Bandcamp / SoundCloud / Spotify" },
+    "duration": { "type": "text", "label": "Duration", "placeholder": "62:14" },
+    "featured": { "type": "boolean", "label": "Featured" }
+  }
+}

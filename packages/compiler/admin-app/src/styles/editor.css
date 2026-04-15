@@ -20,8 +20,8 @@
 .native-editor__topbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 12px;
+  gap: 0;
+  padding: 0 8px;
   border-bottom: 1px solid var(--wp-admin-border);
   background: #ffffff;
   height: var(--native-editor-topbar-height);
@@ -32,16 +32,19 @@
 .native-editor__topbar-leading {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   flex-shrink: 0;
+  padding-right: 12px;
 }
 
 .native-editor__topbar-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-shrink: 0;
   margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--wp-admin-border);
 }
 
 .native-editor__topbar-center {
@@ -49,8 +52,47 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.native-editor__topbar-toolbar {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.native-editor__topbar-toolbar .block-editor-block-toolbar,
+.native-editor__topbar-toolbar .components-toolbar {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  min-height: var(--native-editor-topbar-height);
+  height: var(--native-editor-topbar-height);
+}
+
+.native-editor__topbar-toolbar .components-toolbar {
+  padding: 0;
+  gap: 0;
+}
+
+.native-editor__topbar-toolbar .components-toolbar-group {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  min-height: var(--native-editor-topbar-height);
+  margin: 0;
   padding: 0 12px;
+  border-left: 1px solid var(--wp-admin-border);
+}
+
+.native-editor__topbar-toolbar .components-toolbar-group:first-child {
+  padding-left: 0;
+  border-left: 0;
 }
 
 .native-editor__title-display {
@@ -60,7 +102,7 @@
   white-space: nowrap;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: 4px;
   height: 36px;
   padding: 0 10px;
   font-family: inherit;
@@ -93,7 +135,7 @@
   height: 36px;
   padding: 0 10px;
   border: 1px solid var(--wp-admin-accent, #3858e9);
-  border-radius: 2px;
+  border-radius: 4px;
   background: #ffffff;
   font-family: inherit;
   font-size: 13px;
@@ -116,7 +158,7 @@
   min-width: 36px;
   height: 36px;
   padding: 6px;
-  border-radius: 2px;
+  border-radius: 4px;
   color: var(--wp-admin-text);
 }
 
@@ -136,7 +178,7 @@
 
 .native-editor__topbar .native-editor__save.components-button {
   height: 36px;
-  border-radius: 2px;
+  border-radius: 4px;
   padding: 0 14px;
   font-weight: 500;
 }
@@ -146,7 +188,7 @@
   min-width: 36px;
   height: 36px;
   padding: 6px;
-  border-radius: 2px;
+  border-radius: 4px;
   background: var(--wp-admin-text, #1e1e1e);
   color: #ffffff;
   transition: background-color 120ms ease;
@@ -171,6 +213,9 @@
   align-items: stretch;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .native-editor__layout--no-sidebar {
@@ -188,33 +233,95 @@
 .native-editor__inserter-panel {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--wp-admin-border);
-  background: #ffffff;
+  border-right: 2px solid #1e1e1e;
+  background: #2d2d2d;
+  color: #ffffff;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-}
-
-.native-editor__inserter-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  border-bottom: 1px solid var(--wp-admin-border);
-  flex-shrink: 0;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .native-editor__inserter-panel-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
-.native-editor__inserter-panel-body .block-editor-inserter__menu {
+.native-editor__inserter-panel-body .block-editor-inserter__menu,
+.native-editor__inserter-panel-body .block-editor-inserter__main-area {
   padding: 0;
   height: auto;
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.native-editor__inserter-panel-body .components-tab-panel__tabs {
+  padding: 0 8px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.native-editor__inserter-panel-body .components-tab-panel__tabs-item {
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  padding: 8px 12px;
+  height: 40px;
+}
+
+.native-editor__inserter-panel-body .components-tab-panel__tabs-item:hover {
+  color: #ffffff;
+}
+
+.native-editor__inserter-panel-body .components-tab-panel__tabs-item.is-active {
+  color: #ffffff;
+  box-shadow: inset 0 -2px 0 #4b63ff;
+}
+
+.native-editor__inserter-panel-body .block-editor-inserter__search,
+.native-editor__inserter-panel-body .components-search-control input {
+  background: #1e1e1e;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.native-editor__inserter-panel-body .block-editor-inserter__panel-title,
+.native-editor__inserter-panel-body .block-editor-block-types-list__item-title,
+.native-editor__inserter-panel-body .block-editor-block-patterns-list__item-title,
+.native-editor__inserter-panel-body .block-editor-inserter__media-list__item-title {
+  color: #ffffff;
+}
+
+.native-editor__inserter-panel-body .block-editor-block-types-list__item,
+.native-editor__inserter-panel-body .block-editor-block-patterns-list__item,
+.native-editor__inserter-panel-body .block-editor-inserter__media-list__item {
+  color: #ffffff;
+}
+
+.native-editor__inserter-panel-body .block-editor-block-types-list__item:hover,
+.native-editor__inserter-panel-body .block-editor-block-types-list__item:focus {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.native-editor__inserter-panel-body .block-editor-block-types-list__item-icon {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.native-editor__inserter-panel-body .block-editor-inserter__no-results,
+.native-editor__inserter-panel-body .block-editor-inserter__tips,
+.native-editor__inserter-panel-body .block-editor-inserter__block-list {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .native-editor__main,
@@ -226,7 +333,9 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .native-editor__sidebar {
@@ -300,18 +409,33 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Gutenberg's Iframe scale-container flips to position: absolute + width:
+   100vw when Gutenberg's internal zoom-out mode flag is set. We never use
+   that mode (our "fit" canvas uses CSS zoom, not Gutenberg's zoom-out), but
+   if it ever gets flipped on we don't want the iframe escaping its column
+   and drawing over the document sidebar. Pin it back into normal flow. */
+.native-editor__canvas .block-editor-iframe__scale-container {
+  position: static !important;
+  width: 100% !important;
+  right: auto !important;
 }
 
 .native-editor__footer {
   flex-shrink: 0;
   display: flex;
   align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
   padding: 0 16px;
-  min-height: 36px;
-  background: #ffffff;
-  border-top: 1px solid var(--wp-admin-border);
+  min-height: 32px;
+  background: #242424;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 11px;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .native-editor__footer .block-editor-block-breadcrumb {
@@ -332,17 +456,149 @@
 }
 
 .native-editor__footer .block-editor-block-breadcrumb__button,
-.native-editor__footer .block-editor-block-breadcrumb__current {
+.native-editor__footer .block-editor-block-breadcrumb__current,
+.native-editor__footer .block-editor-block-breadcrumb button,
+.native-editor__footer .block-editor-block-breadcrumb a {
   font-size: 11px;
-  height: 24px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
-  color: var(--wp-admin-text-muted);
+  color: rgba(255, 255, 255, 0.42) !important;
+  background: transparent !important;
   text-transform: none;
+  text-decoration: none;
+  box-shadow: none !important;
 }
 
-.native-editor__footer .block-editor-block-breadcrumb__button:hover {
-  color: var(--wp-admin-accent, #3858e9);
+.native-editor__footer .block-editor-block-breadcrumb__button:hover,
+.native-editor__footer .block-editor-block-breadcrumb button:hover,
+.native-editor__footer .block-editor-block-breadcrumb a:hover {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: transparent !important;
+}
+
+.native-editor__footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.native-editor__footer-link-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.native-editor__footer-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.native-editor__footer-action:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.native-editor__link-card {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 6px 8px;
+  border: 1px solid #c0c0c0;
+  border-radius: 4px;
+  background: #f6f7f7;
+  color: #1e1e1e;
+  box-shadow: none;
+}
+
+.native-editor__link-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 120ms ease;
+}
+
+.native-editor__link-card-body:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.native-editor__link-card-body strong,
+.native-editor__link-card-body span,
+.native-editor__link-card-body em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.native-editor__link-card-body strong {
+  color: #1e1e1e;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.native-editor__link-card-body span {
+  color: #6c6c6c;
+  font-size: 11px;
+}
+
+.native-editor__link-card-hint {
+  display: none;
+}
+
+.native-editor__link-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-left: 1px solid #d0d0d0;
+  padding-left: 6px;
+}
+
+.native-editor__link-card-action {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #1e1e1e;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.native-editor__link-card-action:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.native-editor__link-card-action svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .native-editor__canvas {
@@ -350,13 +606,50 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   position: relative;
   padding: 0;
 }
 
+/* Scale the editor canvas so the whole page reads at a "front-end" aspect
+   ratio. The iframe is laid out at a fixed desktop logical width; the
+   container is zoomed down so you see more of the page at once instead of
+   the layout collapsing to match the narrower admin canvas. */
 .native-editor__canvas--fit {
   background: #ffffff;
+  overflow: hidden;
+  zoom: 0.7;
+}
+
+.native-editor__canvas--fit .block-editor-iframe__container,
+.native-editor__canvas--fit .block-editor-iframe__scale-container,
+.native-editor__canvas--fit iframe {
+  min-width: 1440px !important;
+}
+
+@supports not (zoom: 1) {
+  .native-editor__canvas--fit {
+    transform: scale(0.7);
+    transform-origin: top left;
+    width: calc(100% / 0.7);
+    height: calc(100% / 0.7);
+  }
+}
+
+/* Non-template canvas: cap width + add padding so unstyled content
+   doesn't go edge-to-edge. */
+.native-editor__canvas:not(.native-editor__canvas--fit) .block-editor-block-list__layout,
+.native-editor__canvas:not(.native-editor__canvas--fit) .editor-styles-wrapper .block-editor-block-list__layout {
+  max-width: 780px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 48px 24px 96px;
+}
+
+.native-editor__canvas:not(.native-editor__canvas--fit) .block-editor-block-list__layout .block-editor-block-list__layout,
+.native-editor__canvas:not(.native-editor__canvas--fit) .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
+  max-width: none;
+  padding: 0;
 }
 
 .native-editor__canvas > div,
@@ -367,16 +660,14 @@
 }
 
 .native-editor__canvas--fit .block-editor-iframe__container {
-  width: max(100%, 1180px);
-  min-width: 1180px;
+  width: 100%;
 }
 
 .native-editor__canvas--fit .block-editor-iframe__scale-container {
   display: flex;
   align-items: stretch;
   justify-content: center;
-  width: max(100%, 1180px);
-  min-width: 1180px;
+  width: 100%;
   padding: 0;
   box-sizing: border-box;
 }
@@ -392,7 +683,7 @@
 
 .native-editor__canvas--fit iframe {
   background: #ffffff;
-  min-width: 1180px;
+  width: 100%;
   box-shadow: none;
 }
 
@@ -593,4 +884,506 @@
   margin: 12px 0;
   color: var(--wp-admin-text-muted);
   font-size: 12px;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Inline block inserter (the "+" popover inside the canvas).
+   Dark theme to match the admin chrome.
+   ─────────────────────────────────────────────────────────────── */
+.components-popover.block-editor-inserter__popover .components-popover__content,
+.block-editor-inserter__quick-inserter,
+.block-editor-inserter__quick-inserter-separator {
+  background: #2d2d2d !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control input,
+.block-editor-inserter__quick-inserter .components-search-control__input,
+.block-editor-inserter__search input {
+  background: #1e1e1e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control input::placeholder,
+.block-editor-inserter__quick-inserter .components-search-control__input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.block-editor-inserter__quick-inserter .components-search-control__icon svg,
+.block-editor-inserter__search svg {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item {
+  color: #ffffff !important;
+  background: transparent !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:focus,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:focus {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  outline: 0 !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 4px !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-title,
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-header,
+.block-editor-inserter__quick-inserter .components-panel__header,
+.block-editor-inserter__quick-inserter .block-editor-inserter__category-tabs {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand,
+.block-editor-inserter__quick-inserter .components-button {
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand:hover,
+.block-editor-inserter__quick-inserter .components-button:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__no-results {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* The popover tip/arrow should match the dark bg */
+.components-popover.block-editor-inserter__popover .components-popover__content::before,
+.components-popover.block-editor-inserter__popover .components-popover__content::after {
+  border-color: rgba(255, 255, 255, 0.14) transparent !important;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Quick inserter: structural clamps so tiles render at a sane
+   size and the popover scrolls instead of clipping titles.
+   ─────────────────────────────────────────────────────────────── */
+.block-editor-inserter__quick-inserter {
+  width: 350px !important;
+  max-height: min(520px, calc(100vh - 96px)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 8px !important;
+}
+
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-results,
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-content,
+.block-editor-inserter__quick-inserter .block-editor-inserter__results {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* Wrap the search input + its icon prefix in a single dark pill. */
+.block-editor-inserter__quick-inserter .components-search-control,
+.block-editor-inserter__quick-inserter .components-search-control__input-wrapper,
+.block-editor-inserter__quick-inserter .components-input-control,
+.block-editor-inserter__quick-inserter .components-input-control__container,
+.block-editor-inserter__quick-inserter .components-base-control__field {
+  background: #1e1e1e !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+.block-editor-inserter__quick-inserter .components-input-control__prefix,
+.block-editor-inserter__quick-inserter .components-input-control__suffix,
+.block-editor-inserter__quick-inserter .components-search-control__icon {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.block-editor-inserter__quick-inserter .components-input-control__prefix svg,
+.block-editor-inserter__quick-inserter .components-search-control__icon svg {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Tile grid: predictable column count, consistent padding, clamp icons. */
+.block-editor-inserter__quick-inserter .block-editor-block-types-list,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__list-items {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 2px !important;
+  padding: 4px 0 !important;
+}
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__list-item {
+  padding: 0 !important;
+}
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item {
+  min-height: 92px !important;
+  padding: 10px 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon svg {
+  max-width: 24px !important;
+  max-height: 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  margin: 0 !important;
+  text-align: center !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Side-panel inserter: extend dark theme to the newer Gutenberg
+   wrappers (tabbed sidebar, patterns/media panes) so the body
+   isn't a bare white slab.
+   ─────────────────────────────────────────────────────────────── */
+.native-editor__inserter-panel-body .block-editor-tabbed-sidebar,
+.native-editor__inserter-panel-body .block-editor-tabbed-sidebar__main,
+.native-editor__inserter-panel-body .block-editor-tabbed-sidebar__content,
+.native-editor__inserter-panel-body .block-editor-tabbed-sidebar__tablist,
+.native-editor__inserter-panel-body .block-editor-tabbed-sidebar__tabpanel,
+.native-editor__inserter-panel-body .block-editor-inserter__tabs,
+.native-editor__inserter-panel-body .block-editor-inserter__tabs-content,
+.native-editor__inserter-panel-body .block-editor-inserter__block-list,
+.native-editor__inserter-panel-body .block-editor-inserter__patterns-container,
+.native-editor__inserter-panel-body .block-editor-inserter__patterns-tabs-container,
+.native-editor__inserter-panel-body .block-editor-inserter__media-tabs-container,
+.native-editor__inserter-panel-body .block-editor-inserter__media-panel,
+.native-editor__inserter-panel-body .block-editor-inserter__media-panel-content,
+.native-editor__inserter-panel-body .block-editor-inserter__media-panel-search,
+.native-editor__inserter-panel-body .block-editor-inserter__preview-container,
+.native-editor__inserter-panel-body .block-editor-inserter__preview-container-inner,
+.native-editor__inserter-panel-body .block-editor-inserter__tablist-and-close-button,
+.native-editor__inserter-panel-body .block-editor-inserter__panel-content,
+.native-editor__inserter-panel-body .block-editor-inserter__block-patterns-tabs-container {
+  background: transparent !important;
+  color: inherit !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Search input inside the side panel (both legacy and new markup). */
+.native-editor__inserter-panel-body .components-input-control,
+.native-editor__inserter-panel-body .components-input-control__container,
+.native-editor__inserter-panel-body .components-search-control,
+.native-editor__inserter-panel-body .components-search-control__input-wrapper {
+  background: #1e1e1e !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  border-radius: 4px !important;
+}
+.native-editor__inserter-panel-body .components-input-control__input,
+.native-editor__inserter-panel-body .components-search-control__input {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+.native-editor__inserter-panel-body .components-input-control__prefix,
+.native-editor__inserter-panel-body .components-input-control__suffix,
+.native-editor__inserter-panel-body .components-search-control__icon {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.native-editor__inserter-panel-body .components-input-control__prefix svg,
+.native-editor__inserter-panel-body .components-search-control__icon svg {
+  fill: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* No-results / empty states should be legible on dark bg. */
+.native-editor__inserter-panel-body .block-editor-inserter__no-results,
+.native-editor__inserter-panel-body .block-editor-inserter__tips,
+.native-editor__inserter-panel-body .block-editor-inserter__media-panel-categories,
+.native-editor__inserter-panel-body .block-editor-block-patterns-list__item-title,
+.native-editor__inserter-panel-body .block-editor-inserter__media-list__item-title {
+  color: rgba(255, 255, 255, 0.82) !important;
+}
+
+/* Media / pattern list cards: dark hover, transparent default. */
+.native-editor__inserter-panel-body .block-editor-block-patterns-list__item,
+.native-editor__inserter-panel-body .block-editor-inserter__media-list__item {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.native-editor__inserter-panel-body .block-editor-block-patterns-list__item:hover,
+.native-editor__inserter-panel-body .block-editor-inserter__media-list__item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Tile grid inside the side panel uses the same clamp treatment. */
+.native-editor__inserter-panel-body .block-editor-block-types-list__item {
+  min-height: 92px !important;
+  padding: 10px 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+.native-editor__inserter-panel-body .block-editor-block-types-list__item-icon {
+  width: 36px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.native-editor__inserter-panel-body .block-editor-block-types-list__item-icon svg {
+  width: 24px !important;
+  height: 24px !important;
+}
+.native-editor__inserter-panel-body .block-editor-block-types-list__item-title {
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   LinkControl / URL popover. Renders via Gutenberg's Popover
+   into document.body, which escapes any .app-shell--workspace
+   scope. Styles here are intentionally global so the portal
+   still picks them up.
+   ─────────────────────────────────────────────────────────────── */
+.components-popover.block-editor-link-control > .components-popover__content,
+.components-popover.block-editor-url-popover > .components-popover__content,
+.components-popover.block-editor-url-input__popover > .components-popover__content,
+.components-popover:has(> .components-popover__content > .block-editor-link-control) > .components-popover__content {
+  background: #242424 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+}
+
+.block-editor-link-control,
+.block-editor-url-popover,
+.block-editor-url-popover__row {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.block-editor-link-control__search-input-container,
+.block-editor-link-control__field,
+.block-editor-url-input {
+  background: transparent !important;
+}
+
+.block-editor-link-control input[type="text"],
+.block-editor-link-control input[type="url"],
+.block-editor-url-input input,
+.block-editor-url-popover input[type="text"],
+.block-editor-url-popover input[type="url"] {
+  background: #1e1e1e !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.block-editor-link-control input::placeholder,
+.block-editor-url-input input::placeholder,
+.block-editor-url-popover input::placeholder {
+  color: rgba(255, 255, 255, 0.45) !important;
+}
+
+.block-editor-link-control__search-results-wrapper,
+.block-editor-link-control__search-results {
+  background: transparent !important;
+  color: inherit !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.block-editor-link-control__search-item {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.block-editor-link-control__search-item:hover,
+.block-editor-link-control__search-item:focus,
+.block-editor-link-control__search-item.is-selected,
+.block-editor-link-control__search-item[aria-selected="true"] {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.block-editor-link-control__search-item-title,
+.block-editor-link-control__search-item-header-title {
+  color: #ffffff !important;
+}
+
+.block-editor-link-control__search-item-info,
+.block-editor-link-control__search-item-description,
+.block-editor-link-control__search-item-type {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.block-editor-link-control__settings,
+.block-editor-link-control__tools,
+.block-editor-link-control__drawer {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: inherit !important;
+}
+
+.block-editor-link-control .components-toggle-control__label,
+.block-editor-link-control .components-base-control__label,
+.block-editor-link-control label {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.block-editor-link-control .components-button,
+.block-editor-url-popover .components-button {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.block-editor-link-control .components-button.is-primary,
+.block-editor-url-popover .components-button.is-primary {
+  background: var(--wp-admin-accent, #3858e9) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+}
+
+.block-editor-link-control .components-button:hover:not(:disabled),
+.block-editor-url-popover .components-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.block-editor-link-control__search-item-icon svg,
+.block-editor-link-control svg,
+.block-editor-url-popover svg {
+  fill: currentColor !important;
+}
+
+/* Popover tip/arrow color match */
+.components-popover.block-editor-link-control > .components-popover__content::before,
+.components-popover.block-editor-link-control > .components-popover__content::after,
+.components-popover.block-editor-url-popover > .components-popover__content::before,
+.components-popover.block-editor-url-popover > .components-popover__content::after {
+  border-color: rgba(255, 255, 255, 0.14) transparent !important;
+}
+
+/* Link-peek floating pill (outer document, hovers over iframe anchors) */
+.native-editor__link-peek {
+  position: fixed;
+  z-index: 60;
+  display: inline-flex;
+  animation: link-peek-in 100ms ease-out;
+}
+
+.native-editor__link-peek-card {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(34, 34, 34, 0.96);
+  color: #ffffff;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px);
+}
+
+.native-editor__link-peek-meta {
+  display: grid;
+  gap: 3px;
+}
+
+.native-editor__link-peek-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.native-editor__link-peek-title {
+  font-size: 12px;
+  line-height: 1.35;
+  color: #ffffff;
+}
+
+.native-editor__link-peek-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.native-editor__link-peek-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.native-editor__link-peek-btn:hover {
+  background: #4b63ff;
+  border-color: #4b63ff;
+}
+
+.native-editor__link-peek-btn--primary {
+  background: #4b63ff;
+  border-color: #4b63ff;
+}
+
+.native-editor__link-peek-btn--primary:hover {
+  background: #5f75ff;
+  border-color: #5f75ff;
+}
+
+.native-editor__link-peek-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+@keyframes link-peek-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

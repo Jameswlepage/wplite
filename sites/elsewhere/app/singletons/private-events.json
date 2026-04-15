@@ -1,0 +1,21 @@
+{
+  "id": "private-events",
+  "label": "Private Events",
+  "icon": "Calendar",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "intro": { "type": "textarea", "label": "Intro copy" },
+    "contact_email": { "type": "email", "label": "Bookings email" },
+    "packages": {
+      "type": "repeater",
+      "label": "Packages",
+      "item": {
+        "name": { "type": "text", "label": "Package name" },
+        "capacity": { "type": "text", "label": "Capacity" },
+        "starts_at": { "type": "text", "label": "Starts at", "placeholder": "$3,500" },
+        "description": { "type": "textarea", "label": "Description" }
+      }
+    }
+  }
+}

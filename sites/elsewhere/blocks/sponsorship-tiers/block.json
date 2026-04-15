@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "elsewhere/sponsorship-tiers",
+  "title": "Sponsorship Partners",
+  "category": "widgets",
+  "icon": "awards",
+  "description": "Renders current partners and contact from the Sponsorships singleton.",
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "render": "file:./render.php"
+}

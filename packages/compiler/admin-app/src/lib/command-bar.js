@@ -114,16 +114,6 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
 
   items.push(
     createCommandItem({
-      id: 'command:dashboard',
-      title: 'Dashboard',
-      subtitle: 'Overview, activity, and workspace signals',
-      path: '/',
-      iconName: 'Dashboard',
-      keywords: ['home', 'overview'],
-      priority: 720,
-      emptyPriority: 1200,
-    }),
-    createCommandItem({
       id: 'command:pages',
       title: 'Pages',
       subtitle: 'Manage routed and freeform pages',
@@ -149,7 +139,8 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
       id: 'command:comments',
       title: 'Comments',
       subtitle: commentsEnabled ? 'Moderate site discussion' : 'Review comments while discussion is disabled',
-      path: '/comments',
+      action: 'open-overlay',
+      overlay: 'comments',
       iconName: 'Chat',
       keywords: ['discussion', 'moderation', 'spam'],
       priority: 620,
@@ -171,7 +162,8 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
       id: 'command:users',
       title: 'Users',
       subtitle: 'Manage WordPress users and roles',
-      path: '/users',
+      action: 'open-overlay',
+      overlay: 'users',
       iconName: 'User',
       keywords: ['people', 'accounts', 'roles'],
       priority: 680,
@@ -198,16 +190,6 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
       keywords: ['settings', 'site', 'homepage', 'discussion', 'comments'],
       priority: 710,
       emptyPriority: 1080,
-    }),
-    createCommandItem({
-      id: 'command:docs',
-      title: 'Docs',
-      subtitle: 'Schema, compiler, and admin-app documentation',
-      path: '/docs',
-      iconName: 'Document',
-      keywords: ['documentation', 'schema', 'help'],
-      priority: 640,
-      emptyPriority: 900,
     }),
     createCommandItem({
       id: 'command:domains',
@@ -512,13 +494,14 @@ export function searchCommandPaletteItems(items, query, { commandsOnly = false, 
       }
       return left.item.title.localeCompare(right.item.title);
     })
-    .map((entry) => entry.item);
+    .map((entry) => ({ ...entry.item, __score: entry.score }));
 
   return results.slice(0, limit);
 }
 
-export function groupCommandPaletteItems(items, { perGroup = 7 } = {}) {
+export function groupCommandPaletteItems(items, { perGroup = 7, rankedBySearch = false } = {}) {
   const buckets = new Map();
+  const topScore = new Map();
 
   for (const item of items) {
     const label = item.group || 'Results';
@@ -530,10 +513,17 @@ export function groupCommandPaletteItems(items, { perGroup = 7 } = {}) {
     if (groupItems.length < perGroup) {
       groupItems.push(item);
     }
+    if (!topScore.has(label)) {
+      topScore.set(label, item.__score ?? item.priority ?? 0);
+    }
   }
 
   return [...buckets.entries()]
     .sort((left, right) => {
+      if (rankedBySearch) {
+        const diff = (topScore.get(right[0]) ?? 0) - (topScore.get(left[0]) ?? 0);
+        if (diff !== 0) return diff;
+      }
       const leftIndex = GROUP_ORDER.indexOf(left[0]);
       const rightIndex = GROUP_ORDER.indexOf(right[0]);
 

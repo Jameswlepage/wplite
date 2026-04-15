@@ -57,6 +57,9 @@ add_action(
 \t\t$plugin_file = glob( dirname( __DIR__ ) . '/*.php' )[0] ?? __FILE__;
 \t\t$script_url  = plugins_url( 'build/admin-app.js', $plugin_file );
 \t\t$style_url   = plugins_url( 'build/admin-app.css', $plugin_file );
+\t\t$dev_state   = function_exists( 'portfolio_light_get_dev_state' ) ? portfolio_light_get_dev_state() : [];
+\t\t$vite_url    = ! empty( $dev_state['enabled'] ) && ! empty( $dev_state['viteUrl'] ) ? rtrim( $dev_state['viteUrl'], '/' ) : '';
+\t\t$acp_bridge_url = ! empty( $dev_state['enabled'] ) && ! empty( $dev_state['acpBridgeUrl'] ) ? $dev_state['acpBridgeUrl'] : '';
 \t\t$current_user = wp_get_current_user();
 \t\t$config      = [
 \t\t\t'restRoot'    => esc_url_raw( rest_url( 'portfolio/v1/' ) ),
@@ -65,6 +68,7 @@ add_action(
 \t\t\t'appBase'     => home_url( '/app' ),
 \t\t\t'currentUser' => $current_user->user_login,
 \t\t\t'currentUserId' => (int) $current_user->ID,
+\t\t\t'acpBridgeUrl' => $acp_bridge_url,
 \t\t];
 
 \t\tstatus_header( 200 );
@@ -75,50 +79,27 @@ add_action(
 \t<meta charset="<?php bloginfo( 'charset' ); ?>" />
 \t<meta name="viewport" content="width=device-width, initial-scale=1" />
 \t<title><?php echo esc_html( get_bloginfo( 'name' ) . ' App' ); ?></title>
-\t<?php if ( file_exists( $style_path ) ) : ?>
+\t<?php if ( '' === $vite_url && file_exists( $style_path ) ) : ?>
 \t\t<link rel="stylesheet" href="<?php echo esc_url( $style_url ); ?>" />
 \t<?php endif; ?>
+\t<?php if ( '' !== $vite_url ) : ?>
+\t\t<script type="module">
+\t\t\timport RefreshRuntime from "<?php echo esc_url( $vite_url ); ?>/@react-refresh";
+\t\t\tRefreshRuntime.injectIntoGlobalHook(window);
+\t\t\twindow.$RefreshReg$ = () => {};
+\t\t\twindow.$RefreshSig$ = () => (type) => type;
+\t\t\twindow.__vite_plugin_react_preamble_installed__ = true;
+\t\t</script>
+\t\t<script type="module" src="<?php echo esc_url( $vite_url ); ?>/@vite/client"></script>
+\t<?php endif; ?>
 \t<script>window.PORTFOLIO_LIGHT = <?php echo wp_json_encode( $config ); ?>;</script>
-\t<script>
-\t(function() {
-\t\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;
-\t\tlet currentVersion = null;
-
-\t\tasync function checkDevState() {
-\t\t\ttry {
-\t\t\t\tconst response = await fetch(endpoint, {
-\t\t\t\t\tcache: 'no-store',
-\t\t\t\t\tcredentials: 'same-origin',
-\t\t\t\t});
-\t\t\t\tif (!response.ok) {
-\t\t\t\t\treturn;
-\t\t\t\t}
-
-\t\t\t\tconst payload = await response.json();
-\t\t\t\tif (!payload?.enabled || !payload.version) {
-\t\t\t\t\treturn;
-\t\t\t\t}
-
-\t\t\t\tif (currentVersion && currentVersion !== payload.version) {
-\t\t\t\t\twindow.location.reload();
-\t\t\t\t\treturn;
-\t\t\t\t}
-
-\t\t\t\tcurrentVersion = payload.version;
-\t\t\t} catch (error) {
-\t\t\t\t// Keep polling quietly during local development.
-\t\t\t}
-\t\t}
-
-\t\tcheckDevState();
-\t\twindow.setInterval(checkDevState, 1500);
-\t})();
-\t</script>
 \t<?php wp_head(); ?>
 </head>
 <body <?php body_class( 'portfolio-light-admin-app' ); ?>>
 \t<div id="portfolio-admin-root"></div>
-\t<?php if ( file_exists( $script_path ) ) : ?>
+\t<?php if ( '' !== $vite_url ) : ?>
+\t\t<script type="module" src="<?php echo esc_url( $vite_url ); ?>/src/main.jsx"></script>
+\t<?php elseif ( file_exists( $script_path ) ) : ?>
 \t\t<script type="module" src="<?php echo esc_url( $script_url ); ?>"></script>
 \t<?php else : ?>
 \t\t<p>Admin app build not found. Run the build step.</p>

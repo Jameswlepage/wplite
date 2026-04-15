@@ -7,8 +7,21 @@ if (!outDir) {
   throw new Error('WPLITE_ADMIN_OUT_DIR environment variable is required.');
 }
 
+const devHost = process.env.WPLITE_ADMIN_DEV_HOST || '127.0.0.1';
+const devPort = Number(process.env.WPLITE_ADMIN_DEV_PORT || 5273);
+const devOrigin = `http://${devHost}:${devPort}`;
+
 export default defineConfig({
+  root: __dirname,
   plugins: [react()],
+  server: {
+    host: devHost,
+    port: devPort,
+    strictPort: true,
+    cors: true,
+    origin: devOrigin,
+    hmr: { host: devHost, port: devPort, protocol: 'ws' },
+  },
   build: {
     outDir: path.resolve(outDir),
     emptyOutDir: false,

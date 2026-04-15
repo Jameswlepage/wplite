@@ -1,0 +1,135 @@
+<!--
+Title: Calendar List
+Slug: elsewhere-theme/calendar-list
+Inserter: no
+-->
+<!-- wp:group {"className":"e-calendar","layout":{"type":"default"}} -->
+<div class="wp-block-group e-calendar" data-calendar-root>
+
+<!-- wp:group {"className":"e-calendar__header","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"space-between","verticalAlignment":"center"}} -->
+<div class="wp-block-group e-calendar__header">
+<!-- wp:html -->
+<div class="e-calendar__filters" data-calendar-filters>
+  <span class="e-calendar__filters-label">Show</span>
+  <button type="button" class="pill is-active" data-filter="all">All</button>
+  <button type="button" class="pill" data-filter="club">Club</button>
+  <button type="button" class="pill" data-filter="live">Live</button>
+</div>
+<!-- /wp:html -->
+<!-- wp:html -->
+<div class="e-calendar__view-toggle" data-calendar-view>
+  <button type="button" class="pill is-active" data-view="list">List</button>
+  <button type="button" class="pill" data-view="grid">Grid</button>
+</div>
+<!-- /wp:html -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"e-calendar__body","layout":{"type":"default"}} -->
+<div class="wp-block-group e-calendar__body" data-calendar-body>
+
+<!-- wp:query {"queryId":32,"query":{"perPage":40,"pages":0,"offset":0,"postType":"event","order":"asc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:post-template -->
+
+<!-- wp:group {"className":"e-calendar__row","layout":{"type":"default"}} -->
+<div class="wp-block-group e-calendar__row">
+
+<!-- wp:paragraph {"className":"e-calendar__date","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"date_display"}}}}} -->
+<p class="e-calendar__date"></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:group {"className":"e-calendar__lineup-col","layout":{"type":"default"}} -->
+<div class="wp-block-group e-calendar__lineup-col">
+<!-- wp:post-title {"level":3,"className":"e-calendar__lineup","isLink":true} /-->
+<!-- wp:group {"className":"e-calendar__tags","layout":{"type":"flex","flexWrap":"wrap"}} -->
+<div class="wp-block-group e-calendar__tags">
+<!-- wp:paragraph {"className":"e-calendar__tag","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"show_type_display"}}}}} -->
+<p class="e-calendar__tag"></p>
+<!-- /wp:paragraph -->
+<!-- wp:paragraph {"className":"e-calendar__tag is-room","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"room_display"}}}}} -->
+<p class="e-calendar__tag is-room"></p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:paragraph {"className":"e-calendar__time","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"show_time"}}}}} -->
+<p class="e-calendar__time"></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:buttons {"className":"e-calendar__cta"} -->
+<div class="wp-block-buttons e-calendar__cta">
+<!-- wp:button {"className":"is-style-outline","metadata":{"bindings":{"url":{"source":"core/post-meta","args":{"key":"ticket_url"}}}}} -->
+<div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button" href="#">Buy Tickets</a></div>
+<!-- /wp:button -->
+</div>
+<!-- /wp:buttons -->
+
+</div>
+<!-- /wp:group -->
+
+<!-- /wp:post-template -->
+
+<!-- wp:query-no-results -->
+<!-- wp:paragraph --><p>No shows on the books yet.</p><!-- /wp:paragraph -->
+<!-- /wp:query-no-results -->
+</div>
+<!-- /wp:query -->
+
+</div>
+<!-- /wp:group -->
+
+<!-- wp:html -->
+<script>
+(() => {
+  const root = document.querySelector('[data-calendar-root]');
+  if (!root) return;
+  const rows = [...root.querySelectorAll('.e-calendar__row')];
+
+  // Tag each row with its show type by reading the first (non-room) tag text
+  rows.forEach((row) => {
+    const typeEl = row.querySelector('.e-calendar__tag:not(.is-room)');
+    const roomEl = row.querySelector('.e-calendar__tag.is-room');
+    const type = (typeEl?.textContent || '').trim().toLowerCase();
+    if (type) {
+      row.dataset.type = type;
+      typeEl.classList.add('is-' + type);
+    }
+    // Also promote room class variant for styling
+    if (roomEl) {
+      const room = (roomEl.textContent || '').trim().toLowerCase().replace(/\s+/g, '-');
+      if (room) roomEl.dataset.room = room;
+    }
+  });
+
+  // Filter pills
+  const filterEls = root.querySelectorAll('[data-filter]');
+  filterEls.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      filterEls.forEach((p) => p.classList.remove('is-active'));
+      pill.classList.add('is-active');
+      const f = pill.dataset.filter;
+      rows.forEach((r) => {
+        r.hidden = !(f === 'all' || r.dataset.type === f);
+      });
+    });
+  });
+
+  // List / Grid toggle
+  const viewEls = root.querySelectorAll('[data-view]');
+  const body = root.querySelector('[data-calendar-body]');
+  viewEls.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      viewEls.forEach((b) => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      body.dataset.view = btn.dataset.view;
+    });
+  });
+})();
+</script>
+<!-- /wp:html -->
+
+</div>
+<!-- /wp:group -->

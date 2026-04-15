@@ -233,19 +233,21 @@ export function frontendLauncherCss() {
   return `.wplite-frontend-launcher {
   --wplite-launcher-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --wplite-launcher-edge: 24px;
-  --wplite-launcher-surface: rgba(29, 35, 39, 0.96);
-  --wplite-launcher-surface-strong: #11171a;
-  --wplite-launcher-surface-hover: #2c3338;
-  --wplite-launcher-border: rgba(220, 220, 222, 0.18);
-  --wplite-launcher-border-strong: rgba(220, 220, 222, 0.28);
+  --wplite-launcher-surface: #2d2d2d;
+  --wplite-launcher-surface-strong: #242424;
+  --wplite-launcher-surface-hover: rgba(255, 255, 255, 0.08);
+  --wplite-launcher-search-bg: rgba(246, 247, 249, 0.14);
+  --wplite-launcher-search-bg-active: rgba(246, 247, 249, 0.24);
+  --wplite-launcher-border: rgba(255, 255, 255, 0.14);
+  --wplite-launcher-border-strong: rgba(255, 255, 255, 0.2);
   --wplite-launcher-icon: #ffffff;
-  --wplite-launcher-icon-muted: rgba(255, 255, 255, 0.78);
-  --wplite-launcher-icon-soft: rgba(255, 255, 255, 0.56);
-  --wplite-launcher-focus: #72aee6;
+  --wplite-launcher-icon-muted: rgba(255, 255, 255, 0.54);
+  --wplite-launcher-icon-soft: rgba(255, 255, 255, 0.42);
+  --wplite-launcher-focus: rgba(122, 159, 255, 0.9);
   --wplite-launcher-tooltip-bg: #f6f7f7;
   --wplite-launcher-tooltip-border: #dcdcde;
   --wplite-launcher-tooltip-text: #1d2327;
-  --wplite-launcher-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --wplite-launcher-shadow: none;
   --wplite-launcher-radius: 999px;
   position: fixed;
   left: var(--wplite-launcher-edge);
@@ -292,21 +294,15 @@ export function frontendLauncherCss() {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 50px;
+  min-height: 46px;
   padding: 3px;
   border: 1px solid var(--wplite-launcher-border);
   border-radius: var(--wplite-launcher-radius);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-    var(--wplite-launcher-surface);
+  background: var(--wplite-launcher-surface);
   box-shadow: var(--wplite-launcher-shadow);
-  backdrop-filter: saturate(180%) blur(14px);
   overflow: hidden;
   pointer-events: auto;
-  transition:
-    background-color 220ms cubic-bezier(0.2, 0.7, 0, 1),
-    border-color 220ms cubic-bezier(0.2, 0.7, 0, 1),
-    box-shadow 220ms cubic-bezier(0.2, 0.7, 0, 1);
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .wplite-frontend-launcher[data-corner$="right"] .wplite-frontend-launcher__dock {
@@ -319,7 +315,6 @@ export function frontendLauncherCss() {
 
 .wplite-frontend-launcher.is-dragging .wplite-frontend-launcher__dock {
   border-color: var(--wplite-launcher-border-strong);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
 }
 
 .wplite-frontend-launcher__toggle {
@@ -327,9 +322,9 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -350,7 +345,7 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher.is-open .wplite-frontend-launcher__toggle,
 .wplite-frontend-launcher:hover .wplite-frontend-launcher__toggle,
 .wplite-frontend-launcher:focus-within .wplite-frontend-launcher__toggle {
-  background: var(--wplite-launcher-surface-hover);
+  background: var(--wplite-launcher-search-bg-active);
 }
 
 .wplite-frontend-launcher__toggle:focus-visible,
@@ -365,9 +360,8 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  transform: translateX(-0.35px);
+  width: 22px;
+  height: 22px;
 }
 
 .wplite-frontend-launcher__wordpress-icon {
@@ -417,7 +411,7 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__menu {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   max-width: 0;
   overflow: hidden;
   padding: 0;
@@ -440,7 +434,7 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher.is-open .wplite-frontend-launcher__menu {
   max-width: min(620px, calc(100vw - 112px));
   overflow: visible;
-  padding: 0 10px 0 4px;
+  padding: 0 6px 0 6px;
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -449,7 +443,7 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher[data-corner$="right"]:hover .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher[data-corner$="right"]:focus-within .wplite-frontend-launcher__menu,
 .wplite-frontend-launcher[data-corner$="right"].is-open .wplite-frontend-launcher__menu {
-  padding: 0 4px 0 10px;
+  padding: 0 6px 0 6px;
 }
 
 .wplite-frontend-launcher.is-searching .wplite-frontend-launcher__menu,
@@ -465,11 +459,11 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  min-width: 44px;
-  height: 44px;
+  gap: 10px;
+  min-width: 32px;
+  height: 32px;
   flex: 0 0 auto;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -494,16 +488,26 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--wplite-launcher-icon-muted);
+  flex-shrink: 0;
 }
 
 .wplite-frontend-launcher__item-icon svg,
 .wplite-frontend-launcher__result-icon svg {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 14px;
+  height: 14px;
+}
+
+.wplite-frontend-launcher__item:hover .wplite-frontend-launcher__item-icon,
+.wplite-frontend-launcher__item:focus-visible .wplite-frontend-launcher__item-icon,
+.wplite-frontend-launcher__result:hover .wplite-frontend-launcher__result-icon,
+.wplite-frontend-launcher__result:focus-visible .wplite-frontend-launcher__result-icon,
+.wplite-frontend-launcher__result.is-active .wplite-frontend-launcher__result-icon {
+  color: var(--wplite-launcher-icon);
 }
 
 .wplite-frontend-launcher__item-avatar,
@@ -518,15 +522,15 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__item-avatar {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .wplite-frontend-launcher__result-avatar {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
 }
 
 .wplite-frontend-launcher__item-avatar img,
@@ -538,8 +542,8 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__item-label {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   line-height: 1;
   white-space: nowrap;
 }
@@ -547,19 +551,27 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__search {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex: 1 1 auto;
   max-width: 0;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  padding: 0;
+  height: 40px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  background: var(--wplite-launcher-search-bg);
   transform: translateX(-8px);
   transition:
     max-width 260ms cubic-bezier(0.2, 0.7, 0, 1),
     opacity 160ms cubic-bezier(0.2, 0.7, 0, 1),
     padding 260ms cubic-bezier(0.2, 0.7, 0, 1),
-    transform 260ms cubic-bezier(0.2, 0.7, 0, 1);
+    transform 260ms cubic-bezier(0.2, 0.7, 0, 1),
+    background 120ms ease;
+}
+
+.wplite-frontend-launcher.is-searching .wplite-frontend-launcher__search:hover {
+  background: var(--wplite-launcher-search-bg-active);
 }
 
 .wplite-frontend-launcher[data-corner$="right"] .wplite-frontend-launcher__search {
@@ -571,27 +583,26 @@ export function frontendLauncherCss() {
   opacity: 1;
   pointer-events: auto;
   padding: 0 8px 0 12px;
+  background: var(--wplite-launcher-search-bg-active);
   transform: translateX(0);
-}
-
-.wplite-frontend-launcher[data-corner$="right"].is-searching .wplite-frontend-launcher__search {
-  padding: 0 12px 0 8px;
 }
 
 .wplite-frontend-launcher__search-input {
   flex: 1 1 auto;
   min-width: 0;
-  height: 38px;
+  height: 100%;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--wplite-launcher-icon);
-  font: 600 13px/1 var(--wplite-launcher-font);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.4;
   outline: none;
 }
 
 .wplite-frontend-launcher__search-input::placeholder {
-  color: var(--wplite-launcher-icon-soft);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .wplite-frontend-launcher__search-input::-webkit-search-decoration,
@@ -603,14 +614,14 @@ export function frontendLauncherCss() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: transparent;
-  color: var(--wplite-launcher-icon-muted);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.52);
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease;
 }
@@ -624,18 +635,14 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__results {
   position: absolute;
   left: 0;
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 6px);
   width: min(540px, calc(100vw - (var(--wplite-launcher-edge) * 2)));
   max-height: min(62vh, 520px);
   overflow-y: auto;
-  padding: 8px;
   border: 1px solid var(--wplite-launcher-border);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-    var(--wplite-launcher-surface);
+  border-radius: 14px;
+  background: var(--wplite-launcher-surface);
   box-shadow: var(--wplite-launcher-shadow);
-  backdrop-filter: saturate(180%) blur(16px);
   pointer-events: auto;
   opacity: 0;
   transform: translateY(10px) scale(0.985);
@@ -652,7 +659,7 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher[data-corner^="top"] .wplite-frontend-launcher__results {
-  top: calc(100% + 12px);
+  top: calc(100% + 6px);
   bottom: auto;
   transform: translateY(-10px) scale(0.985);
   transform-origin: left top;
@@ -672,15 +679,15 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__results-section + .wplite-frontend-launcher__results-section {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 2px;
 }
 
 .wplite-frontend-launcher__results-section-label {
-  padding: 2px 8px 8px;
+  padding: 10px 10px 8px;
   color: var(--wplite-launcher-icon-soft);
-  font: 700 10px/1 var(--wplite-launcher-font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -690,14 +697,14 @@ export function frontendLauncherCss() {
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   background: transparent;
-  color: var(--wplite-launcher-icon-muted);
+  color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
+  transition: background 90ms ease, color 90ms ease;
 }
 
 .wplite-frontend-launcher__result:hover,
@@ -716,40 +723,48 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__result-title {
-  font: 600 13px/1.3 var(--wplite-launcher-font);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.96);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .wplite-frontend-launcher__result-subtitle {
-  color: var(--wplite-launcher-icon-soft);
-  font: 500 11px/1.35 var(--wplite-launcher-font);
+  color: var(--wplite-launcher-icon-muted);
+  font-size: 12px;
+  line-height: 1.45;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .wplite-frontend-launcher__result-type {
-  flex: 0 0 auto;
-  color: var(--wplite-launcher-icon-soft);
-  font: 700 10px/1 var(--wplite-launcher-font);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: none;
 }
 
 .wplite-frontend-launcher__results-status,
 .wplite-frontend-launcher__results-meta {
-  padding: 10px 12px;
-  color: var(--wplite-launcher-icon-soft);
-  font: 500 12px/1.4 var(--wplite-launcher-font);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.wplite-frontend-launcher__results-status {
+  padding: 18px 16px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .wplite-frontend-launcher__results-meta {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-top: 8px;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
   font-size: 11px;
 }
 
@@ -1686,11 +1701,6 @@ export function frontendLauncherJs() {
             }
 
             button.appendChild(body);
-
-            const tag = document.createElement('span');
-            tag.className = 'wplite-frontend-launcher__result-type';
-            tag.textContent = item.group || 'Result';
-            button.appendChild(tag);
 
             const resultIndex = absoluteIndex;
             button.addEventListener('mouseenter', () => {

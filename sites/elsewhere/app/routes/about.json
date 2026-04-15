@@ -1,0 +1,8 @@
+{
+  "id": "about",
+  "type": "page",
+  "slug": "about",
+  "title": "About",
+  "template": "about",
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

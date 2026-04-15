@@ -18,10 +18,12 @@ import {
   normalizePageRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
+import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
 import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterAssistantContext } from './assistant-provider.jsx';
 
 const PAGE_TEMPLATE_SLOT_CLASS = 'wplite-page-template-slot';
 
@@ -32,6 +34,12 @@ function cloneBlockTree(block) {
     (block.innerBlocks ?? []).map(cloneBlockTree)
   );
 }
+
+export const PAGE_TEMPLATE_SLOT = PAGE_TEMPLATE_SLOT_CLASS;
+
+export function cloneBlocks_(blocks = []) { return cloneBlocks(blocks); }
+export function composeTemplateEditorBlocks_(t, p) { return composeTemplateEditorBlocks(t, p); }
+export function splitTemplateEditorBlocks_(b) { return splitTemplateEditorBlocks(b); }
 
 function cloneBlocks(blocks = []) {
   return (blocks ?? []).map(cloneBlockTree);
@@ -256,7 +264,7 @@ export function PagesPage({ pushNotice }) {
   );
 }
 
-export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
+export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNotice }) {
   const themeJson = bootstrap?.themeJson ?? null;
   const navigate = useNavigate();
   const { pageId } = useParams();
@@ -515,13 +523,18 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
   const workspaceSurface = useMemo(() => ({
     entityId: draft.id ? `page:${draft.id}` : 'page:new',
     entityLabel: 'Page',
+    entityCollectionLabel: 'Pages',
     title: draft.title || 'Untitled Page',
+    titlePlaceholder: 'Add page title',
     status: draft.postStatus || 'draft',
     saveLabel: 'Save',
     publishLabel: draft.postStatus === 'publish' ? 'Update' : 'Publish',
     canSave: !loading,
     canPublish: !loading,
     isSaving,
+    setTitle: (value) => {
+      setDraft((current) => ({ ...current, title: value }));
+    },
     save: handleSave,
     publish: handlePublish,
     share: handleShare,
@@ -558,7 +571,32 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     templateRecord,
   ]);
 
+  const resolveInternalLink = useMemo(
+    () => createInternalLinkResolver({ bootstrap, recordsByModel }),
+    [bootstrap, recordsByModel]
+  );
+
   useRegisterWorkspaceSurface(workspaceSurface);
+
+  const assistantContext = useMemo(() => ({
+    view: 'page-editor',
+    entity: {
+      kind: 'page',
+      id: isNew ? 'new' : pageId,
+      label: draft.title || 'Untitled page',
+      slug: draft.slug || undefined,
+      possibleSourcePaths: isNew
+        ? ['content/pages/']
+        : [
+          `content/pages/${draft.slug || ''}.md`,
+          `app/pages/${draft.slug || ''}/`,
+          `content/pages/${draft.slug || ''}/`,
+        ].filter(Boolean),
+      notes:
+        'WordPress page record. The compiler typically reads pages from content/pages/<slug>.md or app/pages/<slug>/ — confirm with Glob before editing.',
+    },
+  }), [draft.slug, draft.title, isNew, pageId]);
+  useRegisterAssistantContext(assistantContext);
 
   if (loading) {
     return <EditorSkeleton />;
@@ -590,11 +628,11 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       onChangeTitle={(value) => {
         setDraft((current) => ({ ...current, title: value }));
       }}
-        showTitleInput={true}
-        showBackButton={false}
-        showPrimaryAction={false}
-        showMoreActions={false}
-        blocks={blocks}
+      showTitleInput={false}
+      showBackButton={false}
+      showPrimaryAction={false}
+      showMoreActions={false}
+      blocks={blocks}
       onChangeBlocks={handleBlocksChange}
       backLabel="Back to Pages"
       onBack={() => navigate('/pages')}
@@ -604,6 +642,8 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       viewUrl={draft.link}
       documentLabel="Page"
       fitCanvas={Boolean(templateRecord || routeManifest)}
+      resolveInternalLink={resolveInternalLink}
+      onOpenInternalLink={(path) => navigate(path)}
       wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
       documentSidebar={

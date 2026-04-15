@@ -1,0 +1,52 @@
+{
+  "id": "event",
+  "label": "Events",
+  "singularLabel": "Event",
+  "icon": "Calendar",
+  "type": "collection",
+  "postType": "event",
+  "archiveSlug": "calendar",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
+  "taxonomies": ["event_type"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Poster / Flyer" },
+    "date": { "type": "text", "label": "Date (YYYY-MM-DD)" },
+    "date_display": { "type": "text", "label": "Date (display, auto)" },
+    "doors": { "type": "text", "label": "Doors", "placeholder": "7:00 PM" },
+    "show_time": { "type": "text", "label": "Show Time", "placeholder": "8:00 PM" },
+    "room": {
+      "type": "select",
+      "label": "Room",
+      "options": ["zone-one", "the-hall", "the-loft", "full-venue"]
+    },
+    "room_display": { "type": "text", "label": "Room (display, auto)" },
+    "show_type": {
+      "type": "select",
+      "label": "Show Type",
+      "options": ["live", "club", "arts"]
+    },
+    "show_type_display": { "type": "text", "label": "Show Type (display, auto)" },
+    "lineup": {
+      "type": "repeater",
+      "label": "Lineup",
+      "help": "Artists on the bill, in performance order.",
+      "item": {
+        "name": { "type": "text", "label": "Artist" },
+        "artist_slug": { "type": "text", "label": "Artist slug (optional)" },
+        "role": { "type": "text", "label": "Role", "placeholder": "Headliner / Support / DJ" }
+      }
+    },
+    "price": { "type": "text", "label": "Price", "placeholder": "$20 adv / $25 door" },
+    "age": { "type": "text", "label": "Age", "placeholder": "21+" },
+    "ticket_url": { "type": "url", "label": "Ticket URL" },
+    "sold_out": { "type": "boolean", "label": "Sold Out" },
+    "featured": { "type": "boolean", "label": "Just Announced" }
+  },
+  "editorTemplate": [
+    ["core/paragraph", { "placeholder": "A sentence describing this show — vibe, context, why it matters." }],
+    ["core/heading", { "content": "About the show", "level": 2 }],
+    ["core/paragraph", { "placeholder": "Longer description, programming notes, press quotes." }]
+  ],
+  "templateLock": "insert"
+}

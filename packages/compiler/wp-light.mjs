@@ -6,7 +6,12 @@ import path from 'node:path';
 import process from 'node:process';
 import matter from 'gray-matter';
 import TurndownService from 'turndown';
+import { fileURLToPath } from 'node:url';
 import { build, resolveRoot } from './compile.mjs';
+import { classifyChanges } from './lib/classify-changes.mjs';
+
+const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(COMPILER_DIR, '..', '..');
 
 function parseCliArgs(argv) {
   const flags = {};
@@ -48,14 +53,14 @@ const PLAYGROUND_DEFAULT_PORT = 9400;
 const PLAYGROUND_MAX_PORT = 9410;
 const DEV_HEARTBEAT_INTERVAL_MS = 2000;
 const WATCH_TARGETS = [
-  'app',
-  'content',
-  'theme',
-  'admin',
-  'blocks',
-  'admin-app',
-  'scripts',
-  'package.json',
+  { label: 'app', base: ROOT, target: 'app' },
+  { label: 'content', base: ROOT, target: 'content' },
+  { label: 'theme', base: ROOT, target: 'theme' },
+  { label: 'admin', base: ROOT, target: 'admin' },
+  { label: 'blocks', base: ROOT, target: 'blocks' },
+  { label: 'package.json', base: ROOT, target: 'package.json' },
+  { label: 'admin-app', base: COMPILER_DIR, target: 'admin-app' },
+  { label: 'scripts', base: REPO_ROOT, target: 'scripts' },
 ];
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -426,25 +431,87 @@ async function readDevState() {
 }
 
 async function disableDevState() {
-  await writeDevState({ enabled: false, version: null, heartbeatAt: null });
+  await writeDevState({
+    enabled: false,
+    version: null,
+    heartbeatAt: null,
+    viteUrl: null,
+    acpBridgeUrl: null,
+    changeId: null,
+    changes: null,
+  });
+}
+
+function newChangeId() {
+  return `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 async function bumpDevState() {
   const timestamp = new Date().toISOString();
+  const current = await readDevState();
   await writeDevState({
+    ...current,
     enabled: true,
     version: timestamp,
     heartbeatAt: timestamp,
+    changeId: newChangeId(),
+    changes: { strategy: 'full', reason: 'Full reload', targets: null },
+  });
+}
+
+async function publishPartialChange({ reasons, manifest, targets }) {
+  const current = await readDevState();
+  const timestamp = new Date().toISOString();
+  await writeDevState({
+    ...current,
+    enabled: true,
+    heartbeatAt: timestamp,
+    changeId: newChangeId(),
+    changes: {
+      strategy: 'partial',
+      reason: manifest.reason,
+      reasons,
+      targets,
+      bootstrap: Boolean(manifest.payload?.bootstrap),
+    },
+  });
+}
+
+async function publishAssetsOnlyChange({ reasons, manifest }) {
+  const current = await readDevState();
+  const timestamp = new Date().toISOString();
+  await writeDevState({
+    ...current,
+    enabled: true,
+    heartbeatAt: timestamp,
+    changeId: newChangeId(),
+    changes: {
+      strategy: 'none',
+      reason: manifest.reason,
+      reasons,
+      targets: null,
+    },
   });
 }
 
 async function heartbeatDevState() {
   const current = await readDevState();
   await writeDevState({
+    ...current,
     enabled: true,
     version: current.version ?? new Date().toISOString(),
     heartbeatAt: new Date().toISOString(),
   });
+}
+
+async function setDevStateViteUrl(viteUrl) {
+  const current = await readDevState();
+  await writeDevState({ ...current, viteUrl });
+}
+
+async function setDevStateAcpBridgeUrl(acpBridgeUrl) {
+  const current = await readDevState();
+  await writeDevState({ ...current, acpBridgeUrl });
 }
 
 function disableDevStateSync() {
@@ -452,7 +519,19 @@ function disableDevStateSync() {
   mkdirSync(path.dirname(devStatePath), { recursive: true });
   writeFileSync(
     devStatePath,
-    `${JSON.stringify({ enabled: false, version: null, heartbeatAt: null }, null, 2)}\n`
+    `${JSON.stringify(
+      {
+        enabled: false,
+        version: null,
+        heartbeatAt: null,
+        viteUrl: null,
+        acpBridgeUrl: null,
+        changeId: null,
+        changes: null,
+      },
+      null,
+      2
+    )}\n`
   );
 }
 
@@ -1070,6 +1149,27 @@ async function runLocalSeed(siteUrl) {
   }
 }
 
+async function runPartialSeed(siteUrl, seedPayload) {
+  const session = await createLocalAdminSession(siteUrl);
+
+  const response = await fetch(`${siteUrl}/wp-json/portfolio/v1/seed-partial`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: session.cookies,
+      'X-WP-Nonce': session.nonce,
+    },
+    body: JSON.stringify(seedPayload ?? {}),
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.message || 'Failed to run partial seed.');
+  }
+
+  return payload.targets ?? { posts: [], singletons: [] };
+}
+
 async function normalizePullPayloadFromBootstrap(schema, bootstrap) {
   const existingSourceMaps = await buildExistingSourceMaps(schema);
   const existingPageSourceMaps = await buildExistingPageSourceMaps();
@@ -1228,26 +1328,97 @@ async function seedCommand() {
   };
 }
 
-function watchPath(target, onChange) {
-  const absoluteTarget = path.join(ROOT, target);
+function watchPath(entry, onChange) {
+  const { label, base, target } = entry;
+  const absoluteTarget = path.join(base, target);
   if (!existsSync(absoluteTarget)) {
-    note(`Skipping watch (not present): ${target}`);
+    note(`Skipping watch (not present): ${label}`);
     return null;
   }
   const watcher = watch(
     absoluteTarget,
     { recursive: path.extname(target) === '' },
     (eventType, fileName) => {
-      const changedPath = fileName ? path.join(target, String(fileName)) : target;
+      const changedPath = fileName ? path.join(label, String(fileName)) : label;
       onChange({ eventType, changedPath });
     }
   );
 
   watcher.on('error', (error) => {
-    errorOut(`Watcher error for ${target}: ${error.message}`);
+    errorOut(`Watcher error for ${label}: ${error.message}`);
   });
 
   return watcher;
+}
+
+async function startAcpBridge() {
+  const host = process.env.WPLITE_ACP_BRIDGE_HOST || '127.0.0.1';
+  const port = Number(process.env.WPLITE_ACP_BRIDGE_PORT || 7842);
+  const bridgeBin = path.join(REPO_ROOT, 'packages', 'acp-bridge', 'bin', 'server.mjs');
+
+  if (!existsSync(bridgeBin)) {
+    throw new Error(`acp-bridge entrypoint missing at ${bridgeBin}`);
+  }
+
+  const child = spawn(
+    process.execPath,
+    [bridgeBin, '--host', host, '--port', String(port), '--cwd', ROOT],
+    {
+      cwd: REPO_ROOT,
+      env: { ...process.env },
+      stdio: ['ignore', 'inherit', 'inherit'],
+    }
+  );
+
+  child.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      errorOut(`acp-bridge exited with code ${code}.`);
+    }
+  });
+
+  // Bridge is ready the moment the process is up; WebSocket clients just
+  // retry until the port is listening.
+  return { child, url: `ws://${host}:${port}`, host, port };
+}
+
+async function startAdminViteDevServer() {
+  const viteConfig = path.join(COMPILER_DIR, 'admin-app/vite.config.mjs');
+  const host = process.env.WPLITE_ADMIN_DEV_HOST || '127.0.0.1';
+  const port = Number(process.env.WPLITE_ADMIN_DEV_PORT || 5273);
+  const url = `http://${host}:${port}`;
+
+  const child = spawn(
+    'npx',
+    ['vite', '--config', viteConfig, '--host', host, '--port', String(port), '--strictPort'],
+    {
+      cwd: COMPILER_DIR,
+      env: {
+        ...process.env,
+        WPLITE_ADMIN_OUT_DIR:
+          process.env.WPLITE_ADMIN_OUT_DIR ||
+          path.join(ROOT, 'generated', 'wp-content', 'plugins', 'unused-dev-out'),
+        WPLITE_ADMIN_DEV_HOST: host,
+        WPLITE_ADMIN_DEV_PORT: String(port),
+      },
+      stdio: ['ignore', 'inherit', 'inherit'],
+    }
+  );
+
+  child.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      errorOut(`admin-app Vite dev server exited with code ${code}.`);
+    }
+  });
+
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    if (await isUrlReachable(url)) {
+      return { child, url };
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  child.kill('SIGTERM');
+  throw new Error(`Vite dev server did not come up at ${url}`);
 }
 
 async function devCommand() {
@@ -1259,7 +1430,35 @@ async function devCommand() {
   if (initialSync.mode === 'playground' && initialSync.siteUrl) {
     note(`Local site: ${initialSync.siteUrl}`);
   }
-  note(`Watching ${WATCH_TARGETS.join(', ')} for changes. Press Ctrl+C to stop.`);
+
+  let viteDevServer = null;
+  try {
+    viteDevServer = await startAdminViteDevServer();
+    await setDevStateViteUrl(viteDevServer.url);
+    note(`admin-app HMR active at ${viteDevServer.url}`);
+  } catch (error) {
+    errorOut(`admin-app HMR disabled: ${error.message}`);
+    await setDevStateViteUrl(null);
+  }
+
+  let acpBridge = null;
+  if (process.env.WPLITE_DISABLE_ACP !== '1') {
+    try {
+      acpBridge = await startAcpBridge();
+      await setDevStateAcpBridgeUrl(acpBridge.url);
+      note(`acp-bridge listening at ${acpBridge.url}`);
+    } catch (error) {
+      errorOut(`acp-bridge disabled: ${error.message}`);
+      await setDevStateAcpBridgeUrl(null);
+    }
+  } else {
+    await setDevStateAcpBridgeUrl(null);
+  }
+
+  const watchTargets = viteDevServer
+    ? WATCH_TARGETS.filter((entry) => entry.label !== 'admin-app')
+    : WATCH_TARGETS;
+  note(`Watching ${watchTargets.map((entry) => entry.label).join(', ')} for changes. Press Ctrl+C to stop.`);
 
   let timer = null;
   const heartbeatTimer = setInterval(() => {
@@ -1268,13 +1467,15 @@ async function devCommand() {
   let syncing = false;
   let queued = false;
   const changedPaths = new Set();
-  const watchers = WATCH_TARGETS.map((target) => watchPath(target, ({ changedPath }) => {
+  const watchers = watchTargets.map((target) => watchPath(target, ({ changedPath }) => {
     changedPaths.add(changedPath);
     clearTimeout(timer);
     timer = setTimeout(() => {
       void flushChanges();
     }, 250);
   })).filter(Boolean);
+
+  let cachedSiteUrl = initialSync.siteUrl ?? null;
 
   async function flushChanges() {
     if (syncing) {
@@ -1287,13 +1488,36 @@ async function devCommand() {
     changedPaths.clear();
     note(`Detected changes: ${reasons.join(', ')}`);
 
+    const manifest = classifyChanges(reasons);
+
     try {
-      const syncResult = await syncRunningSite({ useDocker });
-      await bumpDevState();
-      if (syncResult.mode === 'playground' && syncResult.siteUrl) {
-        note(`Updated ${syncResult.siteUrl}`);
+      if (manifest.strategy === 'partial' && cachedSiteUrl) {
+        await buildGeneratedSite();
+        const needsSeedCall =
+          (manifest.payload.collectionItems?.length ?? 0) > 0 ||
+          (manifest.payload.singletons?.length ?? 0) > 0 ||
+          (manifest.payload.routes?.length ?? 0) > 0 ||
+          Boolean(manifest.payload.templates) ||
+          Boolean(manifest.payload.siteSettings) ||
+          Boolean(manifest.payload.flushRewrites);
+        const targets = needsSeedCall
+          ? await runPartialSeed(cachedSiteUrl, manifest.payload)
+          : { posts: [], singletons: [], templates: [], routes: [] };
+        await publishPartialChange({ reasons, manifest, targets });
+        note(`Partial reseed: ${manifest.reason}`);
+      } else if (manifest.strategy === 'none') {
+        await buildGeneratedSite();
+        await publishAssetsOnlyChange({ reasons, manifest });
+        note('Asset-only change; no reseed.');
+      } else {
+        const syncResult = await syncRunningSite({ useDocker });
+        cachedSiteUrl = syncResult.siteUrl ?? cachedSiteUrl;
+        await bumpDevState();
+        if (syncResult.mode === 'playground' && syncResult.siteUrl) {
+          note(`Updated ${syncResult.siteUrl}`);
+        }
+        note('Rebuilt, reseeded, and triggered browser refresh.');
       }
-      note('Rebuilt, reseeded, and triggered browser refresh.');
     } catch (error) {
       errorOut(`Watch rebuild failed: ${error.stack || error.message}`);
     } finally {
@@ -1320,6 +1544,20 @@ async function devCommand() {
       for (const watcher of watchers) {
         watcher.close();
       }
+      if (viteDevServer) {
+        try {
+          viteDevServer.child.kill('SIGTERM');
+        } catch {
+          // best-effort
+        }
+      }
+      if (acpBridge) {
+        try {
+          acpBridge.child.kill('SIGTERM');
+        } catch {
+          // best-effort
+        }
+      }
       disableDevStateSync();
     };
 
@@ -1343,7 +1581,7 @@ async function devCommand() {
 
   return {
     summary: 'Development session stopped.',
-    data: { watched: WATCH_TARGETS },
+    data: { watched: WATCH_TARGETS.map((entry) => entry.label) },
   };
 }
 

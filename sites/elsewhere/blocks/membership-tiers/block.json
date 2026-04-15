@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "elsewhere/membership-tiers",
+  "title": "Membership Tiers",
+  "category": "widgets",
+  "icon": "groups",
+  "description": "Renders tiers from the Memberships singleton.",
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "render": "file:./render.php"
+}

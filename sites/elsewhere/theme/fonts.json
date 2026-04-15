@@ -1,0 +1,26 @@
+{
+  "source": "google",
+  "families": [
+    {
+      "slug": "display",
+      "name": "Display",
+      "family": "Archivo Black",
+      "weights": [400],
+      "stack": "'Impact', 'Helvetica Neue', sans-serif"
+    },
+    {
+      "slug": "body",
+      "name": "Body",
+      "family": "Space Grotesk",
+      "weights": [400, 500, 600, 700],
+      "stack": "-apple-system, BlinkMacSystemFont, 'Inter', Helvetica, Arial, sans-serif"
+    },
+    {
+      "slug": "mono",
+      "name": "Mono",
+      "family": "JetBrains Mono",
+      "weights": [400, 500, 700],
+      "stack": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    }
+  ]
+}

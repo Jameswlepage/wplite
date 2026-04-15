@@ -20,6 +20,7 @@ import {
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { SettingsFormSkeleton } from './skeletons.jsx';
 import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterAssistantContext } from './assistant-provider.jsx';
 
 /* ── Site Settings Page ── */
 export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
@@ -118,6 +119,17 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
       setIsSaving(false);
     }
   }
+
+  useRegisterAssistantContext(useMemo(() => ({
+    view: 'site-settings',
+    entity: {
+      kind: 'site-settings',
+      id: 'site',
+      label: 'Site Settings',
+      possibleSourcePaths: ['app/site.yml', 'app/site.yaml', 'app/settings/site.yml'],
+      notes: 'Top-level site settings (title, tagline, comments, etc.). Source typically in app/site.yml or similar.',
+    },
+  }), []));
 
   useRegisterWorkspaceSurface(useMemo(() => ({
     entityId: 'settings:site',
@@ -364,6 +376,22 @@ export function SingletonEditorPage({ bootstrap, singletonData, setSingletonData
       setIsSaving(false);
     }
   }
+
+  useRegisterAssistantContext(useMemo(() => (singleton ? {
+    view: 'singleton-editor',
+    entity: {
+      kind: 'singleton',
+      id: singleton.id,
+      label: singleton.label,
+      possibleSourcePaths: [
+        `content/${singleton.id}.yml`,
+        `content/${singleton.id}.yaml`,
+        `content/singletons/${singleton.id}.yml`,
+        `app/singletons/${singleton.id}.yml`,
+      ],
+      notes: `Singleton "${singleton.id}". Source is typically a YAML file under content/ or app/singletons/.`,
+    },
+  } : null), [singleton]));
 
   useRegisterWorkspaceSurface(useMemo(() => ({
     entityId: singleton ? `settings:${singleton.id}` : 'settings',
