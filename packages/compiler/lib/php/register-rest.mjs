@@ -47,6 +47,30 @@ add_action( 'rest_api_init', function() {
 \t\t]
 \t);
 
+\t$wplite_post_types = array_unique( array_merge(
+\t\t[ 'page', 'post' ],
+\t\tarray_map(
+\t\t\tfunction( $model ) { return $model['postType']; },
+\t\t\tportfolio_light_get_admin_models()
+\t\t)
+\t) );
+\tforeach ( $wplite_post_types as $post_type ) {
+\t\tregister_rest_field(
+\t\t\t$post_type,
+\t\t\t'wpliteSourcePath',
+\t\t\t[
+\t\t\t\t'get_callback' => function( $obj ) {
+\t\t\t\t\treturn (string) get_post_meta( (int) ( $obj['id'] ?? 0 ), '_wplite_source_path', true );
+\t\t\t\t},
+\t\t\t\t'schema'       => [
+\t\t\t\t\t'description' => 'Source file path (relative to the site root) for entities managed by the wplite compiler.',
+\t\t\t\t\t'type'        => 'string',
+\t\t\t\t\t'context'     => [ 'view', 'edit' ],
+\t\t\t\t],
+\t\t\t]
+\t\t);
+\t}
+
 \tregister_rest_field(
 \t\t'user',
 \t\t'wplitePreferences',

@@ -145,6 +145,22 @@ function portfolio_light_find_page_content_entry( $route ) {
 \t\t}
 \t}
 
+\t// Convention fallback: bind content/pages/<id>.md to the route whose id
+\t// matches the filename stem. Lets the flat file represent the page
+\t// without requiring explicit routeId / slug wiring in frontmatter.
+\tif ( $route_id ) {
+\t\tforeach ( portfolio_light_get_content_collections()['page'] ?? [] as $entry ) {
+\t\t\t$source_file = (string) ( $entry['sourceFile'] ?? '' );
+\t\t\tif ( $source_file === '' ) {
+\t\t\t\tcontinue;
+\t\t\t}
+\t\t\t$stem = preg_replace( '/\\.md$/', '', basename( $source_file ) );
+\t\t\tif ( $stem === $route_id ) {
+\t\t\t\treturn $entry;
+\t\t\t}
+\t\t}
+\t}
+
 \treturn null;
 }
 
@@ -184,6 +200,11 @@ function portfolio_light_seed_page_from_route( $route, $page_index = null ) {
 \t\t'_portfolio_source_id',
 \t\t(string) ( $content_entry['sourceId'] ?? ( ! empty( $route['id'] ) ? 'page.' . $route['id'] : 'page.' . $slug ) )
 \t);
+\tif ( ! empty( $content_entry['sourcePath'] ) ) {
+\t\tupdate_post_meta( $page_id, '_wplite_source_path', (string) $content_entry['sourcePath'] );
+\t} else {
+\t\tdelete_post_meta( $page_id, '_wplite_source_path' );
+\t}
 
 \tif ( ! empty( $route['template'] ) && ! in_array( $route['template'], [ 'front-page', 'page' ], true ) ) {
 \t\tupdate_post_meta( $page_id, '_wp_page_template', $route['template'] );
@@ -470,6 +491,11 @@ function portfolio_light_seed_content_entry( $entry, $indexes, $site ) {
 \t\t}
 
 \t\tupdate_post_meta( $page_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
+\t\tif ( ! empty( $entry['sourcePath'] ) ) {
+\t\t\tupdate_post_meta( $page_id, '_wplite_source_path', (string) $entry['sourcePath'] );
+\t\t} else {
+\t\t\tdelete_post_meta( $page_id, '_wplite_source_path' );
+\t\t}
 \t\tif ( $route ) {
 \t\t\tupdate_post_meta( $page_id, '_portfolio_route_id', (string) ( $route['id'] ?? '' ) );
 \t\t\tif ( ! empty( $route['template'] ) && ! in_array( $route['template'], [ 'front-page', 'page' ], true ) ) {
@@ -524,6 +550,11 @@ function portfolio_light_seed_content_entry( $entry, $indexes, $site ) {
 \t\t}
 
 \t\tupdate_post_meta( $post_id, '_portfolio_source_id', $entry['sourceId'] ?? '' );
+\t\tif ( ! empty( $entry['sourcePath'] ) ) {
+\t\t\tupdate_post_meta( $post_id, '_wplite_source_path', (string) $entry['sourcePath'] );
+\t\t} else {
+\t\t\tdelete_post_meta( $post_id, '_wplite_source_path' );
+\t\t}
 
 \t\treturn [
 \t\t\t'postType' => 'post',
@@ -577,6 +608,11 @@ function portfolio_light_seed_content_entry( $entry, $indexes, $site ) {
 
 \tif ( ! empty( $entry['sourceId'] ) ) {
 \t\tupdate_post_meta( $saved->ID, '_portfolio_source_id', $entry['sourceId'] );
+\t}
+\tif ( ! empty( $entry['sourcePath'] ) ) {
+\t\tupdate_post_meta( $saved->ID, '_wplite_source_path', (string) $entry['sourcePath'] );
+\t} else {
+\t\tdelete_post_meta( $saved->ID, '_wplite_source_path' );
 \t}
 
 \treturn [

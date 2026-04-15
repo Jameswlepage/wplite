@@ -392,8 +392,10 @@ export function AssistantProvider({ children }) {
     const route = location?.pathname || null;
     const view = surfaceContext?.view || null;
     const entity = surfaceContext?.entity || null;
-    if (!route && !view && !entity) return null;
+    const currentContent = surfaceContext?.currentContent || null;
+    if (!route && !view && !entity && !currentContent) return [];
 
+    const blocks = [];
     const lines = [];
     if (route) lines.push(`route: ${route}`);
     if (view) lines.push(`view: ${view}`);
@@ -410,16 +412,34 @@ export function AssistantProvider({ children }) {
         for (const p of entity.possibleSourcePaths) lines.push(`    - ${p}`);
       }
       if (entity.notes) lines.push(`  notes: ${JSON.stringify(entity.notes)}`);
+      if (currentContent) {
+        lines.push('  currentContent: see wplite://current-page-content resource');
+      }
     }
 
-    return {
-      type: 'resource',
-      resource: {
-        uri: 'wplite://surface-context',
-        mimeType: 'text/yaml',
-        text: lines.join('\n'),
-      },
-    };
+    if (lines.length) {
+      blocks.push({
+        type: 'resource',
+        resource: {
+          uri: 'wplite://surface-context',
+          mimeType: 'text/yaml',
+          text: lines.join('\n'),
+        },
+      });
+    }
+
+    if (currentContent) {
+      blocks.push({
+        type: 'resource',
+        resource: {
+          uri: 'wplite://current-page-content',
+          mimeType: 'text/html',
+          text: String(currentContent),
+        },
+      });
+    }
+
+    return blocks;
   }, [location, surfaceContext]);
 
   const value = useMemo(

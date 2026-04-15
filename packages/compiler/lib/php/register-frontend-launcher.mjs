@@ -551,20 +551,21 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__search {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
   flex: 1 1 auto;
   max-width: 0;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
   height: 40px;
-  padding: 0 8px 0 12px;
+  padding: 0;
   border-radius: 999px;
-  background: var(--wplite-launcher-search-bg);
+  background: transparent;
   transform: translateX(-8px);
   transition:
     max-width 260ms cubic-bezier(0.2, 0.7, 0, 1),
     opacity 160ms cubic-bezier(0.2, 0.7, 0, 1),
+    gap 260ms cubic-bezier(0.2, 0.7, 0, 1),
     padding 260ms cubic-bezier(0.2, 0.7, 0, 1),
     transform 260ms cubic-bezier(0.2, 0.7, 0, 1),
     background 120ms ease;
@@ -580,6 +581,7 @@ export function frontendLauncherCss() {
 
 .wplite-frontend-launcher.is-searching .wplite-frontend-launcher__search {
   max-width: min(560px, calc(100vw - 132px));
+  gap: 10px;
   opacity: 1;
   pointer-events: auto;
   padding: 0 8px 0 12px;

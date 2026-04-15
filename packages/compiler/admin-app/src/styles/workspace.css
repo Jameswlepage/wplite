@@ -1914,7 +1914,6 @@
 /* ── Tool calls: dot-status rows + collapsible group accordion ── */
 
 .workspace-chat__tool-group {
-  border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius);
   background: var(--wplite-bg-elev);
   overflow: hidden;
@@ -1954,17 +1953,12 @@
 }
 
 .workspace-chat__tool-group-body {
-  border-top: 1px solid var(--wplite-border);
   display: flex;
   flex-direction: column;
 }
 
 .workspace-chat__tool-row {
-  border-bottom: 1px solid var(--wplite-border);
-}
-
-.workspace-chat__tool-row:last-child {
-  border-bottom: 0;
+  /* no borders — rows are separated by background/hover, not rules */
 }
 
 .workspace-chat__tool-row-header {
@@ -2040,7 +2034,6 @@
   margin: 0;
   padding: 8px 10px;
   background: var(--wplite-bg);
-  border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius-sm);
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 11px;
@@ -2051,7 +2044,6 @@
 }
 
 .workspace-chat__plan {
-  border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius);
   background: var(--wplite-bg-elev);
   padding: 10px 12px;

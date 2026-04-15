@@ -434,8 +434,8 @@ export function AssistantChat() {
 
   function buildPromptContent(text) {
     const blocks = [{ type: 'text', text }];
-    const surfaceBlock = assistant.buildSurfaceContextBlock?.();
-    if (surfaceBlock) blocks.push(surfaceBlock);
+    const surfaceBlocks = assistant.buildSurfaceContextBlock?.() || [];
+    for (const block of surfaceBlocks) blocks.push(block);
     if (blockContext?.block) {
       const serialized = (() => {
         try {

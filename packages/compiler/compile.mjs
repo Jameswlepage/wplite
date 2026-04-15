@@ -143,7 +143,7 @@ async function readBlockDirectory(dirPath) {
   return blocks;
 }
 
-async function readMarkdownContentDirectory(dirPath) {
+async function readMarkdownContentDirectory(dirPath, siteRoot = null) {
   let entries = [];
 
   try {
@@ -162,24 +162,31 @@ async function readMarkdownContentDirectory(dirPath) {
     const filePath = path.join(dirPath, entry.name);
     const source = await readFile(filePath, 'utf8');
     const parsed = matter(source);
+    // Path the agent should `Edit` to mutate this entity. Stays relative to
+    // the site root so it works regardless of cwd.
+    const sourcePath = siteRoot
+      ? path.relative(siteRoot, filePath)
+      : entry.name;
 
     items.push({
       ...parsed.data,
       markdown: parsed.content.trim(),
       body: markdownToBlockMarkup(parsed.content),
       sourceFile: entry.name,
+      sourcePath,
     });
   }
 
   return items;
 }
 
-async function readContentEntries(rootDir, collections) {
+async function readContentEntries(rootDir, collections, siteRoot = null) {
   const content = {};
 
   for (const collection of collections) {
     content[collection.id] = await readMarkdownContentDirectory(
-      path.join(rootDir, collection.directory)
+      path.join(rootDir, collection.directory),
+      siteRoot
     );
   }
 
@@ -520,7 +527,7 @@ async function computeBuildArtifacts(root) {
     { id: 'page', directory: 'pages' },
     { id: 'post', directory: 'posts' },
   ];
-  const contentCollections = await readContentEntries(path.join(root, 'content'), contentSources);
+  const contentCollections = await readContentEntries(path.join(root, 'content'), contentSources, root);
   const contentSingletons = await readJsonDirectory(path.join(root, 'content', 'singletons'));
   const adminOverrides = await readJsonDirectory(path.join(root, 'admin'));
   const blocks = await readBlockDirectory(path.join(root, 'blocks'));

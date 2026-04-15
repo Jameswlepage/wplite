@@ -56,13 +56,46 @@ watcher handles everything downstream of the file write.
 
 ## Per-prompt context you receive
 
-The admin app injects a `wplite://surface-context` resource block on every
-prompt with the current route, view, and active entity (kind, id, slug,
-candidate source paths). Use this first before searching.
+Every prompt carries a `wplite://surface-context` resource (YAML) describing
+the active route, view, and entity — including the **canonical source file
+path** (`entity.sourceFile`) when one exists, or the path you must **create**
+(`entity.possibleSourcePaths[0]`) when one does not.
 
-If a `selected-block` resource is attached, that's the WordPress block the
-user has selected in the editor — its serialized HTML is the context for any
-"this block" instructions.
+For page and collection-item editors, you also receive a
+`wplite://current-page-content` resource holding the **full current rendered
+block markup** of the editor. This is the live state of what the user sees in
+the canvas — it is the same Gutenberg block markup that belongs in the body
+of the source `.md` file.
+
+When the user asks you to modify content on the current entity, **check
+`entity.rendersPostContent` first**:
+
+- **`rendersPostContent: true`** — the page's body *is* rendered by its
+  template. Edit `entity.sourceFile` (or create it at
+  `entity.possibleSourcePaths[0]`) using `wplite://current-page-content`
+  as the body.
+- **`rendersPostContent: false`** — the template does NOT include
+  `<!-- wp:post-content /-->`. Editing `content/pages/<slug>.md` will have
+  **no visible effect**. The visible markup is rendered from the files
+  listed in `entity.renderSources` (template + patterns + template parts).
+  Read the relevant file(s) there and edit those. Do **not** write to
+  `content/pages/<slug>.md` in this case — you will create a phantom
+  "source file" that the renderer ignores, and the user will see no
+  change.
+
+In both cases: do not `Glob`/`Find` to locate source files. The paths in
+`entity.sourceFile`, `entity.possibleSourcePaths`, and `entity.renderSources`
+are authoritative.
+
+When multiple `renderSources` exist (e.g. a template that references several
+patterns), match the user's intent to the right file by reading the pattern
+titles and markup. For a specific block (selected in the editor), the
+`wplite://selected-block/...` resource shows the exact markup — search for
+that markup inside the `renderSources` files to find the right one.
+
+If a `wplite://selected-block/...` resource is attached, that's the
+specific block the user wants the operation focused on — find its matching
+markup inside `wplite://current-page-content` and modify it in place.
 
 ## When a source file doesn't exist for an entity
 
@@ -96,17 +129,31 @@ default action.
 
 ## Locating source files
 
-Entity paths vary by site, so the per-prompt context lists candidate paths
-under `entity.possibleSourcePaths`. Always:
+The per-prompt context tells you exactly where the active entity lives:
 
-1. Read the per-prompt context for hints.
-2. Confirm with `Read` (if the candidate path exists, use it directly).
-3. Fall back to `Glob` patterns scoped to the site root if the hints don't
-   match.
+- **`entity.sourceFile`** — when present, this is the **authoritative** path
+  recorded by the compiler. Read and edit it directly. Do not Glob, do not
+  Find, do not search. The path is correct.
+- **`entity.possibleSourcePaths`** — when `sourceFile` is null (no source
+  file exists yet), this is a single-element list with the canonical target
+  path you should **create** the file at. Do not search for alternatives.
+
+If you find yourself running more than one Glob/Find call to locate the
+source file for an active entity, stop. Either:
+- Use `entity.sourceFile` directly, or
+- Create the file at `entity.possibleSourcePaths[0]`.
+
+The compiler is the source of truth for these paths. The user's frustration
+when you "spiral" through Find calls is because that information was already
+in your context — re-read the surface-context resource block before you
+invoke any tool.
 
 Common patterns:
 
-- Pages: `content/pages/<slug>.md` or `app/pages/<slug>/`.
+- Pages: `content/pages/<route-id>.md` — automatically binds to
+  `app/routes/<route-id>.json` by filename convention. No frontmatter
+  wiring required. Example: `content/pages/home.md` drives the page at
+  the route defined in `app/routes/home.json`.
 - Collection items: `content/<model-id>/<slug>.md`.
 - Singletons: `content/<id>.yml` or `app/singletons/<id>.yml`.
 - Theme: `theme/templates/`, `theme/parts/`, `theme/patterns/`, `theme/theme.json`.

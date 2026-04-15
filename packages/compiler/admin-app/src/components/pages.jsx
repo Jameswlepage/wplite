@@ -11,6 +11,7 @@ import {
 import { createBlock, serialize } from '@wordpress/blocks';
 import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
 import {
+  analyzeTemplateMarkup,
   formatDate,
   formatDateTime,
   getStatusBadgeClass,
@@ -121,7 +122,39 @@ function resolvePageTemplateSlug(page, bootstrap) {
     return page.template;
   }
 
-  return null;
+  // Fallback: every page renders *some* template in WP's hierarchy. When a
+  // page isn't route-bound (Sample Page, draft, orphan), the editor would
+  // otherwise show an empty canvas. Default to the generic 'page' template
+  // so at least chrome (header/footer/post-content slot) renders.
+  return 'page';
+}
+
+/**
+ * Resolve the expanded template markup for this page, trying every
+ * available source before falling back to empty.
+ *
+ *   1. The page's route manifest entry (compiler-built, expanded).
+ *   2. A route whose template matches the resolved template slug.
+ *   3. The postTypes.page shell from editorTemplates (default page chrome).
+ */
+function resolvePreviewMarkup(page, bootstrap, templateSlug, routeManifest) {
+  const direct = String(routeManifest?.editor?.previewMarkup || '');
+  if (direct) return direct;
+
+  const editorTemplates = bootstrap?.editorTemplates || {};
+  const routes = editorTemplates.routes || {};
+  if (templateSlug) {
+    for (const key of Object.keys(routes)) {
+      if (routes[key]?.template === templateSlug && routes[key]?.markup) {
+        return String(routes[key].markup);
+      }
+    }
+  }
+
+  const postTypeShell = editorTemplates.postTypes?.page?.markup;
+  if (postTypeShell) return String(postTypeShell);
+
+  return '';
 }
 
 /* ── Pages screen using DataViews ── */
@@ -328,7 +361,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
         const normalized = normalizePageRecord(page);
         const routeManifest = getRouteManifestForPage(bootstrap, normalized);
         const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
-        const previewMarkup = String(routeManifest?.editor?.previewMarkup ?? '');
+        const previewMarkup = resolvePreviewMarkup(normalized, bootstrap, templateSlug, routeManifest);
 
         setDraft(normalized);
 
@@ -346,7 +379,11 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
 
           if (cancelled) return;
 
-          const templateMarkup = String(template?.content?.raw ?? previewMarkup ?? '');
+          // Prefer the compiler's expanded previewMarkup (template-parts and
+          // wp:pattern references already inlined) over the raw REST template
+          // markup. The browser-side block parser can't resolve those
+          // references, so using the unexpanded markup renders a blank canvas.
+          const templateMarkup = String(previewMarkup || template?.content?.raw || '');
           const templateBlocks = blocksFromContent(templateMarkup);
           const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
 
@@ -578,24 +615,63 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
 
   useRegisterWorkspaceSurface(workspaceSurface);
 
-  const assistantContext = useMemo(() => ({
-    view: 'page-editor',
-    entity: {
-      kind: 'page',
-      id: isNew ? 'new' : pageId,
-      label: draft.title || 'Untitled page',
-      slug: draft.slug || undefined,
-      possibleSourcePaths: isNew
-        ? ['content/pages/']
-        : [
-          `content/pages/${draft.slug || ''}.md`,
-          `app/pages/${draft.slug || ''}/`,
-          `content/pages/${draft.slug || ''}/`,
-        ].filter(Boolean),
-      notes:
-        'WordPress page record. The compiler typically reads pages from content/pages/<slug>.md or app/pages/<slug>/ — confirm with Glob before editing.',
-    },
-  }), [draft.slug, draft.title, isNew, pageId]);
+  const assistantContext = useMemo(() => {
+    const hasSource = Boolean(draft.sourcePath);
+    const targetPath = hasSource
+      ? draft.sourcePath
+      : `content/pages/${draft.slug || (isNew ? '<new-slug>' : pageId)}.md`;
+    let currentContent = '';
+    try {
+      currentContent = blocks?.length ? serialize(blocks) : (draft.content || '');
+    } catch {
+      currentContent = draft.content || '';
+    }
+
+    // Figure out what *actually* renders this page. The route's template
+    // may render the page content, a chain of theme patterns, template
+    // parts, or any combination. Without this, the agent edits
+    // content/pages/<slug>.md even when the template never pulls post
+    // content in (as in elsewhere's front-page → hero pattern).
+    const templateSlug = routeManifest?.template
+      || (draft.template && !['default', ''].includes(draft.template) ? draft.template : null)
+      || 'page';
+    const previewMarkup = resolvePreviewMarkup(draft, bootstrap, templateSlug, routeManifest);
+    const renderAnalysis = previewMarkup
+      ? analyzeTemplateMarkup(previewMarkup, { templateSlug })
+      : { rendersPostContent: true, renderSources: [], patternSlugs: [], templatePartSlugs: [] };
+
+    const primaryTargets = renderAnalysis.rendersPostContent
+      ? (hasSource ? [draft.sourcePath] : [targetPath])
+      : renderAnalysis.renderSources;
+
+    let notes;
+    if (renderAnalysis.rendersPostContent) {
+      notes = hasSource
+        ? `Authoritative source for this page is ${draft.sourcePath}. Read and edit that file directly. The wplite://current-page-content resource holds a live snapshot of the rendered markup.`
+        : `This page has no source file yet. The wplite://current-page-content resource contains the FULL current rendered block markup. To modify it, CREATE ${targetPath} with that content plus the requested change.`;
+    } else {
+      const sourcesList = renderAnalysis.renderSources.map((p) => `  - ${p}`).join('\n');
+      notes =
+        `IMPORTANT: The template for this page (${templateSlug || 'unknown'}.html) does NOT render post-content. Editing content/pages/<slug>.md will have NO visible effect. The visible content is rendered from these files:\n${sourcesList}\n\nRead the relevant file(s) above and edit them directly. Do not edit ${targetPath}.`;
+    }
+
+    return {
+      view: 'page-editor',
+      currentContent,
+      entity: {
+        kind: 'page',
+        id: isNew ? 'new' : pageId,
+        label: draft.title || 'Untitled page',
+        slug: draft.slug || undefined,
+        template: templateSlug || undefined,
+        rendersPostContent: renderAnalysis.rendersPostContent,
+        renderSources: renderAnalysis.renderSources.length ? renderAnalysis.renderSources : undefined,
+        sourceFile: renderAnalysis.rendersPostContent && hasSource ? draft.sourcePath : null,
+        possibleSourcePaths: primaryTargets,
+        notes,
+      },
+    };
+  }, [blocks, draft.content, draft.slug, draft.sourcePath, draft.template, draft.title, isNew, pageId, routeManifest]);
   useRegisterAssistantContext(assistantContext);
 
   if (loading) {

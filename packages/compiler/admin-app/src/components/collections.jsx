@@ -395,26 +395,37 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
   useRegisterWorkspaceSurface(workspaceSurface);
 
   const isNew = itemId === 'new';
-  const assistantContext = useMemo(() => ({
-    view: 'collection-editor',
-    entity: {
-      kind: 'collection-item',
-      id: isNew ? 'new' : itemId,
-      label: draft?.title || `Untitled ${model?.singularLabel || model?.label || 'item'}`,
-      model: model?.id,
-      slug: draft?.slug || undefined,
-      possibleSourcePaths: model
-        ? [
-          `content/${model.id}/${draft?.slug || ''}.md`,
-          `content/${collectionPath}/${draft?.slug || ''}.md`,
-          `content/${model.id}/`,
-        ].filter(Boolean)
-        : [],
-      notes: model
-        ? `Collection item for model "${model.id}". Source typically lives in content/${model.id}/<slug>.md per the wplite contract.`
-        : undefined,
-    },
-  }), [collectionPath, draft?.slug, draft?.title, isNew, itemId, model]);
+  const sourcePath = existing?.sourcePath || draft?.sourcePath || '';
+  const assistantContext = useMemo(() => {
+    const hasSource = Boolean(sourcePath);
+    const targetPath = hasSource
+      ? sourcePath
+      : `content/${model?.id || collectionPath}/${draft?.slug || (isNew ? '<new-slug>' : itemId)}.md`;
+    let currentContent = '';
+    if (editorManaged) {
+      try {
+        currentContent = blocks?.length ? serialize(blocks) : (existing?.content || '');
+      } catch {
+        currentContent = existing?.content || '';
+      }
+    }
+    return {
+      view: 'collection-editor',
+      currentContent,
+      entity: {
+        kind: 'collection-item',
+        id: isNew ? 'new' : itemId,
+        label: draft?.title || `Untitled ${model?.singularLabel || model?.label || 'item'}`,
+        model: model?.id,
+        slug: draft?.slug || undefined,
+        sourceFile: hasSource ? sourcePath : null,
+        possibleSourcePaths: hasSource ? [sourcePath] : [targetPath],
+        notes: hasSource
+          ? `Authoritative source for this item is ${sourcePath}. Read and edit that file directly. The wplite://current-page-content resource holds a live snapshot of the rendered markup if you need to compare against the editor state.`
+          : `This item has no source file yet. The wplite://current-page-content resource contains the FULL current rendered block markup. To modify it, CREATE ${targetPath} with that content plus the requested change. Do not explore further — you have everything you need.`,
+      },
+    };
+  }, [blocks, collectionPath, draft?.slug, draft?.title, editorManaged, existing?.content, isNew, itemId, model, sourcePath]);
   useRegisterAssistantContext(assistantContext);
 
   if (!model || !schema || !form) return <Navigate to="/" replace />;

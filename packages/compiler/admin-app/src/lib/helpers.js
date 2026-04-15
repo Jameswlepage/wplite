@@ -526,6 +526,7 @@ export function normalizePageRecord(page) {
     title: page.title?.raw ?? decodeRenderedText(page.title?.rendered) ?? '',
     slug: page.slug ?? '',
     routeId: page.portfolioRouteId ?? '',
+    sourcePath: page.wpliteSourcePath ?? '',
     postStatus: page.status ?? 'draft',
     commentStatus: page.comment_status ?? 'closed',
     content: extractRawField(page.content, { fieldLabel: 'content', itemLabel: `page ${page.id}` }),
@@ -560,6 +561,64 @@ export function getRouteManifestForPage(bootstrap, page) {
   }
 
   return Object.values(manifest).find((entry) => String(entry?.slug ?? '') === slug) ?? null;
+}
+
+/**
+ * Parse a Gutenberg template markup blob and return the source files that
+ * actually render it. Used by the assistant surface so the agent knows
+ * whether to edit post-content, a pattern, or a template part.
+ *
+ *   - `<!-- wp:post-content /-->` → rendersPostContent = true
+ *   - `<!-- wp:pattern {"slug":"<theme>/<name>"} /-->` → theme/patterns/<name>.html
+ *   - `<!-- wp:template-part {"slug":"<name>"} /-->` → theme/parts/<name>.html
+ *
+ * Theme prefix on pattern slugs (e.g. "elsewhere-theme/hero") is stripped.
+ */
+export function analyzeTemplateMarkup(markup, { templateSlug = null } = {}) {
+  const text = String(markup || '');
+  const rendersPostContent = /<!--\s*wp:post-content\b/.test(text);
+
+  const patterns = new Set();
+  const patternMatcher = /<!--\s*wp:pattern\s+({[^}]*})\s*\/?-->/g;
+  let match;
+  while ((match = patternMatcher.exec(text)) !== null) {
+    try {
+      const attrs = JSON.parse(match[1]);
+      if (attrs?.slug) patterns.add(String(attrs.slug));
+    } catch {
+      /* skip malformed attrs */
+    }
+  }
+
+  const parts = new Set();
+  const partMatcher = /<!--\s*wp:template-part\s+({[^}]*})\s*\/?-->/g;
+  while ((match = partMatcher.exec(text)) !== null) {
+    try {
+      const attrs = JSON.parse(match[1]);
+      if (attrs?.slug) parts.add(String(attrs.slug));
+    } catch {
+      /* skip */
+    }
+  }
+
+  const renderSources = [];
+  if (templateSlug) {
+    renderSources.push(`theme/templates/${templateSlug}.html`);
+  }
+  for (const slug of patterns) {
+    const bare = slug.includes('/') ? slug.split('/').pop() : slug;
+    renderSources.push(`theme/patterns/${bare}.html`);
+  }
+  for (const slug of parts) {
+    renderSources.push(`theme/parts/${slug}.html`);
+  }
+
+  return {
+    rendersPostContent,
+    renderSources,
+    patternSlugs: [...patterns],
+    templatePartSlugs: [...parts],
+  };
 }
 
 export function normalizeMediaRecord(item) {
