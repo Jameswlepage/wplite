@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
@@ -14,6 +14,8 @@ import {
   wpApiFetch,
 } from '../lib/helpers.js';
 import { SkeletonTableRows, SkeletonFormFields } from './skeletons.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterAssistantContext } from './assistant-provider.jsx';
 
 function getInitials(name) {
   return (name || '?')
@@ -555,115 +557,218 @@ export function UserEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     }
   }
 
+  const avatarInputRef = useRef(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  async function handleAvatarFile(file) {
+    if (!file || !draft) return;
+    setIsUploadingAvatar(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('title', `Avatar for ${draft.username || draft.name || 'user'}`);
+      const uploaded = await wpApiFetch('wp/v2/media', { method: 'POST', body: form });
+      const attachmentId = uploaded?.id;
+      const nextUrl =
+        uploaded?.media_details?.sizes?.medium?.source_url
+        || uploaded?.media_details?.sizes?.thumbnail?.source_url
+        || uploaded?.source_url;
+      if (!attachmentId) throw new Error('Upload failed.');
+
+      let persistedAvatarUrl = nextUrl || '';
+      if (!isNew && draft.id) {
+        const endpoint = getUserEndpoint(isCurrentUser ? 'me' : draft.id);
+        try {
+          const updated = await wpApiFetch(endpoint, {
+            method: 'POST',
+            body: {
+              meta: {
+                wplite_avatar_id: attachmentId,
+                wplite_avatar_url: nextUrl || '',
+              },
+            },
+          });
+          // Trust round-tripped meta if the plugin is active.
+          if (updated?.meta?.wplite_avatar_url) {
+            persistedAvatarUrl = updated.meta.wplite_avatar_url;
+          }
+        } catch (metaErr) {
+          // Don't fail the whole flow — the attachment was still uploaded.
+          pushNotice?.({
+            status: 'warning',
+            message: `Avatar uploaded, but server did not persist the reference: ${metaErr.message}`,
+          });
+        }
+      }
+
+      setDraft((current) => ({
+        ...current,
+        avatarUrl: persistedAvatarUrl || current.avatarUrl,
+        avatarUrls: persistedAvatarUrl
+          ? { ...(current.avatarUrls ?? {}), 24: persistedAvatarUrl, 48: persistedAvatarUrl, 96: persistedAvatarUrl }
+          : current.avatarUrls,
+        wpliteAvatarId: attachmentId,
+        wpliteAvatarUrl: persistedAvatarUrl,
+      }));
+
+      if (isCurrentUser && typeof setBootstrap === 'function') {
+        setBootstrap((current) => ({
+          ...current,
+          currentUser: {
+            ...(current?.currentUser ?? {}),
+            avatarUrl: nextUrl || current?.currentUser?.avatarUrl,
+          },
+        }));
+      }
+
+      pushNotice({ status: 'success', message: 'Profile picture updated.' });
+    } catch (error) {
+      pushNotice({ status: 'error', message: `Avatar upload failed: ${error.message}` });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
+  const workspaceSurface = useMemo(() => ({
+    entityId: draft?.id ? `user:${draft.id}` : 'user:new',
+    entityLabel: 'User',
+    title: isNew ? 'New User' : (draft?.name || draft?.username || 'User'),
+    titlePlaceholder: 'User name',
+    saveLabel: isNew ? 'Create' : 'Save',
+    publishLabel: isNew ? 'Create' : 'Save',
+    canSave: Boolean(draft) && !loading,
+    canPublish: false,
+    isSaving,
+    setTitle: draft ? (value) => setDraft((current) => ({ ...current, name: value })) : null,
+    save: draft ? handleSave : null,
+    moreActions: [
+      !isNew && !isCurrentUser && draft?.id ? {
+        title: 'Delete User',
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [draft, handleDelete, handleSave, isCurrentUser, isNew, isSaving, loading]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
+  useRegisterAssistantContext(useMemo(() => ({
+    view: 'user-editor',
+    entity: {
+      kind: 'user',
+      id: isNew ? 'new' : userId,
+      label: draft?.name || draft?.username || `User ${userId || ''}`,
+      notes:
+        'Users live in the WordPress database, not source files. Edits go through the wp/v2/users REST API. Roles, capabilities, and profile fields are mutable; usernames are not.',
+    },
+  }), [draft?.name, draft?.username, isNew, userId]));
+
   if (loading || !draft) {
-    return <SkeletonFormFields fields={10} />;
+    return <div className="media-editor-screen" aria-hidden="true" />;
   }
 
   const colors = ROLE_COLORS[draft.role] ?? ROLE_COLORS.subscriber;
+  const displayName = isNew ? 'New User' : (draft.name || draft.username || 'User');
 
   return (
-    <div className="screen">
-      <header className="screen-header">
-        <div>
-          <p className="eyebrow">Users</p>
-          <h1>{isNew ? 'New User' : draft.name || draft.username || 'User'}</h1>
-          {!isNew && isCurrentUser ? (
-            <p className="screen-header__lede">This is your WordPress profile and editor preference set.</p>
-          ) : null}
-        </div>
-        <div className="screen-header__actions">
-          <Button variant="secondary" onClick={() => navigate('/users')}>Back to Users</Button>
-          <Button variant="primary" isBusy={isSaving} onClick={handleSave}>
-            {isNew ? 'Create User' : 'Save Changes'}
-          </Button>
-        </div>
-      </header>
-
-      <div className="settings-layout">
-        <div className="settings-layout__main">
-          <Card className="surface-card">
-            <CardHeader><h2>Personal Details</h2></CardHeader>
-            <CardBody>
-              <DataForm
-                data={draft}
-                fields={personalFields}
-                form={{ ...regularForm, fields: personalFields.map((field) => field.id) }}
-                onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
+    <div className="media-editor-screen user-editor-screen">
+      <div className="media-editor-screen__scroll">
+        <section className="media-editor-screen__hero user-editor-screen__hero">
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) handleAvatarFile(file);
+            }}
+          />
+          <button
+            type="button"
+            className={`user-editor-screen__avatar-button${isUploadingAvatar ? ' is-busy' : ''}`}
+            onClick={() => avatarInputRef.current?.click()}
+            aria-label="Change profile picture"
+            title="Change profile picture"
+            disabled={isUploadingAvatar}
+          >
+            {draft.avatarUrl ? (
+              <img
+                className="user-editor-screen__avatar"
+                src={draft.avatarUrl}
+                alt=""
               />
-            </CardBody>
-          </Card>
-
-          <Card className="surface-card">
-            <CardHeader><h2>Account Settings</h2></CardHeader>
-            <CardBody>
-              <DataForm
-                data={draft}
-                fields={accountFields}
-                form={{ ...regularForm, fields: accountFields.map((field) => field.id) }}
-                onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
-              />
-            </CardBody>
-          </Card>
-
-          <Card className="surface-card">
-            <CardHeader><h2>Editor Preferences</h2></CardHeader>
-            <CardBody>
-              <DataForm
-                data={draft}
-                fields={preferenceFields}
-                form={{ ...regularForm, fields: preferenceFields.map((field) => field.id) }}
-                onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
-              />
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="settings-layout__sidebar">
-          <Card className="surface-card">
-            <CardBody>
-              <div className="user-inspector__header">
-                {draft.avatarUrl ? (
-                  <img src={draft.avatarUrl} alt="" className="user-avatar user-avatar--large" />
-                ) : (
-                  <div className="user-avatar user-avatar--large">
-                    {isNew ? '+' : getInitials(draft.name || draft.username)}
-                  </div>
-                )}
-                <h3 style={{ margin: '8px 0 2px', fontSize: '14px', fontWeight: 600 }}>
-                  {isNew ? 'New User' : draft.name || draft.username}
-                </h3>
-                {draft.email ? <span style={{ fontSize: '12px', color: 'var(--wp-admin-text-muted)' }}>{draft.email}</span> : null}
-                <div className="user-inspector__badges">
-                  {draft.role ? (
-                    <span className="role-badge" style={{ background: colors.bg, color: colors.color }}>
-                      {draft.role}
-                    </span>
-                  ) : null}
-                  {isCurrentUser ? <span className="user-row__self-badge">You</span> : null}
-                </div>
+            ) : (
+              <div className="user-editor-screen__avatar user-editor-screen__avatar--placeholder">
+                {isNew ? '+' : getInitials(draft.name || draft.username)}
               </div>
-            </CardBody>
-          </Card>
+            )}
+            <span className="user-editor-screen__avatar-overlay">
+              {isUploadingAvatar ? 'Uploading…' : 'Change'}
+            </span>
+          </button>
+          <div className="user-editor-screen__identity">
+            <h1 className="user-editor-screen__name">{displayName}</h1>
+            {draft.email ? <p className="user-editor-screen__email">{draft.email}</p> : null}
+            <div className="user-editor-screen__badges">
+              {draft.role ? (
+                <span className="role-badge" style={{ background: colors.bg, color: colors.color }}>
+                  {draft.role}
+                </span>
+              ) : null}
+              {isCurrentUser ? <span className="user-row__self-badge">You</span> : null}
+              {!isNew ? <span className="user-editor-screen__meta">@{draft.username}</span> : null}
+            </div>
+          </div>
+        </section>
 
-          {!isNew ? (
-            <Card className="surface-card">
-              <CardBody>
-                <div className="editor-meta">
-                  <span>ID: {draft.id}</span>
-                  <span>Username: @{draft.username}</span>
-                  {draft.locale ? <span>Locale: {draft.locale}</span> : null}
-                </div>
-                {!isCurrentUser ? (
-                  <div style={{ marginTop: '12px' }}>
-                    <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
-                      Delete User
-                    </Button>
-                  </div>
-                ) : null}
-              </CardBody>
-            </Card>
-          ) : null}
-        </div>
+        <section className="media-editor-screen__panel">
+          <h2 className="media-editor-screen__panel-title">Personal Details</h2>
+          <DataForm
+            data={draft}
+            fields={personalFields}
+            form={{ ...regularForm, fields: personalFields.map((field) => field.id) }}
+            onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
+          />
+        </section>
+
+        <section className="media-editor-screen__panel">
+          <h2 className="media-editor-screen__panel-title">Account Settings</h2>
+          <DataForm
+            data={draft}
+            fields={accountFields}
+            form={{ ...regularForm, fields: accountFields.map((field) => field.id) }}
+            onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
+          />
+        </section>
+
+        <section className="media-editor-screen__panel">
+          <h2 className="media-editor-screen__panel-title">Editor Preferences</h2>
+          <DataForm
+            data={draft}
+            fields={preferenceFields}
+            form={{ ...regularForm, fields: preferenceFields.map((field) => field.id) }}
+            onChange={(edits) => setDraft((current) => ({ ...current, ...edits }))}
+          />
+        </section>
+
+        {!isNew ? (
+          <section className="media-editor-screen__panel">
+            <h2 className="media-editor-screen__panel-title">Meta</h2>
+            <dl className="media-editor-screen__info">
+              <div><dt>ID</dt><dd>{draft.id}</dd></div>
+              <div><dt>Username</dt><dd>@{draft.username}</dd></div>
+              {draft.locale ? <div><dt>Locale</dt><dd>{draft.locale}</dd></div> : null}
+            </dl>
+            {!isCurrentUser ? (
+              <div className="user-editor-screen__danger">
+                <Button variant="tertiary" isDestructive isBusy={isDeleting} onClick={handleDelete}>
+                  Delete User
+                </Button>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
       </div>
     </div>
   );

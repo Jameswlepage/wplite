@@ -1,0 +1,12 @@
+{
+  "name": "@wplite/acp-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "wplite-acp-bridge": "./bin/server.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

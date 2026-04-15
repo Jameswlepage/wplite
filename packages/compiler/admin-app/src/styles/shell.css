@@ -909,13 +909,31 @@
   height: 22px;
   margin-top: 1px;
   border-radius: 999px;
-  color: var(--wp-admin-sidebar-text);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
 }
 
-.notification-item__icon--success { color: #007017; }
-.notification-item__icon--error { color: var(--wp-admin-destructive, #cc1818); }
-.notification-item__icon--warning { color: #bd8600; }
-.notification-item__icon--info { color: var(--wp-admin-accent); }
+.notification-item__icon svg {
+  fill: currentColor;
+  display: block;
+}
+
+.notification-item__icon--success {
+  color: #6bd98a;
+  background: rgba(107, 217, 138, 0.16);
+}
+.notification-item__icon--error {
+  color: #ff8a8a;
+  background: rgba(255, 112, 112, 0.18);
+}
+.notification-item__icon--warning {
+  color: #e7c14b;
+  background: rgba(231, 193, 75, 0.18);
+}
+.notification-item__icon--info {
+  color: #8ab4ff;
+  background: rgba(138, 180, 255, 0.18);
+}
 
 .notification-item__body {
   flex: 1;
@@ -1041,4 +1059,104 @@
 .app-shell.is-editor-route .main-panel__content > .native-editor {
   flex: 1;
   min-height: 0;
+}
+
+/* ── About WP Lite modal (Mac-style info box) ─────────────────── */
+
+.wplite-about-modal .components-modal__content {
+  padding: 0;
+  margin-top: 0;
+}
+
+.wplite-about-modal .components-modal__header {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  z-index: 2;
+}
+
+.wplite-about-modal .components-modal__header-heading {
+  display: none;
+}
+
+.wplite-about-modal .components-modal__frame {
+  max-width: 400px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.wplite-about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 28px 22px;
+  text-align: center;
+  color: var(--wp-admin-text, #1e1e1e);
+  background: #ffffff;
+}
+
+.wplite-about__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+  color: #1e1e1e;
+}
+
+.wplite-about__mark svg {
+  width: 44px;
+  height: 44px;
+  fill: currentColor;
+}
+
+.wplite-about__name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.wplite-about__tagline {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(30, 30, 30, 0.6);
+}
+
+.wplite-about__body {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(30, 30, 30, 0.78);
+  text-align: left;
+}
+
+.wplite-about__body p {
+  margin: 0 0 10px;
+}
+
+.wplite-about__body p:last-child {
+  margin-bottom: 0;
+}
+
+.wplite-about__body code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.wplite-about__footer {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  width: 100%;
+  font-size: 11px;
+  color: rgba(30, 30, 30, 0.48);
 }

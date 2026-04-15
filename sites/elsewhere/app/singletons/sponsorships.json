@@ -1,0 +1,20 @@
+{
+  "id": "sponsorships",
+  "label": "Sponsorships",
+  "icon": "Star",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "intro": { "type": "textarea", "label": "Intro copy" },
+    "contact_email": { "type": "email", "label": "Sponsorship contact" },
+    "partners": {
+      "type": "repeater",
+      "label": "Current Partners",
+      "item": {
+        "name": { "type": "text", "label": "Name" },
+        "url": { "type": "url", "label": "URL" },
+        "tier": { "type": "text", "label": "Tier" }
+      }
+    }
+  }
+}

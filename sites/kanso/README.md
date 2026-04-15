@@ -38,7 +38,6 @@ It demonstrates:
 This site also still contains some historical artifacts from earlier iterations:
 
 - some theme templates and parts hardcode values that already exist in modeled content or singletons
-- some site-local dashboard blocks exist even though that logic should move toward compiler-owned `/app` behavior
 
 Treat those as migration debt, not as the preferred pattern for new sites.
 

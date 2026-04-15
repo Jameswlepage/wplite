@@ -1,0 +1,22 @@
+{
+  "id": "room",
+  "label": "Rooms",
+  "singularLabel": "Room",
+  "icon": "Location",
+  "type": "collection",
+  "postType": "room",
+  "archiveSlug": "rooms",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Photo" },
+    "capacity": { "type": "integer", "label": "Capacity" },
+    "use": {
+      "type": "select",
+      "label": "Primary Use",
+      "options": ["live", "club", "both", "arts"]
+    },
+    "sound_system": { "type": "text", "label": "Sound System" },
+    "order": { "type": "integer", "label": "Display Order" }
+  }
+}

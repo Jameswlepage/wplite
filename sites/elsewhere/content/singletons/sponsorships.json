@@ -1,0 +1,16 @@
+{
+  "singleton": "sponsorships",
+  "data": {
+    "intro": "Elsewhere is a 501(c)(3) nonprofit. Our partners underwrite free-entry community nights, artist-development residencies, and independent programming — and in return they get visibility in front of the most engaged music audience in New York.",
+    "contact_email": "partners@elsewherebrooklyn.com",
+    "partners": [
+      { "name": "Red Stripe",           "url": "https://redstripe.com",            "tier": "Stage" },
+      { "name": "The Lot Radio",         "url": "https://thelotradio.com",         "tier": "Booth" },
+      { "name": "Aesop",                 "url": "https://aesop.com",                "tier": "Booth" },
+      { "name": "Dashwood Books",        "url": "https://dashwoodbooks.com",        "tier": "Floor" },
+      { "name": "NTS Radio",             "url": "https://nts.live",                 "tier": "Floor" },
+      { "name": "Brooklyn Brewery",      "url": "https://brooklynbrewery.com",      "tier": "Floor" },
+      { "name": "Resident Advisor",      "url": "https://ra.co",                    "tier": "Media" }
+    ]
+  }
+}

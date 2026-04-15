@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, DropdownMenu } from '@wordpress/components';
+import { Button, DropdownMenu, Tooltip } from '@wordpress/components';
 import {
   Notification as BellIcon,
   Checkmark,
@@ -95,22 +95,24 @@ export function useNotificationArchive() {
 }
 
 export function NotificationBell({ unreadCount = 0, isOpen = false, onClick }) {
+  const tooltipText = unreadCount > 0
+    ? `${unreadCount} new notification${unreadCount === 1 ? '' : 's'}`
+    : 'Notifications';
   return (
-    <button
-      type="button"
-      className={`notification-bell${isOpen ? ' is-pressed' : ''}`}
-      onClick={onClick}
-      aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
-      aria-pressed={isOpen}
-      title="Notifications"
-    >
-      <BellIcon size={18} />
-      {unreadCount > 0 && (
-        <span className="notification-bell__badge" aria-hidden="true">
-          {unreadCount > 99 ? '99+' : unreadCount}
-        </span>
-      )}
-    </button>
+    <Tooltip text={tooltipText}>
+      <button
+        type="button"
+        className={`notification-bell${isOpen ? ' is-pressed' : ''}`}
+        onClick={onClick}
+        aria-label={tooltipText}
+        aria-pressed={isOpen}
+      >
+        <BellIcon size={18} />
+        {unreadCount > 0 && (
+          <span className="notification-bell__dot" aria-hidden="true" />
+        )}
+      </button>
+    </Tooltip>
   );
 }
 

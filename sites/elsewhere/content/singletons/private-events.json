@@ -1,0 +1,33 @@
+{
+  "singleton": "private-events",
+  "data": {
+    "intro": "Four distinct rooms, a rooftop, and a team that has hosted everything from 40-person album playbacks to 900-person brand launches. We can do an afternoon panel, a listening party, or a full-venue takeover — without breaking the floor for the following night.",
+    "contact_email": "events@elsewherebrooklyn.com",
+    "packages": [
+      {
+        "name": "Zone One — Intimate",
+        "capacity": "Up to 120 guests",
+        "starts_at": "from $3,500",
+        "description": "Booth bar, full AV, in-house DJ rig, staffed coat check. Best for album launches, listening parties, and dinner-club formats."
+      },
+      {
+        "name": "The Hall — Signature",
+        "capacity": "Up to 500 guests",
+        "starts_at": "from $8,500",
+        "description": "Main stage with Funktion-One stack, full production, custom lighting cues, and two bars. For showcases, weddings, and film screenings."
+      },
+      {
+        "name": "Rooftop — Seasonal",
+        "capacity": "Up to 250 guests",
+        "starts_at": "from $5,500",
+        "description": "May through October. Skyline views, open bar program, and a compact DJ booth. Golden-hour launches, afterparties, cocktail receptions."
+      },
+      {
+        "name": "Full Venue Takeover",
+        "capacity": "Up to 900 guests",
+        "starts_at": "from $18,000",
+        "description": "All four rooms and every bar. Dedicated production lead, custom programming, and signage throughout. For brand launches and festivals."
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "singleton": "contact",
+  "data": {
+    "email": "hello@elsewherebrooklyn.com",
+    "booking_email": "booking@elsewherebrooklyn.com",
+    "press_email": "press@elsewherebrooklyn.com",
+    "phone": "+1 (347) 955-1152",
+    "address_street": "599 Johnson Ave",
+    "address_locality": "Brooklyn",
+    "address_region": "NY",
+    "address_postal": "11237",
+    "map_url": "https://maps.google.com/?q=599+Johnson+Ave+Brooklyn+NY+11237",
+    "hours": [
+      { "label": "Tue — Thu", "hours": "Doors 7pm · Shows 8pm" },
+      { "label": "Fri — Sat", "hours": "Doors 7pm · Club until 4am" },
+      { "label": "Sun",       "hours": "Rooftop matinée · 3pm – 10pm (seasonal)" },
+      { "label": "Mon",       "hours": "Closed to the public · Private events only" }
+    ]
+  }
+}

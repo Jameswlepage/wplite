@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Spinner } from '@wordpress/components';
+import { Spinner } from '@wordpress/components';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   buildCommandPaletteIndex,
@@ -16,7 +16,9 @@ import {
   normalizeUserRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
+import { buildAppUrl, normalizeAppPath } from '../lib/config.js';
 import { CarbonIcon } from '../lib/icons.jsx';
+import { useAssistant } from './assistant-provider.jsx';
 
 function isEditableTarget(target) {
   if (!(target instanceof HTMLElement)) {
@@ -139,7 +141,7 @@ function CommandBarItem({ item, active, onSelect, onHover }) {
       }}
     >
       <span className="command-bar__item-icon">
-        <CarbonIcon name={item.iconName || 'Document'} size={18} />
+        <CarbonIcon name={item.iconName || 'Document'} size={14} />
       </span>
       <span className="command-bar__item-body">
         <span className="command-bar__item-title">{item.title}</span>
@@ -149,7 +151,7 @@ function CommandBarItem({ item, active, onSelect, onHover }) {
       </span>
       {item.openInNewTab ? (
         <span className="command-bar__item-meta">
-          <CarbonIcon name="ArrowUpRight" size={16} />
+          <CarbonIcon name="ArrowUpRight" size={14} />
         </span>
       ) : null}
     </button>
@@ -162,10 +164,13 @@ export function CommandBar({
   isOpen,
   onOpen,
   onClose,
-  closeMobileSidebar,
+  onExecuteAction,
+  searchScopeLabel,
+  shortcutLabel = '⌘K',
 }) {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+  const rootRef = useRef(null);
   const inputRef = useRef(null);
   const cacheRef = useRef(new Map());
   const [query, setQuery] = useState('');
@@ -174,6 +179,23 @@ export function CommandBar({
   const [remoteResults, setRemoteResults] = useState([]);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState(null);
+  const assistant = useAssistant();
+
+  function askAssistant() {
+    const text = query.trim();
+    if (!text) return;
+    // Bring the assistant rail into view; shell listens for this event.
+    try {
+      window.dispatchEvent(new CustomEvent('wplite:show-assistant'));
+    } catch {
+      // ignored — non-blocking UX nicety
+    }
+    onClose();
+    setQuery('');
+    if (assistant?.isAvailable) {
+      assistant.prompt([{ type: 'text', text }], text);
+    }
+  }
 
   const indexedItems = useMemo(
     () => buildCommandPaletteIndex({ bootstrap, recordsByModel }),
@@ -182,6 +204,10 @@ export function CommandBar({
   const commentsEnabled = bootstrap?.site?.commentsEnabled === true;
   const hasPosts = Boolean((bootstrap?.models ?? []).find((model) => model?.id === 'post'));
   const placeholder = useMemo(() => {
+    if (searchScopeLabel) {
+      return searchScopeLabel;
+    }
+
     const surfaces = ['pages'];
     if (hasPosts) {
       surfaces.push('posts');
@@ -190,8 +216,8 @@ export function CommandBar({
     if (commentsEnabled) {
       surfaces.push('comments');
     }
-    return `Search ${surfaces.join(', ')}, or type > for commands`;
-  }, [commentsEnabled, hasPosts]);
+    return 'Search content';
+  }, [commentsEnabled, hasPosts, searchScopeLabel]);
 
   const commandsOnly = query.trim().startsWith('>');
   const searchQuery = commandsOnly ? query.trim().slice(1).trim() : query.trim();
@@ -231,6 +257,18 @@ export function CommandBar({
 
     return () => window.cancelAnimationFrame(handle);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (rootRef.current?.contains(event.target)) return;
+      onClose();
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen || commandsOnly || searchQuery.length < 2) {
@@ -297,7 +335,7 @@ export function CommandBar({
       limit: 36,
     });
 
-    return groupCommandPaletteItems(rankedItems);
+    return groupCommandPaletteItems(rankedItems, { rankedBySearch: true });
   }, [commandsOnly, indexedItems, recentIds, remoteResults, searchQuery]);
 
   const flatItems = useMemo(
@@ -340,10 +378,20 @@ export function CommandBar({
     }
 
     onClose();
-    closeMobileSidebar?.();
+
+    if (item.action && typeof onExecuteAction === 'function') {
+      const handled = onExecuteAction(item);
+      if (handled) {
+        return;
+      }
+    }
 
     if (item.path) {
-      navigate(item.path);
+      if (item.openInNewTab) {
+        window.open(buildAppUrl(item.path), '_blank', 'noopener,noreferrer');
+      } else {
+        navigate(normalizeAppPath(item.path));
+      }
       return;
     }
 
@@ -377,6 +425,9 @@ export function CommandBar({
       if (flatItems[activeIndex]) {
         event.preventDefault();
         executeItem(flatItems[activeIndex]);
+      } else if (visibleSections.length === 0 && query.trim()) {
+        event.preventDefault();
+        askAssistant();
       }
       return;
     }
@@ -387,19 +438,16 @@ export function CommandBar({
     }
   }
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <Modal
-      className="command-bar-modal"
-      onRequestClose={onClose}
-      title="Command Bar"
-      __experimentalHideHeader={true}
-    >
-      <div className="command-bar">
-        <div className="command-bar__search">
+    <div ref={rootRef} className={`command-bar${isOpen ? ' is-open' : ''}`}>
+      <div
+        className={`command-bar__search${isOpen ? ' is-active' : ''}`}
+        onClick={() => {
+          onOpen();
+          inputRef.current?.focus();
+        }}
+      >
+        <div className="command-bar__search-shell">
           <span className="command-bar__search-icon">
             <CarbonIcon name="Search" size={18} />
           </span>
@@ -408,69 +456,93 @@ export function CommandBar({
             className="command-bar__input"
             type="text"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              if (!isOpen) onOpen();
+              setQuery(event.target.value);
+            }}
+            onFocus={() => onOpen()}
             onKeyDown={handleInputKeyDown}
             placeholder={placeholder}
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
           />
+          <kbd>{shortcutLabel}</kbd>
         </div>
-
-        <div className="command-bar__results">
-          {visibleSections.length === 0 ? (
-            <div className="command-bar__empty">
-              <h2>No results</h2>
-              <p>
-                {commandsOnly
-                  ? 'No commands matched. Remove > to search content and live WordPress data too.'
-                  : 'Try a title, slug, route, user, media item, or command name.'}
-              </p>
-            </div>
-          ) : (
-            visibleSections.map((section) => (
-              <section key={section.label} className="command-bar__section">
-                <header className="command-bar__section-header">{section.label}</header>
-                <div className="command-bar__section-list" role="listbox" aria-label={section.label}>
-                  {section.items.map((item) => {
-                    const itemIndex = itemIndexMap.get(item.id) ?? 0;
-                    return (
-                      <CommandBarItem
-                        key={item.id}
-                        item={item}
-                        active={itemIndex === activeIndex}
-                        onHover={() => setActiveIndex(itemIndex)}
-                        onSelect={() => executeItem(item)}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            ))
-          )}
-        </div>
-
-        <footer className="command-bar__footer">
-          <div className="command-bar__footer-hints">
-            <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
-            <span><kbd>↵</kbd> Open</span>
-            <span><kbd>esc</kbd> Close</span>
-            <span><kbd>&gt;</kbd> Commands only</span>
-          </div>
-          <div className="command-bar__footer-status">
-            {remoteLoading ? (
-              <span className="command-bar__status command-bar__status--loading">
-                <Spinner />
-                Searching WordPress
-              </span>
-            ) : null}
-            {!remoteLoading && remoteError ? (
-              <span className="command-bar__status command-bar__status--error">{remoteError}</span>
-            ) : null}
-          </div>
-        </footer>
       </div>
-    </Modal>
+
+      {isOpen ? (
+        <div className="command-bar__dropdown">
+          <div className="command-bar__results">
+            {visibleSections.length === 0 ? (
+              <div className="command-bar__empty">
+                <h2>No results</h2>
+                <p>
+                  {commandsOnly
+                    ? 'No commands matched. Remove > to search content and live WordPress data too.'
+                    : 'Try a title, slug, route, user, media item, or command name.'}
+                </p>
+                {query.trim() && assistant?.isAvailable ? (
+                  <button
+                    type="button"
+                    className="command-bar__ask-ai"
+                    onClick={askAssistant}
+                  >
+                    <CarbonIcon name="Chat" size={16} />
+                    <span className="command-bar__ask-ai-label">
+                      Ask AI:
+                      <span className="command-bar__ask-ai-query">{query.trim()}</span>
+                    </span>
+                    <kbd>↵</kbd>
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              visibleSections.map((section) => (
+                <section key={section.label} className="command-bar__section">
+                  <header className="command-bar__section-header">{section.label}</header>
+                  <div className="command-bar__section-list" role="listbox" aria-label={section.label}>
+                    {section.items.map((item) => {
+                      const itemIndex = itemIndexMap.get(item.id) ?? 0;
+                      return (
+                        <CommandBarItem
+                          key={item.id}
+                          item={item}
+                          active={itemIndex === activeIndex}
+                          onHover={() => setActiveIndex(itemIndex)}
+                          onSelect={() => executeItem(item)}
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              ))
+            )}
+          </div>
+
+          <footer className="command-bar__footer">
+            <div className="command-bar__footer-hints">
+              <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+              <span><kbd>↵</kbd> Open</span>
+              <span><kbd>esc</kbd> Close</span>
+            </div>
+            <div className="command-bar__footer-status">
+              {remoteLoading ? (
+                <span className="command-bar__status command-bar__status--loading">
+                  <Spinner />
+                  Searching WordPress
+                </span>
+              ) : null}
+              {!remoteLoading && remoteError ? (
+                <span className="command-bar__status command-bar__status--error">{remoteError}</span>
+              ) : null}
+            </div>
+          </footer>
+        </div>
+      ) : null}
+    </div>
   );
-  }
+}

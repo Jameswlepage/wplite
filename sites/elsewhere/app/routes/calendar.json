@@ -1,0 +1,12 @@
+{
+  "id": "calendar",
+  "type": "page",
+  "slug": "calendar",
+  "title": "Calendar",
+  "template": "calendar",
+  "seed": {
+    "createPageShell": true,
+    "status": "publish",
+    "content": ""
+  }
+}

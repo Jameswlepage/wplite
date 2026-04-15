@@ -1,0 +1,4 @@
+{
+  "note": "Flat-file image registry for wplite. Each <slug>.{svg|jpg|png|webp} may have a <slug>.json sidecar with alt / credit / tags. The compiler copies these into the theme at theme/assets/media and serves them from /wp-content/themes/elsewhere-theme/assets/media/<slug>.ext.",
+  "baseUrl": "/wp-content/themes/elsewhere-theme/assets/media"
+}

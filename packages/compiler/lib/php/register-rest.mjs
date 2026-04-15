@@ -47,6 +47,30 @@ add_action( 'rest_api_init', function() {
 \t\t]
 \t);
 
+\t$wplite_post_types = array_unique( array_merge(
+\t\t[ 'page', 'post' ],
+\t\tarray_map(
+\t\t\tfunction( $model ) { return $model['postType']; },
+\t\t\tportfolio_light_get_admin_models()
+\t\t)
+\t) );
+\tforeach ( $wplite_post_types as $post_type ) {
+\t\tregister_rest_field(
+\t\t\t$post_type,
+\t\t\t'wpliteSourcePath',
+\t\t\t[
+\t\t\t\t'get_callback' => function( $obj ) {
+\t\t\t\t\treturn (string) get_post_meta( (int) ( $obj['id'] ?? 0 ), '_wplite_source_path', true );
+\t\t\t\t},
+\t\t\t\t'schema'       => [
+\t\t\t\t\t'description' => 'Source file path (relative to the site root) for entities managed by the wplite compiler.',
+\t\t\t\t\t'type'        => 'string',
+\t\t\t\t\t'context'     => [ 'view', 'edit' ],
+\t\t\t\t],
+\t\t\t]
+\t\t);
+\t}
+
 \tregister_rest_field(
 \t\t'user',
 \t\t'wplitePreferences',
@@ -134,7 +158,6 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'currentUser'   => portfolio_light_prepare_user( wp_get_current_user() ),
 \t\t\t\t\t\t'generatedAt'   => portfolio_light_get_compiled_generated_at(),
 \t\t\t\t\t\t'blocks'        => portfolio_light_get_blocks(),
-\t\t\t\t\t\t'dashboardWidgets' => portfolio_light_get_dashboard_widgets(),
 \t\t\t\t\t\t'models'        => $models,
 \t\t\t\t\t\t'singletons'    => $singletons,
 \t\t\t\t\t\t'routes'        => portfolio_light_get_routes(),
@@ -143,7 +166,6 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'editorTemplates' => portfolio_light_get_editor_templates(),
 \t\t\t\t\t\t'adminSchema'   => $admin_schema,
 \t\t\t\t\t\t'navigation'    => portfolio_light_get_admin_navigation(),
-\t\t\t\t\t\t'dashboard'     => portfolio_light_get_dashboard_data(),
 \t\t\t\t\t\t'records'       => $records,
 \t\t\t\t\t\t'pages'         => $pages,
 \t\t\t\t\t\t'singletonData' => $singleton_data,
@@ -235,6 +257,23 @@ add_action( 'rest_api_init', function() {
 \t\t\t'callback'            => function() {
 \t\t\t\tportfolio_light_seed_site();
 \t\t\t\treturn new WP_REST_Response( [ 'ok' => true ], 200 );
+\t\t\t},
+\t\t]
+\t);
+
+\tregister_rest_route(
+\t\t'portfolio/v1',
+\t\t'/seed-partial',
+\t\t[
+\t\t\t'methods'             => 'POST',
+\t\t\t'permission_callback' => 'portfolio_light_rest_can_edit',
+\t\t\t'callback'            => function( WP_REST_Request $request ) {
+\t\t\t\t$payload = $request->get_json_params();
+\t\t\t\tif ( ! is_array( $payload ) ) {
+\t\t\t\t\t$payload = [];
+\t\t\t\t}
+\t\t\t\t$result = portfolio_light_seed_partial( $payload );
+\t\t\t\treturn new WP_REST_Response( [ 'ok' => true, 'targets' => $result ], 200 );
 \t\t\t},
 \t\t]
 \t);

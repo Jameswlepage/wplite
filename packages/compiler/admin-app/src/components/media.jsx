@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardBody,
-  CardHeader,
   SelectControl,
   TextControl,
   TextareaControl,
@@ -26,6 +25,8 @@ import {
 } from '../lib/helpers.js';
 import { CarbonIcon } from '../lib/icons.jsx';
 import { SkeletonBox } from './skeletons.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { ImageEditor } from './media-editor.jsx';
 
 /* ── Mime helpers (Carbon icons, no emoji) ── */
 function getMimeIconComponent(mimeType) {
@@ -360,125 +361,135 @@ export function MediaEditorPage({ pushNotice }) {
     } catch {}
   }
 
+  const workspaceSurface = useMemo(() => ({
+    entityId: draft?.id ? `media:${draft.id}` : 'media',
+    entityLabel: 'Media',
+    title: draft?.title || '(untitled)',
+    saveLabel: 'Save',
+    canSave: Boolean(draft?.id),
+    canPublish: false,
+    isSaving,
+    save: handleSave,
+    share: copyUrl,
+    moreActions: [
+      draft?.sourceUrl ? {
+        title: 'Open original',
+        onClick: () => window.open(draft.sourceUrl, '_blank', 'noopener,noreferrer'),
+      } : null,
+      draft?.id ? {
+        title: 'Delete File',
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [draft?.id, draft?.sourceUrl, draft?.title, handleDelete, handleSave, isSaving]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
+  async function handleExport(blob) {
+    const formData = new FormData();
+    const baseName = (item.source_url?.split('/').pop() || 'edit')
+      .replace(/\.[^.]+$/, '');
+    formData.append('file', blob, `${baseName}-edited-${Date.now()}.png`);
+    formData.append('title', `${draft.title || baseName} (edited)`);
+    const uploaded = await wpApiFetch('wp/v2/media', { method: 'POST', body: formData });
+    pushNotice({ status: 'success', message: 'Edited copy saved.' });
+    navigate(`/media/${uploaded.id}`);
+  }
+
   if (loading || !item || !draft) {
-    return (
-      <div className="screen">
-        <div className="settings-layout">
-          <Card className="surface-card"><CardBody><SkeletonBox height={300} style={{ width: '100%', borderRadius: '6px' }} /></CardBody></Card>
-          <Card className="surface-card"><CardBody><SkeletonBox height={200} style={{ width: '100%' }} /></CardBody></Card>
-        </div>
-      </div>
-    );
+    return <div className="media-editor-screen" aria-hidden="true" />;
   }
 
   const IconComp = getMimeIconComponent(item.mime_type);
   const dimensions = item.media_details?.width && item.media_details?.height
     ? `${item.media_details.width} × ${item.media_details.height}` : null;
+  const isImage = !IconComp && item.source_url;
+
+  if (isImage) {
+    return (
+      <ImageEditor
+        item={item}
+        draft={draft}
+        setDraft={setDraft}
+        copyUrl={copyUrl}
+        copySuccess={copySuccess}
+        onExport={handleExport}
+        pushNotice={pushNotice}
+      />
+    );
+  }
 
   return (
-    <div className="screen">
-      <header className="screen-header">
-        <div>
-          <p className="eyebrow">Media</p>
-          <h1>{draft.title || '(untitled)'}</h1>
-        </div>
-        <div className="screen-header__actions">
-          <Button variant="secondary" onClick={() => navigate('/media')}>Back to Media</Button>
-          <Button variant="primary" isBusy={isSaving} onClick={handleSave}>Save</Button>
-        </div>
-      </header>
+    <div className="media-editor-screen">
+      <div className="media-editor-screen__scroll">
+        <section className="media-editor-screen__hero">
+          <div className="media-editor-screen__placeholder">
+            <IconComp size={96} />
+            <span>{item.mime_type}</span>
+          </div>
+        </section>
 
-      <div className="settings-layout">
-        <div className="settings-layout__main">
-          <Card className="surface-card">
-            <CardBody>
-              <div className="media-editor__preview">
-                {IconComp ? (
-                  <IconComp size={72} className="media-editor__preview-icon" />
-                ) : (
-                  <img src={item.source_url} alt={draft.altText || ''} />
-                )}
-              </div>
-            </CardBody>
-          </Card>
-          <Card className="surface-card">
-            <CardHeader><h2>Details</h2></CardHeader>
-            <CardBody>
-              <div className="settings-field-group">
-                <TextControl label="Title" value={draft.title} onChange={(v) => setDraft((c) => ({ ...c, title: v }))} __next40pxDefaultSize __nextHasNoMarginBottom />
-                <TextControl label="Alt Text" value={draft.altText} onChange={(v) => setDraft((c) => ({ ...c, altText: v }))} help="Describes the image for screen readers and search engines." __next40pxDefaultSize __nextHasNoMarginBottom />
-                <TextareaControl label="Caption" value={draft.caption} onChange={(v) => setDraft((c) => ({ ...c, caption: v }))} rows={2} __nextHasNoMarginBottom />
-                <TextareaControl label="Description" value={draft.description} onChange={(v) => setDraft((c) => ({ ...c, description: v }))} rows={3} __nextHasNoMarginBottom />
-              </div>
-            </CardBody>
-          </Card>
-        </div>
+        <section className="media-editor-screen__panel">
+          <h2 className="media-editor-screen__panel-title">Details</h2>
+          <div className="media-editor-screen__fields">
+            <TextControl
+              label="Title"
+              value={draft.title}
+              onChange={(v) => setDraft((c) => ({ ...c, title: v }))}
+              __next40pxDefaultSize
+              __nextHasNoMarginBottom
+            />
+            <TextareaControl
+              label="Caption"
+              value={draft.caption}
+              onChange={(v) => setDraft((c) => ({ ...c, caption: v }))}
+              rows={2}
+              __nextHasNoMarginBottom
+            />
+            <TextareaControl
+              label="Description"
+              value={draft.description}
+              onChange={(v) => setDraft((c) => ({ ...c, description: v }))}
+              rows={3}
+              __nextHasNoMarginBottom
+            />
+          </div>
+        </section>
 
-        <div className="settings-layout__sidebar">
-          <Card className="surface-card">
-            <CardHeader><h2>File Info</h2></CardHeader>
-            <CardBody>
-              <dl className="settings-info__list">
-                <dt>File Name</dt>
-                <dd>{item.source_url?.split('/').pop() || '—'}</dd>
-                <dt>Type</dt>
-                <dd>{item.mime_type}</dd>
-                {dimensions && (
-                  <Fragment>
-                    <dt>Dimensions</dt>
-                    <dd>{dimensions}</dd>
-                  </Fragment>
-                )}
-                <dt>Size</dt>
-                <dd>{formatFileSize(item.media_details?.filesize)}</dd>
-                <dt>Uploaded</dt>
-                <dd>{formatDateTime(item.date)}</dd>
-                <dt>ID</dt>
-                <dd>{item.id}</dd>
-              </dl>
-            </CardBody>
-          </Card>
-          <Card className="surface-card">
-            <CardHeader><h2>File URL</h2></CardHeader>
-            <CardBody>
-              <div className="media-editor__url">
-                <TextControl
-                  label="File URL"
-                  hideLabelFromVision
-                  value={draft.sourceUrl}
-                  readOnly
-                  onChange={() => {}}
-                  onClick={(e) => e.target.select?.()}
-                  __next40pxDefaultSize
-                  __nextHasNoMarginBottom
-                />
-                <Button
-                  variant="secondary"
-                  onClick={copyUrl}
-                  icon={<Copy size={16} />}
-                  __next40pxDefaultSize
-                >
-                  {copySuccess ? 'Copied' : 'Copy'}
-                </Button>
-              </div>
-              <div className="media-editor__actions">
-                <Button variant="secondary" href={draft.sourceUrl} target="_blank" rel="noreferrer">
-                  Open Original
-                </Button>
-              </div>
-              <div className="media-editor__danger">
-                <Button
-                  variant="tertiary"
-                  isDestructive
-                  isBusy={isDeleting}
-                  onClick={handleDelete}
-                >
-                  Delete File
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
+        <section className="media-editor-screen__panel">
+          <h2 className="media-editor-screen__panel-title">File</h2>
+          <dl className="media-editor-screen__info">
+            <div><dt>Name</dt><dd>{item.source_url?.split('/').pop() || '—'}</dd></div>
+            <div><dt>Type</dt><dd>{item.mime_type}</dd></div>
+            {dimensions ? <div><dt>Dimensions</dt><dd>{dimensions}</dd></div> : null}
+            <div><dt>Size</dt><dd>{formatFileSize(item.media_details?.filesize)}</dd></div>
+            <div><dt>Uploaded</dt><dd>{formatDateTime(item.date)}</dd></div>
+            <div><dt>ID</dt><dd>{item.id}</dd></div>
+          </dl>
+          <div className="media-editor-screen__url">
+            <TextControl
+              label="File URL"
+              hideLabelFromVision
+              value={draft.sourceUrl}
+              readOnly
+              onChange={() => {}}
+              onClick={(e) => e.target.select?.()}
+              __next40pxDefaultSize
+              __nextHasNoMarginBottom
+            />
+            <Button
+              variant="secondary"
+              onClick={copyUrl}
+              icon={<Copy size={14} />}
+              __next40pxDefaultSize
+            >
+              {copySuccess ? 'Copied' : 'Copy'}
+            </Button>
+            <Button variant="secondary" href={draft.sourceUrl} target="_blank" rel="noreferrer">
+              Open original
+            </Button>
+          </div>
+        </section>
       </div>
     </div>
   );

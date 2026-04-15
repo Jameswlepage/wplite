@@ -1,0 +1,22 @@
+{
+  "id": "memberships",
+  "label": "Memberships",
+  "icon": "Star",
+  "type": "singleton",
+  "storage": "option",
+  "fields": {
+    "intro": { "type": "textarea", "label": "Intro copy" },
+    "tiers": {
+      "type": "repeater",
+      "label": "Membership Tiers",
+      "item": {
+        "name": { "type": "text", "label": "Tier name" },
+        "price": { "type": "text", "label": "Price", "placeholder": "$15 / month" },
+        "tagline": { "type": "text", "label": "Tagline" },
+        "perks": { "type": "textarea", "label": "Perks (one per line)" },
+        "signup_url": { "type": "url", "label": "Sign-up URL" },
+        "featured": { "type": "boolean", "label": "Featured" }
+      }
+    }
+  }
+}

@@ -358,7 +358,8 @@ export function NoticeStack({ notices, onDismiss }) {
       id: notice.id,
       status: notice.status,
       content: notice.message,
-      explicitDismiss: notice.status === 'error',
+      explicitDismiss: notice.status === 'error' || Boolean(notice.sticky),
+      actions: notice.actions,
     })),
     [notices]
   );

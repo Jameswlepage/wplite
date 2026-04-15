@@ -461,7 +461,6 @@ const ADMIN_APP_SNIPPET = String.raw`admin-app/src/
 
   components/
     shell.jsx           # App shell, routing, sidebar navigation
-    dashboard.jsx       # Dashboard host; currently still supports legacy block widgets
     collections.jsx     # DataViews list + DataForm editor
     pages.jsx           # WordPress core pages management
     comments.jsx        # WordPress core comments moderation
@@ -475,10 +474,9 @@ const ADMIN_APP_SNIPPET = String.raw`admin-app/src/
 
   lib/
     config.js           # Runtime configuration and paths
-    helpers.js          # API fetching, field builders, routing, dashboard derivations
+    helpers.js          # API fetching, field builders, and routing helpers
     blocks.jsx          # Runtime block registration
-    spa-nav.js          # SPA bridge for server-rendered widget links
-    interactivity.js    # Interactivity hydration for server-rendered widgets
+    spa-nav.js          # SPA bridge for injected same-origin links
     icons.jsx           # Icon component wrapper`;
 
 const sectionLinks = [
@@ -895,7 +893,6 @@ export function DocsPage({ bootstrap }) {
                     <ul className="docs-list" style={{ marginTop: '8px' }}>
                       <li><code>shell.jsx</code> owns React Router and the sidebar. All screens are lazy routes.</li>
                       <li><code>collections.jsx</code> uses <code>@wordpress/dataviews</code> for list views and DataForm for editors.</li>
-                      <li><code>dashboard.jsx</code> still hosts some legacy server-rendered block widgets via <code>@dnd-kit</code>; the desired direction is compiler-owned dashboard data rather than site-local dashboard blocks.</li>
                       <li><code>helpers.js</code> provides <code>apiFetch</code>, field builders, and routing utilities used across all screens.</li>
                     </ul>
                   </div>

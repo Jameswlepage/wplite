@@ -11,6 +11,7 @@ import {
 import { createBlock, serialize } from '@wordpress/blocks';
 import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
 import {
+  analyzeTemplateMarkup,
   formatDate,
   formatDateTime,
   getStatusBadgeClass,
@@ -18,9 +19,12 @@ import {
   normalizePageRecord,
   wpApiFetch,
 } from '../lib/helpers.js';
+import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterAssistantContext } from './assistant-provider.jsx';
 
 const PAGE_TEMPLATE_SLOT_CLASS = 'wplite-page-template-slot';
 
@@ -31,6 +35,12 @@ function cloneBlockTree(block) {
     (block.innerBlocks ?? []).map(cloneBlockTree)
   );
 }
+
+export const PAGE_TEMPLATE_SLOT = PAGE_TEMPLATE_SLOT_CLASS;
+
+export function cloneBlocks_(blocks = []) { return cloneBlocks(blocks); }
+export function composeTemplateEditorBlocks_(t, p) { return composeTemplateEditorBlocks(t, p); }
+export function splitTemplateEditorBlocks_(b) { return splitTemplateEditorBlocks(b); }
 
 function cloneBlocks(blocks = []) {
   return (blocks ?? []).map(cloneBlockTree);
@@ -112,7 +122,39 @@ function resolvePageTemplateSlug(page, bootstrap) {
     return page.template;
   }
 
-  return null;
+  // Fallback: every page renders *some* template in WP's hierarchy. When a
+  // page isn't route-bound (Sample Page, draft, orphan), the editor would
+  // otherwise show an empty canvas. Default to the generic 'page' template
+  // so at least chrome (header/footer/post-content slot) renders.
+  return 'page';
+}
+
+/**
+ * Resolve the expanded template markup for this page, trying every
+ * available source before falling back to empty.
+ *
+ *   1. The page's route manifest entry (compiler-built, expanded).
+ *   2. A route whose template matches the resolved template slug.
+ *   3. The postTypes.page shell from editorTemplates (default page chrome).
+ */
+function resolvePreviewMarkup(page, bootstrap, templateSlug, routeManifest) {
+  const direct = String(routeManifest?.editor?.previewMarkup || '');
+  if (direct) return direct;
+
+  const editorTemplates = bootstrap?.editorTemplates || {};
+  const routes = editorTemplates.routes || {};
+  if (templateSlug) {
+    for (const key of Object.keys(routes)) {
+      if (routes[key]?.template === templateSlug && routes[key]?.markup) {
+        return String(routes[key].markup);
+      }
+    }
+  }
+
+  const postTypeShell = editorTemplates.postTypes?.page?.markup;
+  if (postTypeShell) return String(postTypeShell);
+
+  return '';
 }
 
 /* ── Pages screen using DataViews ── */
@@ -255,7 +297,7 @@ export function PagesPage({ pushNotice }) {
   );
 }
 
-export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
+export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNotice }) {
   const themeJson = bootstrap?.themeJson ?? null;
   const navigate = useNavigate();
   const { pageId } = useParams();
@@ -319,7 +361,7 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
         const normalized = normalizePageRecord(page);
         const routeManifest = getRouteManifestForPage(bootstrap, normalized);
         const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
-        const previewMarkup = String(routeManifest?.editor?.previewMarkup ?? '');
+        const previewMarkup = resolvePreviewMarkup(normalized, bootstrap, templateSlug, routeManifest);
 
         setDraft(normalized);
 
@@ -337,7 +379,11 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
 
           if (cancelled) return;
 
-          const templateMarkup = String(template?.content?.raw ?? previewMarkup ?? '');
+          // Prefer the compiler's expanded previewMarkup (template-parts and
+          // wp:pattern references already inlined) over the raw REST template
+          // markup. The browser-side block parser can't resolve those
+          // references, so using the unexpanded markup renders a blank canvas.
+          const templateMarkup = String(previewMarkup || template?.content?.raw || '');
           const templateBlocks = blocksFromContent(templateMarkup);
           const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
 
@@ -373,28 +419,29 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     };
   }, [bootstrap, isNew, pageId]);
 
-  async function handleSave() {
+  async function handleSave(overrides = {}) {
     setIsSaving(true);
     try {
       const endpoint = isNew ? 'wp/v2/pages' : `wp/v2/pages/${pageId}`;
+      const nextDraft = { ...draft, ...overrides };
       const templateSplit = templateRecord
         ? splitTemplateEditorBlocks(blocks)
         : { templateBlocks: [], pageContentBlocks: blocks };
       const pageContentBlocks = templateRecord?.slotFound
         ? templateSplit.pageContentBlocks
-        : blocksFromContent(draft.content);
+        : blocksFromContent(nextDraft.content);
 
       const pageSavePromise = wpApiFetch(endpoint, {
         method: 'POST',
         body: {
-          title: draft.title,
-          slug: draft.slug,
-          status: draft.postStatus,
-          comment_status: draft.commentStatus === 'open' ? 'open' : 'closed',
+          title: nextDraft.title,
+          slug: nextDraft.slug,
+          status: nextDraft.postStatus,
+          comment_status: nextDraft.commentStatus === 'open' ? 'open' : 'closed',
           content: serialize(pageContentBlocks),
-          parent: Number(draft.parent || 0),
-          template: draft.template || '',
-          menu_order: Number(draft.menuOrder || 0),
+          parent: Number(nextDraft.parent || 0),
+          template: nextDraft.template || '',
+          menu_order: Number(nextDraft.menuOrder || 0),
         },
       });
 
@@ -463,6 +510,19 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     }
   }
 
+  async function handlePublish() {
+    await handleSave({ postStatus: 'publish' });
+  }
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(draft.link || window.location.href);
+      pushNotice({ status: 'success', message: 'Page link copied.' });
+    } catch {
+      pushNotice({ status: 'error', message: 'Failed to copy page link.' });
+    }
+  }
+
   async function handleDelete() {
     if (isNew || !window.confirm(`Delete ${draft.title || 'this page'}?`)) return;
     setIsDeleting(true);
@@ -494,6 +554,126 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  const routeManifest = getRouteManifestForPage(bootstrap, draft);
+  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
+
+  const workspaceSurface = useMemo(() => ({
+    entityId: draft.id ? `page:${draft.id}` : 'page:new',
+    entityLabel: 'Page',
+    entityCollectionLabel: 'Pages',
+    title: draft.title || 'Untitled Page',
+    titlePlaceholder: 'Add page title',
+    status: draft.postStatus || 'draft',
+    saveLabel: 'Save',
+    publishLabel: draft.postStatus === 'publish' ? 'Update' : 'Publish',
+    canSave: !loading,
+    canPublish: !loading,
+    isSaving,
+    setTitle: (value) => {
+      setDraft((current) => ({ ...current, title: value }));
+    },
+    save: handleSave,
+    publish: handlePublish,
+    share: handleShare,
+    moreActions: [
+      draft.link ? {
+        title: 'View on site',
+        onClick: () => window.open(draft.link, '_blank', 'noopener,noreferrer'),
+      } : null,
+      !isNew ? {
+        title: 'Open in wp-admin',
+        onClick: () => window.open(`/wp-admin/post.php?post=${draft.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      templateRecord ? {
+        title: 'Edit template in wp-admin',
+        onClick: () => window.open(`/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      !isNew ? {
+        title: 'Delete Page',
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [
+    draft.id,
+    draft.link,
+    draft.postStatus,
+    draft.title,
+    handleDelete,
+    handlePublish,
+    handleSave,
+    handleShare,
+    isNew,
+    isSaving,
+    loading,
+    templateRecord,
+  ]);
+
+  const resolveInternalLink = useMemo(
+    () => createInternalLinkResolver({ bootstrap, recordsByModel }),
+    [bootstrap, recordsByModel]
+  );
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
+  const assistantContext = useMemo(() => {
+    const hasSource = Boolean(draft.sourcePath);
+    const targetPath = hasSource
+      ? draft.sourcePath
+      : `content/pages/${draft.slug || (isNew ? '<new-slug>' : pageId)}.md`;
+    let currentContent = '';
+    try {
+      currentContent = blocks?.length ? serialize(blocks) : (draft.content || '');
+    } catch {
+      currentContent = draft.content || '';
+    }
+
+    // Figure out what *actually* renders this page. The route's template
+    // may render the page content, a chain of theme patterns, template
+    // parts, or any combination. Without this, the agent edits
+    // content/pages/<slug>.md even when the template never pulls post
+    // content in (as in elsewhere's front-page → hero pattern).
+    const templateSlug = routeManifest?.template
+      || (draft.template && !['default', ''].includes(draft.template) ? draft.template : null)
+      || 'page';
+    const previewMarkup = resolvePreviewMarkup(draft, bootstrap, templateSlug, routeManifest);
+    const renderAnalysis = previewMarkup
+      ? analyzeTemplateMarkup(previewMarkup, { templateSlug })
+      : { rendersPostContent: true, renderSources: [], patternSlugs: [], templatePartSlugs: [] };
+
+    const primaryTargets = renderAnalysis.rendersPostContent
+      ? (hasSource ? [draft.sourcePath] : [targetPath])
+      : renderAnalysis.renderSources;
+
+    let notes;
+    if (renderAnalysis.rendersPostContent) {
+      notes = hasSource
+        ? `Authoritative source for this page is ${draft.sourcePath}. Read and edit that file directly. The wplite://current-page-content resource holds a live snapshot of the rendered markup.`
+        : `This page has no source file yet. The wplite://current-page-content resource contains the FULL current rendered block markup. To modify it, CREATE ${targetPath} with that content plus the requested change.`;
+    } else {
+      const sourcesList = renderAnalysis.renderSources.map((p) => `  - ${p}`).join('\n');
+      notes =
+        `IMPORTANT: The template for this page (${templateSlug || 'unknown'}.html) does NOT render post-content. Editing content/pages/<slug>.md will have NO visible effect. The visible content is rendered from these files:\n${sourcesList}\n\nRead the relevant file(s) above and edit them directly. Do not edit ${targetPath}.`;
+    }
+
+    return {
+      view: 'page-editor',
+      currentContent,
+      entity: {
+        kind: 'page',
+        id: isNew ? 'new' : pageId,
+        label: draft.title || 'Untitled page',
+        slug: draft.slug || undefined,
+        template: templateSlug || undefined,
+        rendersPostContent: renderAnalysis.rendersPostContent,
+        renderSources: renderAnalysis.renderSources.length ? renderAnalysis.renderSources : undefined,
+        sourceFile: renderAnalysis.rendersPostContent && hasSource ? draft.sourcePath : null,
+        possibleSourcePaths: primaryTargets,
+        notes,
+      },
+    };
+  }, [blocks, draft.content, draft.slug, draft.sourcePath, draft.template, draft.title, isNew, pageId, routeManifest]);
+  useRegisterAssistantContext(assistantContext);
+
   if (loading) {
     return <EditorSkeleton />;
   }
@@ -511,8 +691,6 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       label: template.title,
     }))),
   ];
-  const routeManifest = getRouteManifestForPage(bootstrap, draft);
-  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
 
   function handleBlocksChange(nextBlocks) {
     setBlocks(nextBlocks);
@@ -526,7 +704,10 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       onChangeTitle={(value) => {
         setDraft((current) => ({ ...current, title: value }));
       }}
-      showTitleInput={true}
+      showTitleInput={false}
+      showBackButton={false}
+      showPrimaryAction={false}
+      showMoreActions={false}
       blocks={blocks}
       onChangeBlocks={handleBlocksChange}
       backLabel="Back to Pages"
@@ -537,6 +718,8 @@ export function PageEditorPage({ bootstrap, setBootstrap, pushNotice }) {
       viewUrl={draft.link}
       documentLabel="Page"
       fitCanvas={Boolean(templateRecord || routeManifest)}
+      resolveInternalLink={resolveInternalLink}
+      onOpenInternalLink={(path) => navigate(path)}
       wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
       documentSidebar={

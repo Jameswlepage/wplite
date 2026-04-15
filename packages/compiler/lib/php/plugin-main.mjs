@@ -16,12 +16,14 @@ require_once __DIR__ . '/inc/helpers.php';
 require_once __DIR__ . '/inc/register-post-types.php';
 require_once __DIR__ . '/inc/register-taxonomies.php';
 require_once __DIR__ . '/inc/register-meta.php';
+require_once __DIR__ . '/inc/register-user-avatar.php';
 require_once __DIR__ . '/inc/register-singletons.php';
 require_once __DIR__ . '/inc/register-head.php';
 require_once __DIR__ . '/inc/register-rest.php';
 require_once __DIR__ . '/inc/register-admin-app.php';
 require_once __DIR__ . '/inc/register-login-style.php';
 require_once __DIR__ . '/inc/register-frontend-launcher.php';
+require_once __DIR__ . '/inc/register-hero-image.php';
 require_once __DIR__ . '/inc/seed.php';
 
 add_action( 'init', function() {
@@ -31,25 +33,6 @@ add_action( 'init', function() {
 \t\t}
 \t}
 } );
-
-add_filter(
-\t'block_categories_all',
-\tfunction( $categories ) {
-\t\tforeach ( $categories as $category ) {
-\t\t\tif ( ( $category['slug'] ?? '' ) === 'dashboard' ) {
-\t\t\t\treturn $categories;
-\t\t\t}
-\t\t}
-
-\t\t$categories[] = [
-\t\t\t'slug'  => 'dashboard',
-\t\t\t'title' => __( 'Dashboard widgets', 'portfolio-light' ),
-\t\t\t'icon'  => null,
-\t\t];
-
-\t\treturn $categories;
-\t}
-);
 
 register_activation_hook(
 \t__FILE__,

@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "elsewhere/private-event-packages",
+  "title": "Private Event Packages",
+  "category": "widgets",
+  "icon": "tickets-alt",
+  "description": "Renders packages from the Private Events singleton.",
+  "supports": { "html": false, "align": ["wide", "full"] },
+  "render": "file:./render.php"
+}

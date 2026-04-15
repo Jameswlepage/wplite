@@ -1,5 +1,5 @@
 // Orchestration helpers that turn generator functions into files on disk.
-import { cp, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
@@ -8,22 +8,69 @@ import { phpHelpersFile } from './php/helpers.mjs';
 import { phpRegisterPostTypesFile } from './php/register-post-types.mjs';
 import { phpRegisterTaxonomiesFile } from './php/register-taxonomies.mjs';
 import { phpRegisterMetaFile } from './php/register-meta.mjs';
+import { phpRegisterUserAvatarFile } from './php/register-user-avatar.mjs';
 import { phpRegisterSingletonsFile } from './php/register-singletons.mjs';
 import { phpRegisterHeadFile } from './php/register-head.mjs';
 import { phpRegisterRestFile } from './php/register-rest.mjs';
 import { phpRegisterAdminAppFile } from './php/register-admin-app.mjs';
 import { phpRegisterFrontendLauncherFile, frontendLauncherCss, frontendLauncherJs } from './php/register-frontend-launcher.mjs';
-import { phpRegisterLoginStyleFile, loginStyleCss } from './php/register-login-style.mjs';
+import { phpRegisterLoginStyleFile } from './php/register-login-style.mjs';
+import { phpRegisterHeroImageFile } from './php/register-hero-image.mjs';
 import { phpSeedFile } from './php/seed.mjs';
 
 async function ensureDir(dirPath) {
   await mkdir(dirPath, { recursive: true });
 }
 
+async function listPublicBlockDirs(blocksRoot) {
+  let entries = [];
+
+  try {
+    entries = await readdir(blocksRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const dirs = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const blockJsonPath = path.join(blocksRoot, entry.name, 'block.json');
+
+    try {
+      const metadata = JSON.parse(await readFile(blockJsonPath, 'utf8'));
+      if ((metadata?.category ?? '') === 'dashboard') {
+        continue;
+      }
+      dirs.push(entry.name);
+    } catch {
+      // Ignore folders that are not valid block directories.
+    }
+  }
+
+  return dirs;
+}
+
+async function copyPublicBlocks(sourceDir, targetDir) {
+  const blockDirs = await listPublicBlockDirs(sourceDir);
+
+  await rm(targetDir, { recursive: true, force: true });
+  await ensureDir(targetDir);
+
+  for (const dirName of blockDirs) {
+    await cp(path.join(sourceDir, dirName), path.join(targetDir, dirName), {
+      recursive: true,
+    });
+  }
+}
+
 export async function writeStaticAssets(pluginDir) {
   const assetsDir = path.join(pluginDir, 'assets');
   await ensureDir(assetsDir);
-  await writeFile(path.join(assetsDir, 'login.css'), loginStyleCss());
+  await writeFile(path.join(assetsDir, 'login.css'), await readFile(new URL('./assets/login.css', import.meta.url)));
   await writeFile(path.join(assetsDir, 'frontend-launcher.css'), frontendLauncherCss());
   await writeFile(path.join(assetsDir, 'frontend-launcher.js'), frontendLauncherJs());
 }
@@ -43,12 +90,14 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
   await writeFile(path.join(incDir, 'register-post-types.php'), phpRegisterPostTypesFile());
   await writeFile(path.join(incDir, 'register-taxonomies.php'), phpRegisterTaxonomiesFile());
   await writeFile(path.join(incDir, 'register-meta.php'), phpRegisterMetaFile());
+  await writeFile(path.join(incDir, 'register-user-avatar.php'), phpRegisterUserAvatarFile());
   await writeFile(path.join(incDir, 'register-singletons.php'), phpRegisterSingletonsFile());
   await writeFile(path.join(incDir, 'register-head.php'), phpRegisterHeadFile());
   await writeFile(path.join(incDir, 'register-rest.php'), phpRegisterRestFile());
   await writeFile(path.join(incDir, 'register-admin-app.php'), phpRegisterAdminAppFile());
   await writeFile(path.join(incDir, 'register-login-style.php'), phpRegisterLoginStyleFile());
   await writeFile(path.join(incDir, 'register-frontend-launcher.php'), phpRegisterFrontendLauncherFile());
+  await writeFile(path.join(incDir, 'register-hero-image.php'), phpRegisterHeroImageFile());
   await writeFile(path.join(incDir, 'seed.php'), phpSeedFile());
   await writeStaticAssets(paths.pluginRoot);
   await writeFile(
@@ -67,9 +116,7 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
     );
   }
 
-  await cp(path.join(paths.root, 'blocks'), path.join(paths.pluginRoot, 'blocks'), {
-    recursive: true,
-  });
+  await copyPublicBlocks(path.join(paths.root, 'blocks'), path.join(paths.pluginRoot, 'blocks'));
   await writeFile(path.join(paths.pluginRoot, 'build', '.gitkeep'), '');
 }
 

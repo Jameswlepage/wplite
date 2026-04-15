@@ -1,0 +1,8 @@
+{
+  "id": "contact",
+  "type": "page",
+  "slug": "contact",
+  "title": "Contact",
+  "template": "contact",
+  "seed": { "createPageShell": true, "status": "publish", "content": "" }
+}

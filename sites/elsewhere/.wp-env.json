@@ -1,0 +1,14 @@
+{
+  "port": 8900,
+  "testsPort": 8901,
+  "plugins": [
+    "./generated/wp-content/plugins/elsewhere-app"
+  ],
+  "themes": [
+    "./generated/wp-content/themes/elsewhere-theme"
+  ],
+  "config": {
+    "WP_DEBUG": true,
+    "SCRIPT_DEBUG": true
+  }
+}

@@ -81,7 +81,6 @@ Documentation and examples need to state which mode a given site is using.
 The repo still contains some legacy artifacts from earlier iterations:
 
 - runtime identifiers such as `portfolio_light_*`, `PORTFOLIO_LIGHT`, and `/wp-json/portfolio/v1/*`
-- example-site dashboard blocks using `category: "dashboard"`
 - Kanso templates and parts that hardcode content already modeled elsewhere in the site tree
 - docs that historically described page-body sync as if it applied to every site
 

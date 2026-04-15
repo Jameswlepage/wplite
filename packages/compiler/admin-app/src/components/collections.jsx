@@ -23,9 +23,17 @@ import {
   formatDateTime,
   getModelByCollectionPath,
 } from '../lib/helpers.js';
+import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
+import { wpApiFetch } from '../lib/helpers.js';
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterAssistantContext } from './assistant-provider.jsx';
+import {
+  composeTemplateEditorBlocks_ as composeTemplateEditorBlocks,
+  splitTemplateEditorBlocks_ as splitTemplateEditorBlocks,
+} from './pages.jsx';
 
 /* ── Collection List Page ── */
 export function CollectionListPage({ bootstrap, recordsByModel }) {
@@ -35,6 +43,22 @@ export function CollectionListPage({ bootstrap, recordsByModel }) {
   const schema = model ? bootstrap.adminSchema.views?.[model.id] : null;
   const [view, setView] = useState(() => (schema ? createInitialView(schema) : null));
   const [selection, setSelection] = useState([]);
+
+  const listAssistantContext = useMemo(() => (model ? {
+    view: 'collection-list',
+    entity: {
+      kind: 'collection',
+      id: model.id,
+      label: model.label,
+      model: model.id,
+      possibleSourcePaths: [
+        `content/${model.id}/`,
+        `app/models/${model.id}.yml`,
+      ],
+      notes: `Listing all items of model "${model.id}". Item sources live under content/${model.id}/.`,
+    },
+  } : null), [model]);
+  useRegisterAssistantContext(listAssistantContext);
 
   useEffect(() => {
     if (schema) {
@@ -138,6 +162,63 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
   const [blocks, setBlocks] = useState(() => blocksFromContent(existing?.content ?? ''));
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [templateRecord, setTemplateRecord] = useState(null);
+  const [templateLoaded, setTemplateLoaded] = useState(false);
+
+  // Try to resolve a template for this single entry type.
+  useEffect(() => {
+    let cancelled = false;
+    setTemplateRecord(null);
+    setTemplateLoaded(false);
+
+    if (!model || !editorManaged) {
+      setTemplateLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    async function tryFetch(slug) {
+      try {
+        return await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(slug)}`);
+      } catch {
+        return null;
+      }
+    }
+
+    (async () => {
+      const candidates = [`single-${model.id}`, 'single'];
+      for (const slug of candidates) {
+        const template = await tryFetch(slug);
+        if (cancelled) return;
+        if (template?.content?.raw) {
+          setTemplateRecord({
+            id: String(template.id ?? ''),
+            slug: String(template.slug ?? slug),
+            title: template.title?.raw ?? template.title?.rendered ?? slug,
+            content: template.content.raw,
+            source: 'template-rest',
+          });
+          break;
+        }
+      }
+      if (!cancelled) setTemplateLoaded(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [editorManaged, model?.id]);
+
+  // Re-compose blocks whenever the underlying content or template changes.
+  useEffect(() => {
+    if (!editorManaged) return;
+    const contentBlocks = blocksFromContent(existing?.content ?? '');
+    if (templateRecord?.content) {
+      const templateBlocks = blocksFromContent(templateRecord.content);
+      const composed = composeTemplateEditorBlocks(templateBlocks, contentBlocks);
+      setBlocks(composed.blocks);
+    } else {
+      setBlocks(contentBlocks);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorManaged, existing?.id, existing?.content, templateRecord?.id, templateRecord?.slug]);
 
   useEffect(() => {
     if (!model) return;
@@ -146,14 +227,6 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       includeCommentStatus: commentsSupported,
     }));
   }, [bootstrap.site?.commentsEnabled, commentsSupported, existing, model]);
-
-  // Reset the block tree when we navigate to a different record so blocks
-  // don't stay stuck on the previous entry's content.
-  useEffect(() => {
-    if (!editorManaged) return;
-    setBlocks(blocksFromContent(existing?.content ?? ''));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorManaged, existing?.id, existing?.content]);
 
   const fields = useMemo(() => {
     if (!schema || !model) return [];
@@ -170,26 +243,30 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     const fieldIds = (editorManaged ? metaFields : fields).map((field) => field.id);
     return buildFormConfig(schema, fieldIds);
   }, [editorManaged, fields, metaFields, schema]);
-  const documentLabel = model.singularLabel
-    || (model.label?.endsWith('s') ? model.label.slice(0, -1) : model.label)
+  const documentLabel = model?.singularLabel
+    || (model?.label?.endsWith('s') ? model.label.slice(0, -1) : model?.label)
     || 'Entry';
 
-  if (!model || !schema || !form) return <Navigate to="/" replace />;
-
-  async function handleSave() {
+  async function handleSave(overrides = {}) {
     setIsSaving(true);
     try {
       const isNew = !itemId || itemId === 'new';
       const endpoint = isNew ? `collection/${model.id}` : `collection/${model.id}/${itemId}`;
+      const nextDraft = { ...draft, ...overrides };
+      let contentSerialized = '';
+      if (editorManaged) {
+        if (templateRecord) {
+          const { pageContentBlocks } = splitTemplateEditorBlocks(blocks);
+          contentSerialized = serialize(pageContentBlocks);
+        } else {
+          contentSerialized = serialize(blocks);
+        }
+      }
       const payload = await apiFetch(endpoint, {
         method: 'POST',
         body: {
-          ...draft,
-          ...(editorManaged
-            ? {
-              content: serialize(blocks),
-            }
-            : {}),
+          ...nextDraft,
+          ...(editorManaged ? { content: contentSerialized } : {}),
         },
       });
       setRecordsByModel((current) => {
@@ -202,7 +279,14 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       });
       setDraft(payload.item);
       if (editorManaged) {
-        setBlocks(blocksFromContent(payload.item.content ?? ''));
+        const nextContentBlocks = blocksFromContent(payload.item.content ?? '');
+        if (templateRecord?.content) {
+          const templateBlocks = blocksFromContent(templateRecord.content);
+          const composed = composeTemplateEditorBlocks(templateBlocks, nextContentBlocks);
+          setBlocks(composed.blocks);
+        } else {
+          setBlocks(nextContentBlocks);
+        }
       }
       pushNotice({ status: 'success', message: `${model.singularLabel || model.label} saved.` });
       if (isNew) {
@@ -212,6 +296,19 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       pushNotice({ status: 'error', message: error.message });
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handlePublish() {
+    await handleSave({ postStatus: 'publish' });
+  }
+
+  async function handleShare() {
+    try {
+      await navigator.clipboard.writeText(existing?.link || window.location.href);
+      pushNotice({ status: 'success', message: `${documentLabel} link copied.` });
+    } catch {
+      pushNotice({ status: 'error', message: `Failed to copy ${documentLabel.toLowerCase()} link.` });
     }
   }
 
@@ -244,10 +341,101 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  const workspaceSurface = useMemo(() => ({
+    entityId: itemId ? `${model?.id || 'collection'}:${itemId}` : `${model?.id || 'collection'}:new`,
+    entityLabel: documentLabel,
+    entityCollectionLabel: model?.label || documentLabel,
+    title: draft?.title || `Untitled ${documentLabel}`,
+    titlePlaceholder: `Add ${model?.singularLabel || documentLabel} title`,
+    status: draft?.postStatus || 'draft',
+    saveLabel: 'Save',
+    publishLabel: draft?.postStatus === 'publish' ? 'Update' : 'Publish',
+    canSave: Boolean(model && schema && form),
+    canPublish: Boolean(model && schema && form && editorManaged),
+    isSaving,
+    setTitle: (value) => {
+      setDraft((current) => ({ ...current, title: value }));
+    },
+    save: model && schema && form ? handleSave : null,
+    publish: model && schema && form && editorManaged ? handlePublish : null,
+    share: model && schema && form ? handleShare : null,
+    moreActions: [
+      existing?.link ? {
+        title: 'View on site',
+        onClick: () => window.open(existing.link, '_blank', 'noopener,noreferrer'),
+      } : null,
+      existing?.id ? {
+        title: 'Open in wp-admin',
+        onClick: () => window.open(`/wp-admin/post.php?post=${existing.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      } : null,
+      existing ? {
+        title: `Delete ${documentLabel}`,
+        onClick: handleDelete,
+      } : null,
+    ].filter(Boolean),
+  }), [
+    documentLabel,
+    draft.postStatus,
+    draft.title,
+    editorManaged,
+    existing,
+    handleDelete,
+    handlePublish,
+    handleSave,
+    handleShare,
+    isSaving,
+    itemId,
+    form,
+    model?.id,
+    model?.label,
+    model?.singularLabel,
+    schema,
+  ]);
+
+  useRegisterWorkspaceSurface(workspaceSurface);
+
+  const isNew = itemId === 'new';
+  const sourcePath = existing?.sourcePath || draft?.sourcePath || '';
+  const assistantContext = useMemo(() => {
+    const hasSource = Boolean(sourcePath);
+    const targetPath = hasSource
+      ? sourcePath
+      : `content/${model?.id || collectionPath}/${draft?.slug || (isNew ? '<new-slug>' : itemId)}.md`;
+    let currentContent = '';
+    if (editorManaged) {
+      try {
+        currentContent = blocks?.length ? serialize(blocks) : (existing?.content || '');
+      } catch {
+        currentContent = existing?.content || '';
+      }
+    }
+    return {
+      view: 'collection-editor',
+      currentContent,
+      entity: {
+        kind: 'collection-item',
+        id: isNew ? 'new' : itemId,
+        label: draft?.title || `Untitled ${model?.singularLabel || model?.label || 'item'}`,
+        model: model?.id,
+        slug: draft?.slug || undefined,
+        sourceFile: hasSource ? sourcePath : null,
+        possibleSourcePaths: hasSource ? [sourcePath] : [targetPath],
+        notes: hasSource
+          ? `Authoritative source for this item is ${sourcePath}. Read and edit that file directly. The wplite://current-page-content resource holds a live snapshot of the rendered markup if you need to compare against the editor state.`
+          : `This item has no source file yet. The wplite://current-page-content resource contains the FULL current rendered block markup. To modify it, CREATE ${targetPath} with that content plus the requested change. Do not explore further — you have everything you need.`,
+      },
+    };
+  }, [blocks, collectionPath, draft?.slug, draft?.title, editorManaged, existing?.content, isNew, itemId, model, sourcePath]);
+  useRegisterAssistantContext(assistantContext);
+
+  if (!model || !schema || !form) return <Navigate to="/" replace />;
+
   if (editorManaged) {
     function handleBlocksChange(nextBlocks) {
       setBlocks(nextBlocks);
     }
+
+    const resolveInternalLink = createInternalLinkResolver({ bootstrap, recordsByModel });
 
     return (
       <NativeBlockEditorFrame
@@ -257,7 +445,10 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         onChangeTitle={(value) => {
           setDraft((current) => ({ ...current, title: value }));
         }}
-        showTitleInput={true}
+        showTitleInput={false}
+        showBackButton={false}
+        showPrimaryAction={false}
+        showMoreActions={false}
         blocks={blocks}
         onChangeBlocks={handleBlocksChange}
         backLabel={`Back to ${model.label}`}
@@ -267,6 +458,9 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         isPrimaryBusy={isSaving}
         viewUrl={existing?.link}
         documentLabel={documentLabel}
+        fitCanvas={Boolean(templateRecord)}
+        resolveInternalLink={resolveInternalLink}
+        onOpenInternalLink={(path) => navigate(path)}
         wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}
         documentSidebar={
           <>

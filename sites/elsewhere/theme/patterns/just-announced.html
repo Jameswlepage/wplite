@@ -1,0 +1,57 @@
+<!--
+Title: Just Announced
+Slug: elsewhere-theme/just-announced
+Inserter: no
+-->
+<!-- wp:group {"className":"e-announced","layout":{"type":"default"}} -->
+<div class="wp-block-group e-announced">
+<div class="e-announced__inner">
+
+<!-- wp:group {"className":"e-announced__header","layout":{"type":"flex","flexWrap":"wrap","justifyContent":"space-between","verticalAlignment":"bottom"}} -->
+<div class="wp-block-group e-announced__header">
+<!-- wp:heading {"level":2,"className":"e-section-title"} -->
+<h2 class="wp-block-heading e-section-title">Just Announced</h2>
+<!-- /wp:heading -->
+<!-- wp:paragraph {"className":"e-section-kicker"} -->
+<p class="e-section-kicker">On-sale now · New shows every Monday</p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:query {"queryId":30,"query":{"perPage":4,"pages":0,"offset":0,"postType":"event","order":"asc","orderBy":"date","author":"","search":"","exclude":[],"sticky":"","inherit":false}} -->
+<div class="wp-block-query">
+<!-- wp:post-template {"className":"e-announced__grid"} -->
+
+<!-- wp:group {"className":"e-event-card","layout":{"type":"default"}} -->
+<div class="wp-block-group e-event-card">
+
+<!-- wp:post-featured-image {"isLink":true,"className":"e-event-card__poster"} /-->
+
+<!-- wp:paragraph {"className":"e-event-card__date","metadata":{"bindings":{"content":{"source":"core/post-meta","args":{"key":"date_display"}}}}} -->
+<p class="e-event-card__date"></p>
+<!-- /wp:paragraph -->
+
+<!-- wp:post-title {"level":3,"isLink":true,"className":"e-event-card__title"} /-->
+
+<!-- wp:post-excerpt {"excerptLength":16,"moreOnNewLine":false} /-->
+
+</div>
+<!-- /wp:group -->
+
+<!-- /wp:post-template -->
+
+<!-- wp:query-no-results -->
+<!-- wp:paragraph --><p>Shows coming soon.</p><!-- /wp:paragraph -->
+<!-- /wp:query-no-results -->
+</div>
+<!-- /wp:query -->
+
+<!-- wp:buttons {"className":"e-announced__footer","layout":{"type":"flex","justifyContent":"center"}} -->
+<div class="wp-block-buttons e-announced__footer">
+<!-- wp:button {"className":"is-style-outline"} --><div class="wp-block-button is-style-outline"><a class="wp-block-button__link wp-element-button" href="/calendar">All shows →</a></div><!-- /wp:button -->
+</div>
+<!-- /wp:buttons -->
+
+</div>
+</div>
+<!-- /wp:group -->

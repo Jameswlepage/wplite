@@ -1,0 +1,25 @@
+{
+  "id": "artist",
+  "label": "Artists",
+  "singularLabel": "Artist",
+  "icon": "User",
+  "type": "collection",
+  "postType": "artist",
+  "archiveSlug": "artists",
+  "public": true,
+  "supports": ["title", "editor", "excerpt", "thumbnail", "revisions"],
+  "fields": {
+    "hero_url": { "type": "url", "label": "Portrait / Press Photo" },
+    "origin": { "type": "text", "label": "From", "placeholder": "Brooklyn, NY" },
+    "genre": { "type": "text", "label": "Genre" },
+    "discipline": {
+      "type": "select",
+      "label": "Discipline",
+      "options": ["band", "dj", "producer", "performance", "visual"]
+    },
+    "website": { "type": "url", "label": "Website" },
+    "instagram": { "type": "text", "label": "Instagram handle" },
+    "bandcamp": { "type": "url", "label": "Bandcamp" },
+    "soundcloud": { "type": "url", "label": "SoundCloud" }
+  }
+}

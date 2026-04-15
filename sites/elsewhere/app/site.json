@@ -1,0 +1,30 @@
+{
+  "id": "elsewhere-brooklyn",
+  "title": "Elsewhere",
+  "tagline": "A multi-room music venue, nightclub and arts space in Brooklyn.",
+  "mode": "light",
+  "content": {
+    "mode": "files",
+    "format": "markdown",
+    "pull": true,
+    "push": true,
+    "databaseFirst": false,
+    "collections": {
+      "event": { "sync": true },
+      "artist": { "sync": true },
+      "room": { "sync": true },
+      "release": { "sync": true },
+      "post": { "sync": true },
+      "page": { "sync": false }
+    }
+  },
+  "frontPage": "home",
+  "postsPage": "news",
+  "theme": {
+    "slug": "elsewhere-theme",
+    "sourceDir": "theme"
+  },
+  "plugin": {
+    "slug": "elsewhere-app"
+  }
+}
