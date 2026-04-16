@@ -558,7 +558,7 @@
 }
 
 .native-editor__canvas-shell {
-  background: var(--wplite-bg, #242424);
+  background: var(--wp-admin-canvas-bg);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -757,7 +757,7 @@
 }
 
 .native-editor__canvas {
-  background: var(--wplite-bg, #242424);
+  background: var(--wp-admin-canvas-bg);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -780,7 +780,34 @@
   padding: 0;
 }
 
+.native-editor__canvas-frame-wrap {
+  position: relative;
+  height: 100%;
+  min-height: 100%;
+}
+
+.native-editor__canvas-frame-wrap > .block-editor-iframe__container {
+  height: 100%;
+  min-height: 100%;
+}
+
+.native-editor__canvas-frame-wrap iframe {
+  transition: opacity 120ms ease;
+}
+
+.native-editor__canvas-frame-wrap.is-booting iframe {
+  opacity: 0;
+}
+
+.native-editor__canvas-boot-cover {
+  position: absolute;
+  inset: 0;
+  background: var(--wplite-bg, #242424);
+  pointer-events: none;
+}
+
 .native-editor__canvas > div,
+.native-editor__canvas .native-editor__canvas-frame-wrap,
 .native-editor__canvas .block-editor-iframe__container,
 .native-editor__canvas .block-editor-iframe__scale-container {
   height: 100%;
@@ -802,7 +829,7 @@
   height: 100%;
   min-height: 100%;
   border: 0;
-  background: var(--wplite-bg, #242424);
+  background: var(--wp-admin-canvas-bg);
 }
 
 .wplite-editor-record-date-button {
@@ -863,10 +890,10 @@
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 4px 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  border: 0;
+  border-radius: 6px;
   background: var(--wplite-bg, #242424);
   color: #f0f0f0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -891,7 +918,7 @@
 
 .native-editor__linked-target-eyebrow {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -921,18 +948,18 @@
   height: 28px;
   min-height: 28px;
   padding: 0 10px;
-  border-radius: 2px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-  color: #f0f0f0;
+  color: #ffffff;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--wplite-border-strong, rgba(255, 255, 255, 0.14));
   box-shadow: none;
 }
 
 .native-editor__linked-target-edit.components-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
   color: #ffffff;
 }
 
@@ -2176,4 +2203,268 @@
 
 .native-editor__empty-picker-dismiss:hover {
   background: rgba(255, 255, 255, 0.16);
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Native sidebar primitives (NativeSection / NativeField / NativeInput
+   / NativeSelect). These are plain HTML with our own classes — they
+   replace Gutenberg's PanelBody / TextControl / SelectControl in
+   surfaces we own, so we don't have to re-theme composite chrome.
+   ─────────────────────────────────────────────────────────────── */
+
+.ns-section {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #ffffff;
+}
+
+.ns-section:last-child {
+  border-bottom: 0;
+}
+
+.ns-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.ns-section__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 10px 16px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.ns-section__title:hover,
+.ns-section__title:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.03);
+  outline: none;
+}
+
+.ns-section__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.5);
+  width: 14px;
+  height: 14px;
+  transition: transform 120ms ease;
+}
+
+.ns-section__chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.ns-select__chevron--down {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.ns-section__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.ns-section__actions {
+  padding-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ns-section__body {
+  padding: 0 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ns-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.ns-grid--1 { grid-template-columns: minmax(0, 1fr); }
+.ns-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ns-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.ns-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ns-field__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ns-field__control {
+  display: flex;
+  min-width: 0;
+}
+
+.ns-field__help {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ns-input,
+.ns-select__native {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  box-sizing: border-box;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  appearance: none;
+}
+
+.ns-input:hover,
+.ns-select__native:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ns-input:focus,
+.ns-select__native:focus {
+  outline: none;
+  border-color: rgba(75, 99, 255, 0.75);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(75, 99, 255, 0.45);
+}
+
+.ns-input::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.ns-input--textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.ns-input[type="number"] {
+  padding-right: 6px;
+}
+
+.ns-select {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.ns-select__native {
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+.ns-select__chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.5);
+  display: inline-flex;
+}
+
+.ns-select__native:disabled,
+.ns-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ns-select__native option {
+  background: #1e1e1e;
+  color: #ffffff;
+}
+
+.ns-meta {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.ns-meta__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.ns-meta__key {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.ns-meta__value {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ns-help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ns-help--warn {
+  color: rgba(255, 196, 100, 0.86);
+}
+
+.ns-help--info {
+  color: rgba(130, 170, 255, 0.86);
+}
+
+/* Override sidebar's inline-field-grid legacy class to match new grid */
+.native-editor__sidebar .inline-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }

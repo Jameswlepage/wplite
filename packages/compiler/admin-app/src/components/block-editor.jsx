@@ -28,7 +28,7 @@ import { dispatch, useDispatch, useSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { __ } from '@wordpress/i18n';
 import { useLocation } from 'react-router-dom';
-import { ArrowUpRight, CarbonIcon, Link } from '../lib/icons.jsx';
+import { ArrowUpRight, CarbonIcon, Launch, Link } from '../lib/icons.jsx';
 import { apiFetch, wpApiFetch } from '../lib/helpers.js';
 import {
   buildBlockEditorSettings,
@@ -1024,6 +1024,7 @@ function RouterBlockEditorCanvas({
   const selectionClearerRef = useBlockSelectionClearer();
   const contentNodeRef = useRef(null);
   const [frameBody, setFrameBody] = useState(null);
+  const [isCanvasBooting, setIsCanvasBooting] = useState(true);
 
   const setContentRef = useCallback((node) => {
     contentNodeRef.current = node;
@@ -1031,6 +1032,31 @@ function RouterBlockEditorCanvas({
   }, []);
 
   const contentRef = useMergeRefs([selectionClearerRef, setContentRef]);
+
+  useEffect(() => {
+    setIsCanvasBooting(true);
+  }, [locationKey]);
+
+  useEffect(() => {
+    if (!frameBody?.ownerDocument?.defaultView) {
+      return undefined;
+    }
+
+    const frameWin = frameBody.ownerDocument.defaultView;
+    let frameA = 0;
+    let frameB = 0;
+
+    frameA = frameWin.requestAnimationFrame(() => {
+      frameB = frameWin.requestAnimationFrame(() => {
+        setIsCanvasBooting(false);
+      });
+    });
+
+    return () => {
+      frameWin.cancelAnimationFrame?.(frameA);
+      frameWin.cancelAnimationFrame?.(frameB);
+    };
+  }, [frameBody, locationKey]);
 
   useEffect(() => {
     if (!frameBody?.ownerDocument?.defaultView) {
@@ -1205,24 +1231,27 @@ function RouterBlockEditorCanvas({
   }, [frameBody, getBlockFromNode, resolveInternalLinkRef, routeTarget, selectBlock, setSelectedLinkedTarget, undoRef, redoRef]);
 
   return (
-    <GutenbergIframe
-      contentRef={contentRef}
-      style={{ height: '100%', width: '100%' }}
-      className={`native-editor__canvas-frame native-editor__canvas-frame--${canvasLayout === 'template' ? 'template' : 'content'}`}
-    >
-      <GutenbergEditorStyles styles={canvasStyles} />
-      {recordContextValue ? (
-        <BlockContextProvider value={recordContextValue}>
+    <div className={`native-editor__canvas-frame-wrap${isCanvasBooting ? ' is-booting' : ''}`}>
+      <GutenbergIframe
+        contentRef={contentRef}
+        style={{ height: '100%', width: '100%' }}
+        className={`native-editor__canvas-frame native-editor__canvas-frame--${canvasLayout === 'template' ? 'template' : 'content'}`}
+      >
+        <GutenbergEditorStyles styles={canvasStyles} />
+        {recordContextValue ? (
+          <BlockContextProvider value={recordContextValue}>
+            <BlockList
+              className={`native-editor__canvas-block-list native-editor__canvas-block-list--${canvasLayout === 'template' ? 'template' : 'content'}`}
+            />
+          </BlockContextProvider>
+        ) : (
           <BlockList
             className={`native-editor__canvas-block-list native-editor__canvas-block-list--${canvasLayout === 'template' ? 'template' : 'content'}`}
           />
-        </BlockContextProvider>
-      ) : (
-        <BlockList
-          className={`native-editor__canvas-block-list native-editor__canvas-block-list--${canvasLayout === 'template' ? 'template' : 'content'}`}
-        />
-      )}
-    </GutenbergIframe>
+        )}
+      </GutenbergIframe>
+      {isCanvasBooting ? <div className="native-editor__canvas-boot-cover" aria-hidden="true" /> : null}
+    </div>
   );
 }
 
@@ -1911,7 +1940,7 @@ export function NativeBlockEditorFrame({
                 {activeLinkedTarget?.resolution?.adminPath || getLinkHref(activeLinkedTarget) ? (
                   <div className="native-editor__linked-target-actions" role="status" aria-live="polite">
                     <div className="native-editor__linked-target-copy">
-                      <span className="native-editor__linked-target-icon" aria-hidden="true"><Link size={12} /></span>
+                      <span className="native-editor__linked-target-icon" aria-hidden="true"><Link size={16} /></span>
                       <span className="native-editor__linked-target-eyebrow">Linked</span>
                       <strong className="native-editor__linked-target-title">
                         {getLinkDisplayLabel(activeLinkedTarget)}
@@ -1987,7 +2016,7 @@ export function NativeBlockEditorFrame({
                               onClick={() => routeTarget(activeLinkedTarget, { newTab: true })}
                               aria-label="View on site"
                             >
-                              <ArrowUpRight size={14} />
+                              <Launch size={14} />
                             </Button>
                           </Tooltip>
                         ) : null}
