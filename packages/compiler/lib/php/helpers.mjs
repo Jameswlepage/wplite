@@ -58,7 +58,67 @@ function portfolio_light_get_site_config() {
 \t\t'pageOnFront' => (int) get_option( 'page_on_front', 0 ),
 \t\t'pageForPosts' => (int) get_option( 'page_for_posts', 0 ),
 \t];
-\treturn array_merge( $base, array_filter( $canonical, fn( $v ) => $v !== null && $v !== '' ) );
+\t$site = array_merge( $base, array_filter( $canonical, fn( $v ) => $v !== null && $v !== '' ) );
+\t$site['capabilities'] = portfolio_light_get_core_capabilities();
+\treturn $site;
+}
+
+function portfolio_light_normalize_capability_flag( $value, $default = true ) {
+\tif ( is_bool( $value ) ) {
+\t\treturn $value;
+\t}
+
+\tif ( is_numeric( $value ) ) {
+\t\treturn (bool) $value;
+\t}
+
+\tif ( is_string( $value ) ) {
+\t\t$normalized = strtolower( trim( $value ) );
+\t\tif ( in_array( $normalized, [ '1', 'true', 'yes', 'on' ], true ) ) {
+\t\t\treturn true;
+\t\t}
+\t\tif ( in_array( $normalized, [ '0', 'false', 'no', 'off' ], true ) ) {
+\t\t\treturn false;
+\t\t}
+\t}
+
+\treturn (bool) $default;
+}
+
+function portfolio_light_get_core_capabilities() {
+\tstatic $capabilities = null;
+
+\tif ( null !== $capabilities ) {
+\t\treturn $capabilities;
+\t}
+
+\t$compiled = portfolio_light_get_compiled_site();
+\t$raw = $compiled['site']['capabilities'] ?? [];
+\tif ( isset( $raw['core'] ) && is_array( $raw['core'] ) ) {
+\t\t$raw = $raw['core'];
+\t}
+
+\t$defaults = [
+\t\t'pages' => true,
+\t\t'posts' => true,
+\t\t'media' => true,
+\t];
+
+\t$capabilities = [];
+\tforeach ( $defaults as $key => $fallback ) {
+\t\t$capabilities[ $key ] = portfolio_light_normalize_capability_flag( $raw[ $key ] ?? $fallback, $fallback );
+\t}
+
+\treturn $capabilities;
+}
+
+function portfolio_light_site_has_capability( $capability ) {
+\t$capabilities = portfolio_light_get_core_capabilities();
+\tif ( ! array_key_exists( $capability, $capabilities ) ) {
+\t\treturn true;
+\t}
+
+\treturn ! empty( $capabilities[ $capability ] );
 }
 
 function portfolio_light_normalize_admin_color( $value ) {
@@ -218,10 +278,10 @@ function portfolio_light_get_models() {
 
 function portfolio_light_get_model( $id ) {
 \tif ( 'post' === $id ) {
-\t\treturn portfolio_light_get_builtin_post_model();
+\t\treturn portfolio_light_site_has_capability( 'posts' ) ? portfolio_light_get_builtin_post_model() : null;
 \t}
 \tif ( 'page' === $id ) {
-\t\treturn portfolio_light_get_builtin_page_model();
+\t\treturn portfolio_light_site_has_capability( 'pages' ) ? portfolio_light_get_builtin_page_model() : null;
 \t}
 
 \tforeach ( portfolio_light_get_models() as $model ) {
@@ -235,7 +295,9 @@ function portfolio_light_get_model( $id ) {
 
 function portfolio_light_get_admin_models() {
 \t$models = portfolio_light_get_models();
-\t$models[] = portfolio_light_get_builtin_post_model();
+\tif ( portfolio_light_site_has_capability( 'posts' ) ) {
+\t\t$models[] = portfolio_light_get_builtin_post_model();
+\t}
 \treturn $models;
 }
 
@@ -534,6 +596,15 @@ function portfolio_light_get_dev_state() {
 function portfolio_light_get_admin_navigation() {
 \t$navigation = [];
 
+\tif ( portfolio_light_site_has_capability( 'pages' ) ) {
+\t\t$navigation[] = [
+\t\t\t'id'    => 'pages',
+\t\t\t'label' => 'Pages',
+\t\t\t'path'  => '/pages',
+\t\t\t'kind'  => 'core',
+\t\t];
+\t}
+
 \tforeach ( portfolio_light_get_admin_models() as $model ) {
 \t\t$nav_item = [
 \t\t\t'id'       => $model['id'],
@@ -546,6 +617,15 @@ function portfolio_light_get_admin_navigation() {
 \t\t\t$nav_item['icon'] = $model['icon'];
 \t\t}
 \t\t$navigation[] = $nav_item;
+\t}
+
+\tif ( portfolio_light_site_has_capability( 'media' ) ) {
+\t\t$navigation[] = [
+\t\t\t'id'    => 'media',
+\t\t\t'label' => 'Media',
+\t\t\t'path'  => '/media',
+\t\t\t'kind'  => 'core',
+\t\t];
 \t}
 
 \tforeach ( portfolio_light_get_singletons() as $singleton ) {

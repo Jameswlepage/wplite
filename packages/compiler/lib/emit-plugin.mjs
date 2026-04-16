@@ -84,7 +84,7 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
   await ensureDir(compiledAdminDir);
   await ensureDir(path.join(paths.pluginRoot, 'build'));
 
-  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
   await writeFile(path.join(paths.pluginRoot, `${pluginSlug}.php`), pluginMainFile(site));
   await writeFile(path.join(incDir, 'helpers.php'), phpHelpersFile());
   await writeFile(path.join(incDir, 'register-post-types.php'), phpRegisterPostTypesFile());

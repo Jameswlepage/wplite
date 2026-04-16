@@ -14,7 +14,7 @@ This doc is the deeper, task-oriented companion to [`../AGENTS.md`](../AGENTS.md
 Command:
 
 ```bash
-wp-light init --brief brief.json --json
+wp-lite init --brief brief.json --json
 ```
 
 Expected outcome:
@@ -29,7 +29,7 @@ Expected outcome:
 Command:
 
 ```bash
-wp-light apply --json
+wp-lite apply --json
 ```
 
 Expected outcome:
@@ -43,7 +43,7 @@ Expected outcome:
 Command:
 
 ```bash
-wp-light verify --json
+wp-lite verify --json
 ```
 
 Current checks include:
@@ -60,7 +60,7 @@ Current checks include:
 Command:
 
 ```bash
-wp-light pull --json
+wp-lite pull --json
 ```
 
 Expected outcome:

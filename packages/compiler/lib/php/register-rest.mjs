@@ -106,6 +106,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t'methods'             => 'GET',
 \t\t\t'permission_callback' => 'portfolio_light_rest_can_edit',
 \t\t\t'callback'            => function() {
+\t\t\t\t$site        = portfolio_light_get_site_config();
 \t\t\t\t$models      = portfolio_light_get_admin_models();
 \t\t\t\t$singletons  = portfolio_light_get_singletons();
 \t\t\t\t$records     = [];
@@ -147,12 +148,13 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'order'          => 'DESC',
 \t\t\t\t\t]
 \t\t\t\t);
-\t\t\t\t$pages = array_map( 'portfolio_light_prepare_page_record', $page_posts );
-\t\t\t\t$route_manifest = portfolio_light_get_route_manifest( $pages );
+\t\t\t\t$page_records = array_map( 'portfolio_light_prepare_page_record', $page_posts );
+\t\t\t\t$pages = ! empty( $site['capabilities']['pages'] ) ? $page_records : [];
+\t\t\t\t$route_manifest = portfolio_light_get_route_manifest( $page_records );
 
 \t\t\t\treturn new WP_REST_Response(
 \t\t\t\t\t[
-\t\t\t\t\t\t'site'          => portfolio_light_get_site_config(),
+\t\t\t\t\t\t'site'          => $site,
 \t\t\t\t\t\t'currentUser'   => portfolio_light_prepare_user( wp_get_current_user() ),
 \t\t\t\t\t\t'generatedAt'   => portfolio_light_get_compiled_generated_at(),
 \t\t\t\t\t\t'blocks'        => portfolio_light_get_blocks(),

@@ -297,7 +297,7 @@ function AssistantRailHeader({ onHide }) {
     tone = 'warn';
     statusTitle = statusError
       ? `Disconnected: ${statusError}`
-      : 'Disconnected — is the ACP bridge still running? Check the wp-light dev terminal.';
+      : 'Disconnected — is the ACP bridge still running? Check the wp-lite dev terminal.';
   }
   else if (status === AcpStatus.Error) {
     tone = 'err'; statusTitle = statusError ? `Error: ${statusError}` : 'Error';
@@ -676,7 +676,6 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
       key: item.key || `${item.title}-${index}`,
     }));
   }, [surface.moreActions]);
-
   const commandShortcut = useMemo(() => {
     try {
       return /Mac|iPhone|iPad|iPod/.test(window.navigator.platform) ? '⌘K' : 'Ctrl K';
@@ -816,7 +815,6 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
               />
             </div>
           </div>
-
           <div className="workspace-topbar__actions">
             <Button variant="secondary" onClick={handleSave} disabled={!surface.canSave} isBusy={surface.isSaving}>
               {surface.saveLabel || 'Save'}

@@ -15,10 +15,10 @@ Enable deterministic, file-first WordPress site development where agents can:
 
 Use these commands in sequence:
 
-1. `wp-light init --brief <brief.json> --json` (once per new site)
-2. `wp-light apply --json` (compile + sync + seed)
-3. `wp-light verify --json` (fail on contract errors)
-4. `wp-light pull --json` (when runtime edits should become files)
+1. `wp-lite init --brief <brief.json> --json` (once per new site)
+2. `wp-lite apply --json` (compile + sync + seed)
+3. `wp-lite verify --json` (fail on contract errors)
+4. `wp-lite pull --json` (when runtime edits should become files)
 
 ## Command Contract
 

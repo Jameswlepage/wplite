@@ -18,7 +18,7 @@ function portfolio_light_frontend_launcher_current_edit_url() {
 \t\treturn '';
 \t}
 
-\tif ( 'page' === $post->post_type ) {
+\tif ( 'page' === $post->post_type && portfolio_light_site_has_capability( 'pages' ) ) {
 \t\treturn home_url( '/app/pages/' . $post->ID );
 \t}
 
