@@ -752,7 +752,7 @@
 }
 
 .app-shell--workspace .native-editor__canvas-shell {
-  background: #1b1d20;
+  background: var(--wplite-bg);
 }
 
 /* ---- Dark document/block inspector sidebar ---- */
@@ -1000,7 +1000,7 @@
 .workspace-overlay-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 200;
   border: 0;
   background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(3px);
@@ -1017,7 +1017,7 @@
   position: fixed;
   top: 64px;
   left: max(24px, calc(50% - 500px));
-  z-index: 22;
+  z-index: 201;
   width: min(1000px, calc(100vw - 48px));
   height: min(720px, calc(100vh - 96px));
   display: flex;
@@ -1191,6 +1191,13 @@
   padding: 10px 14px;
   border-bottom: 2px solid var(--wplite-border);
   margin: 0;
+}
+
+.workspace-browser__toolbar-count {
+  font-size: 12px;
+  color: var(--wplite-text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: 1;
 }
 
 .workspace-dataviews-shell {
@@ -1456,6 +1463,7 @@
   overflow-y: auto;
   min-height: 0;
   padding: 24px;
+  padding-bottom: 40px;
 }
 
 .workspace-settings-surface > .screen {
@@ -1474,6 +1482,7 @@
   border-radius: var(--wplite-radius);
   color: var(--wplite-text);
   box-shadow: none;
+  overflow: visible;
 }
 
 .workspace-overlay .components-card-header {
@@ -1511,6 +1520,61 @@
   box-shadow: none;
 }
 
+/* SelectControl native <select> — ensure light style, override WP admin dark defaults */
+.workspace-overlay .components-select-control__input,
+.workspace-overlay select {
+  appearance: auto;
+  -webkit-appearance: auto;
+  background-color: #ffffff !important;
+  color: var(--wplite-text) !important;
+  border-color: var(--wplite-border) !important;
+}
+
+/* Logs filter input — workspace overlay rule adds border; suppress it on the bare input */
+.logs-filter-input .logs-filter-input__field,
+.logs-filter-input input {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* DataForm (singleton settings) — make fields match TextControl/SelectControl style */
+.workspace-overlay .dataform .dataform-edit__field-control input,
+.workspace-overlay .dataform .dataform-edit__field-control select,
+.workspace-overlay .dataform .dataform-edit__field-control textarea,
+.workspace-overlay .components-form .components-form__input,
+.workspace-overlay [data-wp-component="FormGroup"] input,
+.workspace-overlay [data-wp-component="FormGroup"] select,
+.workspace-overlay [data-wp-component="FormGroup"] textarea {
+  background: #ffffff;
+  border: 1px solid var(--wplite-border) !important;
+  border-radius: var(--wplite-radius-sm) !important;
+  box-shadow: none !important;
+  color: var(--wplite-text) !important;
+}
+
+.workspace-overlay .dataform__field-label,
+.workspace-overlay .dataform .dataform-edit__field-label {
+  color: var(--wplite-text) !important;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Sticky profile sidebar card */
+.workspace-settings-pane__side .surface-card {
+  position: sticky;
+  top: 0;
+}
+
+/* DataViews media grid — type and category need the same left spacing as the title */
+.workspace-dataviews-shell .dataviews-view-grid__card .dataviews-view-grid__fields,
+.workspace-dataviews-shell .dataviews-view-grid__card .dataviews-view-grid__description {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
 .workspace-overlay .components-button.is-primary,
 .app-shell--workspace .components-button.is-primary {
   background: #4b63ff !important;
@@ -1542,7 +1606,7 @@
 
 .workspace-flyout {
   position: fixed;
-  z-index: 22;
+  z-index: 202;
   border-radius: var(--wplite-radius);
   overflow: hidden;
   border: 1px solid var(--wplite-border-strong);
@@ -1681,7 +1745,7 @@
 
 .workspace-menu {
   position: fixed;
-  z-index: 22;
+  z-index: 202;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -2183,7 +2247,6 @@
   color: #ffb3b3;
 }
 
-.workspace-chat__suggestions,
 .workspace-chat__presets {
   flex: 1 0 100%;
   display: flex;
@@ -2191,31 +2254,107 @@
   gap: 4px;
 }
 
-.workspace-chat__suggestion,
 .workspace-chat__preset {
   display: inline-flex;
   align-items: center;
   padding: 3px 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: transparent;
-  color: var(--wplite-text-muted);
+  border: 1px solid rgba(75, 99, 255, 0.32);
+  background: rgba(75, 99, 255, 0.12);
+  color: var(--wplite-text);
   font-size: 12px;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-.workspace-chat__suggestion:hover,
 .workspace-chat__preset:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--wplite-text);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(75, 99, 255, 0.2);
+  border-color: rgba(75, 99, 255, 0.5);
 }
 
-.workspace-chat__preset {
-  background: rgba(75, 99, 255, 0.12);
-  border-color: rgba(75, 99, 255, 0.32);
+/* ── Assistant chat: stacked suggestions list ──────────────────── */
+
+.workspace-chat__suggestions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.workspace-chat__suggestions-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workspace-chat__suggestions-item {
+  margin: 0;
+  width: 100%;
+}
+
+.workspace-chat__suggestions-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--wplite-bg-elev);
   color: var(--wplite-text);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  cursor: pointer;
+  transition: background 120ms ease, transform 80ms ease;
+}
+
+.workspace-chat__suggestions-btn:hover:not(:disabled) {
+  background: var(--wplite-bg-elev-2);
+}
+
+.workspace-chat__suggestions-btn:active:not(:disabled) {
+  transform: scale(0.995);
+}
+
+.workspace-chat__suggestions-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.workspace-chat__suggestions-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.workspace-chat__suggestions-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--wplite-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.workspace-chat__suggestions-refresh:hover {
+  background: var(--wplite-bg-elev);
+  color: var(--wplite-text);
+  border-color: var(--wplite-border);
 }
 
 .workspace-chat__controls {
@@ -2506,7 +2645,6 @@
   width: 100%;
 }
 
-.workspace-chat__hero-suggestions,
 .workspace-chat__hero-presets {
   display: flex;
   flex-wrap: wrap;
@@ -2515,30 +2653,24 @@
   width: 100%;
 }
 
-.workspace-chat__hero-suggestion,
 .workspace-chat__hero-preset {
   display: inline-flex;
   align-items: center;
   padding: 6px 12px;
-  background: var(--wplite-bg-elev);
+  background: transparent;
   border: 1px solid var(--wplite-border);
   border-radius: var(--wplite-radius-pill);
-  color: var(--wplite-text);
+  color: var(--wplite-text-muted);
   font-size: 12px;
   line-height: 1.4;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.workspace-chat__hero-suggestion:hover,
 .workspace-chat__hero-preset:hover {
   background: var(--wplite-bg-elev-2);
   border-color: var(--wplite-border-strong);
-}
-
-.workspace-chat__hero-preset {
-  background: transparent;
-  color: var(--wplite-text-muted);
+  color: var(--wplite-text);
 }
 
 /* ── Assistant chat: attachments + drag/drop target ─────────── */

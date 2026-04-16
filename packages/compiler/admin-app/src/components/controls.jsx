@@ -282,11 +282,10 @@ export function ImageControl({ data, field, onChange }) {
                           <div><dt>Alt text</dt><dd>{selectedItem.alt_text}</dd></div>
                         )}
                       </dl>
-                    </div>
-                    <div className="media-inspector__footer">
                       <Button
-                        variant="secondary"
+                        variant="tertiary"
                         size="small"
+                        className="media-inspector__edit-btn"
                         onClick={() => {
                           setLibraryOpen(false);
                           navigate(`/media/${selectedItem.id}`);
@@ -294,6 +293,8 @@ export function ImageControl({ data, field, onChange }) {
                       >
                         Edit image
                       </Button>
+                    </div>
+                    <div className="media-inspector__footer">
                       <Button variant="primary" onClick={handleChooseSelected}>
                         Use this image
                       </Button>

@@ -88,6 +88,43 @@ function boolFlag(name) {
   return CLI.flags[name] === true;
 }
 
+function resolvePreferredRuntime() {
+  const runtimeFlag = stringFlag('runtime', '').trim().toLowerCase();
+  const runtimeEnv = String(process.env.WPLITE_RUNTIME || '').trim().toLowerCase();
+  const explicitDocker = boolFlag('docker') || runtimeFlag === 'docker' || runtimeEnv === 'docker';
+  const explicitPlayground =
+    boolFlag('playground')
+    || runtimeFlag === 'playground'
+    || runtimeEnv === 'playground';
+
+  if (explicitDocker && explicitPlayground) {
+    throw new Error('Choose either Playground or Docker, not both.');
+  }
+
+  if (explicitDocker) {
+    return 'docker';
+  }
+
+  if (explicitPlayground) {
+    return 'playground';
+  }
+
+  return 'playground';
+}
+
+async function shouldUseDockerRuntime() {
+  const preferredRuntime = resolvePreferredRuntime();
+  if (preferredRuntime === 'playground') {
+    return false;
+  }
+
+  if (await canUseDocker()) {
+    return true;
+  }
+
+  throw new Error('Docker runtime requested but Docker is not available.');
+}
+
 function emitResult(payload) {
   if (OUTPUT_JSON) {
     process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
@@ -1421,12 +1458,12 @@ async function buildCommand() {
   };
 }
 
-async function syncRunningSite({ useDocker } = {}) {
+async function syncRunningSite({ useDocker = false } = {}) {
   const buildResult = await buildGeneratedSite();
   const site = await loadSiteConfig();
   const shouldSeed = buildResult.seedRequired;
 
-  if (useDocker ?? (await canUseDocker())) {
+  if (useDocker) {
     const dockerSite = await ensureDockerSite(site);
     if (shouldSeed) {
       await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
@@ -1454,7 +1491,8 @@ async function syncRunningSite({ useDocker } = {}) {
 }
 
 async function applyCommand() {
-  const { siteUrl, mode, buildResult, seeded, environmentStarted } = await syncRunningSite();
+  const useDocker = await shouldUseDockerRuntime();
+  const { siteUrl, mode, buildResult, seeded, environmentStarted } = await syncRunningSite({ useDocker });
   if (mode === 'playground' && siteUrl) {
     note(`Applied site to ${siteUrl}`);
   }
@@ -1474,7 +1512,7 @@ async function applyCommand() {
 }
 
 async function seedCommand() {
-  if (await canUseDocker()) {
+  if (await shouldUseDockerRuntime()) {
     const site = await loadSiteConfig();
     const dockerSite = await ensureDockerSite(site);
     await run('npx', ['wp-env', 'run', 'cli', 'wp', 'eval', 'portfolio_light_seed_site();']);
@@ -1587,7 +1625,7 @@ async function startAdminViteDevServer() {
 }
 
 async function devCommand() {
-  const useDocker = await canUseDocker();
+  const useDocker = await shouldUseDockerRuntime();
   const initialSync = await syncRunningSite({ useDocker });
   await bumpDevState();
 
@@ -1779,7 +1817,7 @@ async function pullCommand() {
 
   let payload;
 
-  if (await canUseDocker()) {
+  if (await shouldUseDockerRuntime()) {
     await run('npx', ['wp-env', 'start']);
     const raw = await capture('npx', [
       'wp-env',

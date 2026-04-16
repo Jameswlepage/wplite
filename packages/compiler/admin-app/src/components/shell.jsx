@@ -763,14 +763,15 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
             shortcutLabel={commandShortcut}
           />
           {editorChrome.hasEditor ? (
-            <Tooltip text="Add block">
+            <Tooltip text={editorChrome.inserterOpen ? 'Close inserter' : 'Add elements'}>
               <button
                 type="button"
                 className={`workspace-topbar__icon-button workspace-topbar__icon-button--inserter${editorChrome.inserterOpen ? ' is-active' : ''}`}
                 onClick={editorChrome.toggleInserter}
-                aria-label="Add block"
+                aria-label={editorChrome.inserterOpen ? 'Close inserter' : 'Add elements'}
+                aria-expanded={editorChrome.inserterOpen}
               >
-                <CarbonIcon name="Add" size={16} />
+                <CarbonIcon name={editorChrome.inserterOpen ? 'Close' : 'Add'} size={16} />
               </button>
             </Tooltip>
           ) : null}
@@ -825,16 +826,18 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
             </Button>
             {(contextControls.length > 0 || editorChrome.hasEditor) ? (
               <div ref={contextMenuRef}>
-                <button
-                  type="button"
-                  className={`workspace-topbar__icon-button workspace-topbar__context${openPopover === 'context' ? ' is-active' : ''}`}
-                  onClick={() => togglePopover('context')}
-                  aria-label="Context actions"
-                  aria-haspopup="menu"
-                  aria-expanded={openPopover === 'context'}
-                >
-                  <CarbonIcon name="OverflowMenuVertical" size={16} />
-                </button>
+                <Tooltip text="More options">
+                  <button
+                    type="button"
+                    className={`workspace-topbar__icon-button workspace-topbar__context${openPopover === 'context' ? ' is-active' : ''}`}
+                    onClick={() => togglePopover('context')}
+                    aria-label="More options"
+                    aria-haspopup="menu"
+                    aria-expanded={openPopover === 'context'}
+                  >
+                    <CarbonIcon name="OverflowMenuVertical" size={16} />
+                  </button>
+                </Tooltip>
               </div>
             ) : null}
           </div>

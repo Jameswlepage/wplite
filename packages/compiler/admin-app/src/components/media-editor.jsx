@@ -1,7 +1,6 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
-  Popover,
   RangeControl,
   TextControl,
   TextareaControl,
@@ -14,6 +13,8 @@ import {
   Contrast,
   MagicWand,
   AiGenerate,
+  Erase,
+  Maximize,
   Reset,
   ZoomIn,
   ZoomOut,
@@ -355,17 +356,29 @@ function SliderRow({ label, value, min, max, step = 1, onChange, onReset, format
   );
 }
 
-/* ── Generate controls popover (guidance + strength sliders) ── */
+/* ── Generate controls panel (guidance + strength sliders) ── */
 function GenerateControls({ guidance, strength, annotations, onChangeGuidance, onChangeStrength, onClearAnnotations }) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef(null);
+  const containerRef = useRef(null);
   const hasAnnotations = annotations.length > 0;
   const isNonDefault = guidance !== 7 || strength !== 65;
 
+  // Close on outside click without using a backdrop that competes with the
+  // workspace overlay stacking context.
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside, true);
+    return () => document.removeEventListener('mousedown', handleOutside, true);
+  }, [open]);
+
   return (
-    <div className="media-ed-gen-controls">
+    <div ref={containerRef} className="media-ed-gen-controls">
       <button
-        ref={triggerRef}
         type="button"
         className={`media-ed-gen-controls__trigger${isNonDefault ? ' is-modified' : ''}`}
         onClick={() => setOpen((v) => !v)}
@@ -381,34 +394,25 @@ function GenerateControls({ guidance, strength, annotations, onChangeGuidance, o
         </span>
       ) : null}
       {open && (
-        <Popover
-          anchor={triggerRef.current}
-          placement="top-start"
-          offset={8}
-          onClose={() => setOpen(false)}
-          className="media-ed-gen-controls__popover"
-          focusOnMount
-        >
-          <div className="media-ed-gen-controls__body">
-            <SliderRow
-              label="Guidance"
-              value={guidance}
-              min={1}
-              max={20}
-              onChange={onChangeGuidance}
-              onReset={() => onChangeGuidance(7)}
-            />
-            <SliderRow
-              label="Strength"
-              value={strength}
-              min={0}
-              max={100}
-              onChange={onChangeStrength}
-              onReset={() => onChangeStrength(65)}
-              formatValue={(v) => `${v}%`}
-            />
-          </div>
-        </Popover>
+        <div className="media-ed-gen-controls__panel">
+          <SliderRow
+            label="Guidance"
+            value={guidance}
+            min={1}
+            max={20}
+            onChange={onChangeGuidance}
+            onReset={() => onChangeGuidance(7)}
+          />
+          <SliderRow
+            label="Strength"
+            value={strength}
+            min={0}
+            max={100}
+            onChange={onChangeStrength}
+            onReset={() => onChangeStrength(65)}
+            formatValue={(v) => `${v}%`}
+          />
+        </div>
       )}
     </div>
   );
@@ -791,7 +795,7 @@ export function ImageEditor({
     }
   };
 
-  const handleAiPlaceholder = (kind, extras = {}) => {
+  const handleAiPlaceholder = useCallback((kind, extras = {}) => {
     const annotationCount = extras.annotations?.length ?? 0;
     pushNotice?.({
       status: 'info',
@@ -799,18 +803,29 @@ export function ImageEditor({
         ? `${kind} will run with ${annotationCount} annotation${annotationCount === 1 ? '' : 's'} once the AI worker is connected.`
         : `${kind} will run on the server once the AI worker is connected.`,
     });
-  };
+  }, [pushNotice]);
 
-  const assistantControls = (
+  const guidance = generate.guidance;
+  const strength = generate.strength;
+  const onChangeGuidance = useCallback((v) => setGenerate((g) => ({ ...g, guidance: v })), []);
+  const onChangeStrength = useCallback((v) => setGenerate((g) => ({ ...g, strength: v })), []);
+  const onClearAnnotations = useCallback(() => setAnnotations([]), []);
+
+  // Memoized so the assistant surface's reference stays stable across
+  // renders of the media editor. An unstable controls ref re-registers the
+  // surface on every render, which in turn re-fires seedSuggestions and
+  // causes runaway state updates (and a visible freeze when toggling the
+  // parameters popover).
+  const assistantControls = useMemo(() => (
     <GenerateControls
-      guidance={generate.guidance}
-      strength={generate.strength}
+      guidance={guidance}
+      strength={strength}
       annotations={annotations}
-      onChangeGuidance={(v) => setGenerate((g) => ({ ...g, guidance: v }))}
-      onChangeStrength={(v) => setGenerate((g) => ({ ...g, strength: v }))}
-      onClearAnnotations={() => setAnnotations([])}
+      onChangeGuidance={onChangeGuidance}
+      onChangeStrength={onChangeStrength}
+      onClearAnnotations={onClearAnnotations}
     />
-  );
+  ), [guidance, strength, annotations, onChangeGuidance, onChangeStrength, onClearAnnotations]);
 
   const assistantSurface = useMemo(() => ({
     placeholder: 'Generate or edit this image',
@@ -819,16 +834,19 @@ export function ImageEditor({
       {
         id: 'enhance',
         label: 'Enhance',
+        icon: MagicWand,
         run: () => handleAiPlaceholder('Enhance'),
       },
       {
         id: 'remove-bg',
         label: 'Remove background',
+        icon: Erase,
         run: ({ submit }) => submit('Remove the background, keep the subject crisp'),
       },
       {
         id: 'upscale',
         label: 'Upscale 2×',
+        icon: Maximize,
         run: () => handleAiPlaceholder('Upscale'),
       },
     ],
@@ -846,7 +864,7 @@ export function ImageEditor({
         { id: 'seed-clean', label: 'Clean product shot on white' },
       ];
     },
-  }), [annotations, assistantControls, enhance, generate]);
+  }), [annotations, assistantControls, enhance, generate, handleAiPlaceholder]);
 
   useRegisterAssistantSurface(assistantSurface);
 

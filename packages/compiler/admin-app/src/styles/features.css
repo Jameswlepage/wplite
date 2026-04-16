@@ -12,12 +12,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
-  max-height: 44px;
+  min-height: 40px;
+  max-height: 40px;
   padding: 0 12px;
   background: var(--wp-admin-surface);
   border: 1px solid var(--wp-admin-border);
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -848,4 +848,65 @@
   gap: 8px;
   border-top: 1px solid var(--wp-admin-border);
   padding-top: 12px;
+}
+
+/* ── API: constrain icon sizes inside buttons ── */
+.api-auth-row .components-button svg,
+.screen-header .components-button svg,
+.api-auth-row .components-button__icon svg,
+.screen-header .components-button__icon svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0;
+}
+
+/* Match auth container border-radius to other buttons */
+.api-auth-row .components-button {
+  border-radius: 4px;
+}
+
+/* Style the ToggleGroupControl language selector */
+.api-operations-controls .components-toggle-group-control {
+  border: 1px solid var(--wp-admin-border);
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: none !important;
+}
+
+.api-operations-controls .components-toggle-group-control-option-base {
+  color: var(--wp-admin-text-muted);
+  font-size: 13px;
+}
+
+.api-operations-controls .components-toggle-group-control-option-base[aria-checked="true"],
+.api-operations-controls .components-toggle-group-control__option--is-selected {
+  background: var(--wp-admin-accent, #3858e9) !important;
+  color: #ffffff !important;
+  border-radius: 3px;
+}
+
+/* ── Logs: constrain empty state icon ── */
+.empty-state .empty-state__icon {
+  color: #c0c0c0;
+  width: 24px;
+  height: 24px;
+}
+
+.empty-state .empty-state__icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ── DataViews grid: three-dot actions button — force square hover ── */
+.workspace-dataviews-shell .dataviews-view-grid__card .dataviews-view-grid__card-header-buttons button,
+.workspace-dataviews-shell .dataviews-view-grid__card .dataviews-actions-dropdown button {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
 }

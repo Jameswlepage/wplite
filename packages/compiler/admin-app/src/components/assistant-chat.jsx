@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Close, Checkmark, Warning, StopFilled, TrashCan, Attachment, Document } from '@carbon/icons-react';
+import { ArrowUp, Close, Checkmark, Warning, StopFilled, TrashCan, Attachment, Document, Renew } from '@carbon/icons-react';
 import { BlockIcon } from '@wordpress/block-editor';
 import { getBlockType, serialize as serializeBlocks } from '@wordpress/blocks';
 import { marked } from 'marked';
@@ -17,8 +17,10 @@ function renderMarkdown(text) {
     return { __html: String(text) };
   }
 }
+import { useLocation } from 'react-router-dom';
 import { useAssistantSurface } from './workspace-context.jsx';
 import { useAssistant } from './assistant-provider.jsx';
+import { useSuggestions } from '../lib/suggestions/hook.js';
 
 function describeSelectedBlock(block) {
   if (!block) return null;
@@ -386,6 +388,54 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * Centered, full-width vertical list of suggestion buttons with an optional
+ * "refresh" affordance when the resolver has more candidates queued than it
+ * can show at once. Rendered only in the empty-thread hero state — once the
+ * user starts a conversation the list hides so it doesn't distract from the
+ * back-scroll.
+ */
+function SuggestionStack({ items, canRefresh, onPick, onRefresh, disabled }) {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  return (
+    <div className="workspace-chat__suggestions-stack" aria-label="Suggested prompts">
+      <ul className="workspace-chat__suggestions-list">
+        {items.map((s) => (
+          <li key={s.id || s.label} className="workspace-chat__suggestions-item">
+            <button
+              type="button"
+              className="workspace-chat__suggestions-btn"
+              disabled={!!disabled}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!disabled) onPick(s);
+              }}
+              title={s.prompt && s.prompt !== s.label ? s.prompt : undefined}
+            >
+              <span className="workspace-chat__suggestions-label">{s.label}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {canRefresh ? (
+        <button
+          type="button"
+          className="workspace-chat__suggestions-refresh"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRefresh();
+          }}
+          aria-label="Show different suggestions"
+          title="Show different suggestions"
+        >
+          <Renew size={12} />
+          <span>More ideas</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function AssistantChat() {
   const assistant = useAssistant();
   const [draft, setDraft] = useState('');
@@ -396,13 +446,20 @@ export function AssistantChat() {
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
 
-  const { selectedBlock, clearSelectedBlock } = assistant;
+  const { selectedBlock, clearSelectedBlock, surfaceContext } = assistant;
   const blockContext = describeSelectedBlock(selectedBlock);
   const { assistantSurface } = useAssistantSurface();
   const surfacePresets = assistantSurface?.presets || [];
-  const surfaceSuggestions = assistantSurface?.suggestions || [];
   const surfaceControls = assistantSurface?.controls || null;
   const surfacePlaceholder = assistantSurface?.placeholder || '';
+  const location = useLocation();
+  const suggestions = useSuggestions({
+    selectedBlock,
+    surfaceContext,
+    surfaceExtension: assistantSurface,
+    route: location?.pathname || '',
+  });
+  const surfaceSuggestions = suggestions.visible;
 
   const {
     messages,
@@ -568,6 +625,18 @@ export function AssistantChat() {
     }
   }
 
+  // Suggestions differ from presets: clicking one submits immediately with
+  // the suggestion's prompt (or its label, when no prompt is defined).
+  function runSuggestion(suggestion) {
+    if (!suggestion) return;
+    if (isStreaming || !isAvailable) return;
+    const text = typeof suggestion.prompt === 'string' && suggestion.prompt.trim().length > 0
+      ? suggestion.prompt
+      : suggestion.label || '';
+    if (!text) return;
+    send(text);
+  }
+
   function onComposerClick(event) {
     if (event.target.closest('.workspace-chat__send')) return;
     textareaRef.current?.focus();
@@ -685,23 +754,13 @@ export function AssistantChat() {
         {isEmptyThread && hasHeroContent ? (
           <div className="workspace-chat__hero">
             <div className="workspace-chat__hero-inner">
-              {surfaceSuggestions.length > 0 ? (
-                <div
-                  className="workspace-chat__hero-suggestions"
-                  aria-label="Suggested prompts"
-                >
-                  {surfaceSuggestions.map((s) => (
-                    <button
-                      key={s.id || s.label}
-                      type="button"
-                      className="workspace-chat__hero-suggestion"
-                      onClick={() => runPreset(s)}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <SuggestionStack
+                items={surfaceSuggestions}
+                canRefresh={suggestions.canRefresh}
+                onPick={runSuggestion}
+                onRefresh={suggestions.refresh}
+                disabled={!isAvailable || isStreaming}
+              />
               {surfacePresets.length > 0 ? (
                 <div className="workspace-chat__hero-presets" aria-label="Presets">
                   {surfacePresets.map((p) => (
@@ -858,23 +917,6 @@ export function AssistantChat() {
                   <Close size={12} />
                 </button>
               </div>
-            ))}
-          </div>
-        ) : null}
-        {!isEmptyThread && surfaceSuggestions.length > 0 ? (
-          <div className="workspace-chat__suggestions" aria-label="Suggested prompts">
-            {surfaceSuggestions.map((s) => (
-              <button
-                key={s.id || s.label}
-                type="button"
-                className="workspace-chat__suggestion"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  runPreset(s);
-                }}
-              >
-                {s.label}
-              </button>
             ))}
           </div>
         ) : null}

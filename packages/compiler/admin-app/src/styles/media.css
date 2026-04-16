@@ -1043,12 +1043,13 @@
   text-overflow: ellipsis;
 }
 
-/* ── Generate controls popover ── */
+/* ── Generate controls panel ── */
 .media-ed-gen-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .media-ed-gen-controls__trigger {
@@ -1099,13 +1100,18 @@
   padding: 0;
 }
 
-.media-ed-gen-controls__popover {
-  min-width: 220px;
-}
-
-.media-ed-gen-controls__body {
+.media-ed-gen-controls__panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 10;
+  min-width: 240px;
+  background: var(--wplite-bg-elevated, #2a2a2a);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }

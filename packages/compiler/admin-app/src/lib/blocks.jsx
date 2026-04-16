@@ -694,24 +694,106 @@ async function fetchUrlData(url) {
 }
 
 /**
+ * Fetch WP media items of a given type and transform them into the shape
+ * that Gutenberg's media inserter expects: { id, url, previewUrl, alt, caption }.
+ * The PHP get_block_editor_settings() may include inserterMediaCategories as
+ * plain objects (name/labels/mediaType) but without fetch functions, which are
+ * JS-only. This provides the fetch implementations.
+ */
+function makeWpMediaFetch(mediaType) {
+  return async ({ per_page = 10, search = '' } = {}) => {
+    const params = new URLSearchParams({
+      per_page: String(per_page),
+      media_type: mediaType,
+      orderby: 'date',
+      order: 'desc',
+      _fields: 'id,source_url,alt_text,caption,media_details,mime_type',
+    });
+    if (search) params.set('search', search);
+    try {
+      const items = await wpApiFetch(`wp/v2/media?${params.toString()}`);
+      return (Array.isArray(items) ? items : []).map((item) => ({
+        id: item.id,
+        url: item.source_url,
+        previewUrl:
+          item.media_details?.sizes?.medium?.source_url
+          ?? item.media_details?.sizes?.thumbnail?.source_url
+          ?? item.source_url,
+        alt: item.alt_text || '',
+        caption: item.caption?.rendered || '',
+        mime_type: item.mime_type,
+        type: mediaType,
+      }));
+    } catch {
+      return [];
+    }
+  };
+}
+
+const WP_INSERTER_MEDIA_CATEGORIES = [
+  {
+    name: 'images',
+    labels: { name: 'Images', search_items: 'Search images' },
+    mediaType: 'image',
+    fetch: makeWpMediaFetch('image'),
+  },
+  {
+    name: 'videos',
+    labels: { name: 'Videos', search_items: 'Search videos' },
+    mediaType: 'video',
+    fetch: makeWpMediaFetch('video'),
+  },
+  {
+    name: 'audio',
+    labels: { name: 'Audio', search_items: 'Search audio' },
+    mediaType: 'audio',
+    fetch: makeWpMediaFetch('audio'),
+  },
+];
+
+/**
  * Build the settings object for BlockEditorProvider. Starts from the
  * server's canonical `get_block_editor_settings()` output (delivered via
  * the /editor-bundle REST endpoint) so every preset, fontFamily, color,
  * resolvedAsset, and layout feature WP would give its own editor flows
  * through unchanged. We layer in JS handlers (mediaUpload, link
- * suggestions, URL metadata) that PHP can't serialize.
+ * suggestions, URL metadata, media inserter categories) that PHP can't serialize.
  */
 export function buildBlockEditorSettings(bundle, callbacks = {}) {
   const serverSettings = bundle?.editorSettings ?? {};
 
+  // Wire up fetch functions for media inserter categories. PHP serialises these
+  // as plain metadata objects (name/labels/mediaType) without the JS fetch
+  // callbacks, so we must attach them here. Fall back to our WP library
+  // defaults if PHP didn't include the setting at all.
+  const rawMediaCategories = serverSettings.inserterMediaCategories;
+  const inserterMediaCategories = Array.isArray(rawMediaCategories) && rawMediaCategories.length > 0
+    ? rawMediaCategories.map((cat) => cat.fetch ? cat : { ...cat, fetch: makeWpMediaFetch(cat.mediaType) })
+    : WP_INSERTER_MEDIA_CATEGORIES;
+
+  // allowedMimeTypes is required by getInserterMediaCategories to gate which
+  // media types are shown. PHP provides it from get_allowed_mime_types(); fall
+  // back to a sensible set so the media tab always appears.
+  const allowedMimeTypes = serverSettings.allowedMimeTypes ?? {
+    'jpg|jpeg|jpe': 'image/jpeg',
+    'gif': 'image/gif',
+    'png': 'image/png',
+    'webp': 'image/webp',
+    'mp4|m4v': 'video/mp4',
+    'mp3|m4a': 'audio/mpeg',
+    'wav': 'audio/wav',
+  };
+
   return {
     ...serverSettings,
+    allowedMimeTypes,
     hasFixedToolbar: true,
     focusMode: false,
     keepCaretInsideBlock: true,
     mediaUpload,
     __experimentalFetchLinkSuggestions: fetchLinkSuggestions,
     __experimentalFetchUrlData: fetchUrlData,
+    inserterMediaCategories,
     ...callbacks,
   };
 }
@@ -723,6 +805,7 @@ export function buildBlockEditorSettings(bundle, callbacks = {}) {
  */
 const IFRAME_ADMIN_CSS = `
 :root {
+  --wplite-editor-frame-bg: #242424;
   --wp-admin-theme-color: #3858e9;
   --wp-admin-theme-color--rgb: 56, 88, 233;
   --wp-admin-theme-color-darker-10: rgb(33.0384615385, 68.7307692308, 230.4615384615);
@@ -735,6 +818,16 @@ const IFRAME_ADMIN_CSS = `
   --wp-components-color-accent-inverted: #fff;
   --wp-components-color-background: #fff;
   --wp-components-color-foreground: #1e1e1e;
+}
+
+html,
+body,
+body.block-editor-iframe__body {
+  background: var(--wplite-editor-frame-bg) !important;
+}
+
+.editor-styles-wrapper {
+  background: transparent;
 }
 `;
 

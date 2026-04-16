@@ -1,7 +1,7 @@
 /* ── Notices (Snackbar toast) ── */
 .wplite-snackbar-region {
   position: fixed;
-  left: 16px;
+  right: 16px;
   bottom: 16px;
   z-index: 100000;
   pointer-events: none;

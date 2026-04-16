@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BlockBreadcrumb,
   BlockContextProvider,
+  BlockIcon,
   BlockList,
   BlockEditorKeyboardShortcuts,
   BlockEditorProvider,
-  BlockInspector,
   BlockTools,
+  InspectorControls,
   LinkControl,
   __unstableEditorStyles as GutenbergEditorStyles,
   __unstableIframe as GutenbergIframe,
@@ -19,14 +20,16 @@ import {
   Popover,
   SearchControl,
   TabPanel,
+  Tooltip,
 } from '@wordpress/components';
+import { getBlockType, parse as parseBlocks } from '@wordpress/blocks';
 import { useMergeRefs } from '@wordpress/compose';
-import { useDispatch, useSelect } from '@wordpress/data';
+import { dispatch, useDispatch, useSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
 import { __ } from '@wordpress/i18n';
 import { useLocation } from 'react-router-dom';
-import { CarbonIcon } from '../lib/icons.jsx';
-import { apiFetch } from '../lib/helpers.js';
+import { ArrowUpRight, CarbonIcon, Link } from '../lib/icons.jsx';
+import { apiFetch, wpApiFetch } from '../lib/helpers.js';
 import {
   buildBlockEditorSettings,
   buildCanvasStyles,
@@ -38,9 +41,124 @@ import { useAssistant } from './assistant-provider.jsx';
 import BlockTypesTab from '@wplite/block-editor-inserter/block-types-tab.mjs';
 import BlockPatternsTab from '@wplite/block-editor-inserter/block-patterns-tab/index.mjs';
 import { PatternCategoryPreviews } from '@wplite/block-editor-inserter/block-patterns-tab/pattern-category-previews.mjs';
+import { allPatternsCategory } from '@wplite/block-editor-inserter/block-patterns-tab/utils.mjs';
 import { MediaTab, MediaCategoryPanel } from '@wplite/block-editor-inserter/media-tab/index.mjs';
 import InserterSearchResults from '@wplite/block-editor-inserter/search-results.mjs';
 import useInsertionPoint from '@wplite/block-editor-inserter/hooks/use-insertion-point.mjs';
+
+/**
+ * Mounted inside BlockEditorProvider to bridge the inner block-editor
+ * sub-registry's selected-block state out to parent React state. Needed
+ * because the parent component's top-level useSelect reads the OUTER
+ * registry and never sees iframe selections.
+ */
+function InspectorSelectionBridge({ onChange }) {
+  const selectedBlockId = useSelect(
+    (select) => select(blockEditorStore).getSelectedBlockClientId(),
+    []
+  );
+  const selectedBlock = useSelect(
+    (select) => (selectedBlockId ? select(blockEditorStore).getBlock(selectedBlockId) : null),
+    [selectedBlockId]
+  );
+  useEffect(() => {
+    onChange?.({ clientId: selectedBlockId || null, block: selectedBlock || null });
+  }, [selectedBlockId, selectedBlock, onChange]);
+  return null;
+}
+
+/**
+ * Native-chrome replacement for @wordpress/block-editor's BlockInspector.
+ * Mounts the InspectorControls slot groups directly so we own the visual
+ * structure (block card header, group sections, footer) instead of
+ * reskinning Gutenberg's composite.
+ */
+function NativeBlockInspector({ blockSidebarFooter }) {
+  const selectedBlockId = useSelect(
+    (select) => select(blockEditorStore).getSelectedBlockClientId(),
+    []
+  );
+  const blockName = useSelect(
+    (select) => (selectedBlockId
+      ? select(blockEditorStore).getBlockName(selectedBlockId)
+      : null),
+    [selectedBlockId]
+  );
+  const blockType = blockName ? getBlockType(blockName) : null;
+
+  if (!selectedBlockId) {
+    return (
+      <div className="native-editor__block-sidebar-empty">
+        <div className="native-editor__block-sidebar-empty-icon" aria-hidden="true">
+          <CarbonIcon name="Edit" size={20} />
+        </div>
+        <p className="native-editor__block-sidebar-empty-title">No block selected</p>
+        <p className="native-editor__block-sidebar-empty-hint">
+          Click a block in the canvas to edit its settings, or pick one from the inserter.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="native-inspector">
+      {blockType ? (
+        <header className="native-inspector__card">
+          <div className="native-inspector__card-icon" aria-hidden="true">
+            <BlockIcon icon={blockType.icon} />
+          </div>
+          <div className="native-inspector__card-copy">
+            <div className="native-inspector__card-title">{blockType.title || blockName}</div>
+            {blockType.description ? (
+              <div className="native-inspector__card-desc">{blockType.description}</div>
+            ) : null}
+          </div>
+        </header>
+      ) : null}
+
+      <div className="native-inspector__group">
+        <InspectorControls.Slot />
+      </div>
+      <InspectorGroupSection group="list" />
+      <InspectorGroupSection group="content" />
+      <InspectorGroupSection group="color" label="Color" />
+      <InspectorGroupSection group="background" label="Background" />
+      <InspectorGroupSection group="typography" label="Typography" />
+      <InspectorGroupSection group="dimensions" label="Dimensions" />
+      <InspectorGroupSection group="border" label="Border" />
+      <InspectorGroupSection group="styles" />
+      <InspectorGroupSection group="bindings" label="Bindings" />
+
+      {blockSidebarFooter ? (
+        <section className="native-inspector__section">
+          <div className="native-inspector__section-title">Actions</div>
+          <div className="native-inspector__section-body">
+            {blockSidebarFooter}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Mount a single InspectorControls.Slot group inside a titled section.
+ * The slot itself renders the fills contributed by the selected block's
+ * registered controls. If no fills resolve, the section stays collapsed
+ * to empty markup (no visual noise).
+ */
+function InspectorGroupSection({ group, label }) {
+  return (
+    <section className={`native-inspector__section native-inspector__section--${group}`}>
+      {label ? (
+        <div className="native-inspector__section-title">{label}</div>
+      ) : null}
+      <div className="native-inspector__section-body">
+        <InspectorControls.Slot group={group} label={label} />
+      </div>
+    </section>
+  );
+}
 
 /**
  * Mounted inside BlockEditorProvider so it can read the block-editor
@@ -671,7 +789,12 @@ function NativeInserterPanel({
   const handleSelectTab = useCallback((nextTab) => {
     setSelectedTab(nextTab);
     setFilterValue('');
-    if (nextTab !== 'patterns') {
+    if (nextTab === 'patterns') {
+      // Auto-select "All Patterns" so content shows immediately without
+      // requiring the user to click a category first.
+      setSelectedPatternCategory(allPatternsCategory);
+      setPatternFilter('all');
+    } else {
       setSelectedPatternCategory(null);
     }
     if (nextTab !== 'media') {
@@ -1103,6 +1226,130 @@ function RouterBlockEditorCanvas({
   );
 }
 
+/* ── Empty-page pattern picker ───────────────────────────────────────
+   Shown as an overlay inside the canvas shell when a page is empty
+   and the user preference allows it. Fetches WP block patterns,
+   filters to the `full-page` category, and lets the user apply one
+   as a starting point. */
+const EMPTY_PAGE_PICKER_PREF_KEY = 'wplite.emptyPagePatternPicker.enabled.v1';
+
+function readEmptyPagePickerEnabled() {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = window.localStorage.getItem(EMPTY_PAGE_PICKER_PREF_KEY);
+    if (raw === null) return true;
+    return raw !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function writeEmptyPagePickerEnabled(enabled) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(EMPTY_PAGE_PICKER_PREF_KEY, enabled ? '1' : '0');
+  } catch {
+    /* swallow */
+  }
+}
+
+function EmptyPagePatternPicker({ onApply, onDismiss }) {
+  const [patterns, setPatterns] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [rememberPref, setRememberPref] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    wpApiFetch('wp/v2/block-patterns')
+      .then((list) => {
+        if (cancelled) return;
+        const full = (Array.isArray(list) ? list : [])
+          .filter((item) => Array.isArray(item?.categories) && item.categories.includes('full-page'));
+        setPatterns(full);
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleApply = useCallback((pattern) => {
+    try {
+      const blocks = parseBlocks(String(pattern?.content || ''));
+      if (Array.isArray(blocks) && blocks.length) {
+        onApply?.(blocks);
+      }
+    } catch {
+      /* ignore parse errors — bail silently */
+    }
+  }, [onApply]);
+
+  const handleDismiss = useCallback(() => {
+    if (!rememberPref) {
+      writeEmptyPagePickerEnabled(false);
+    }
+    onDismiss?.();
+  }, [onDismiss, rememberPref]);
+
+  return (
+    <div className="native-editor__empty-picker" role="dialog" aria-label="Choose a starting pattern">
+      <div className="native-editor__empty-picker-head">
+        <div className="native-editor__empty-picker-title">Start with a layout</div>
+        <div className="native-editor__empty-picker-sub">
+          Pick a full-page pattern to begin with, or close this and start from a blank canvas.
+        </div>
+      </div>
+      <div className="native-editor__empty-picker-body">
+        {loadError ? (
+          <div className="native-editor__empty-picker-empty">Failed to load patterns.</div>
+        ) : patterns === null ? (
+          <div className="native-editor__empty-picker-empty">Loading patterns…</div>
+        ) : patterns.length === 0 ? (
+          <div className="native-editor__empty-picker-empty">
+            No full-page patterns are registered yet. Tag a pattern with
+            <code> Categories: full-page </code> in its header to surface it here.
+          </div>
+        ) : (
+          <ul className="native-editor__empty-picker-grid">
+            {patterns.map((pattern) => (
+              <li key={pattern.name} className="native-editor__empty-picker-item">
+                <button
+                  type="button"
+                  className="native-editor__empty-picker-card"
+                  onClick={() => handleApply(pattern)}
+                  title={pattern.description || pattern.title}
+                >
+                  <span className="native-editor__empty-picker-card-title">{pattern.title}</span>
+                  {pattern.description ? (
+                    <span className="native-editor__empty-picker-card-desc">{pattern.description}</span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="native-editor__empty-picker-foot">
+        <label className="native-editor__empty-picker-toggle">
+          <input
+            type="checkbox"
+            checked={rememberPref}
+            onChange={(event) => setRememberPref(event.target.checked)}
+          />
+          <span>Show this on future empty pages</span>
+        </label>
+        <button
+          type="button"
+          className="native-editor__empty-picker-dismiss"
+          onClick={handleDismiss}
+        >
+          Start blank
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ── Native Block Editor Frame ── */
 export function NativeBlockEditorFrame({
   eyebrow = 'Editor',
@@ -1131,6 +1378,7 @@ export function NativeBlockEditorFrame({
   recordContext = null,
   resolveInternalLink = null,
   onOpenInternalLink = null,
+  showEmptyPatternPicker = false,
 }) {
   const [editorBundle, setEditorBundle] = useState(null);
   const [bundleError, setBundleError] = useState(null);
@@ -1179,17 +1427,23 @@ export function NativeBlockEditorFrame({
     });
   }
 
-  const selectedBlockId = useSelect(
-    (select) => select(blockEditorStore).getSelectedBlockClientId(),
-    []
-  );
-  const selectedBlock = useSelect(
-    (select) => (selectedBlockId ? select(blockEditorStore).getBlock(selectedBlockId) : null),
-    [selectedBlockId]
-  );
-  const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
+  // Selection state bridged out of the inner block-editor sub-registry by
+  // InspectorSelectionBridge (mounted below inside BlockEditorProvider).
+  // Reading selection via useSelect at this level would query the OUTER
+  // registry and always be null when the editor runs in an iframe.
+  const [bridgedSelection, setBridgedSelection] = useState({ clientId: null, block: null });
+  const selectedBlockId = bridgedSelection.clientId;
+  const selectedBlock = bridgedSelection.block;
+  const handleBridgedSelection = useCallback((next) => {
+    setBridgedSelection((current) =>
+      current.clientId === next.clientId && current.block === next.block ? current : next
+    );
+  }, []);
+  const [inspectorTab, setInspectorTab] = useState('document');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inserterOpen, setInserterOpen] = useState(false);
+  const [emptyPickerEnabled, setEmptyPickerEnabled] = useState(() => readEmptyPagePickerEnabled());
+  const [emptyPickerDismissedSession, setEmptyPickerDismissedSession] = useState(false);
   const [selectedLinkedTarget, setSelectedLinkedTarget] = useState(null);
   const [isLinkSwitcherOpen, setIsLinkSwitcherOpen] = useState(false);
   const canvasScrollReaderRef = useRef(null);
@@ -1393,6 +1647,33 @@ export function NativeBlockEditorFrame({
     return selectedBlockLinkTarget;
   }, [selectedBlockId, selectedBlockLinkTarget, selectedLinkedTarget]);
 
+  // True for core/button and similar "pure link" blocks where the user edits the URL directly.
+  // Navigation links are excluded because they use the switcher popover.
+  const isEditableLinkBlock = useMemo(() => {
+    if (!selectedBlock) return false;
+    const n = selectedBlock.name;
+    return n === 'core/button' || n === 'core/file';
+  }, [selectedBlock]);
+
+  const [linkEditorUrl, setLinkEditorUrl] = useState('');
+  const [linkEditorNewTab, setLinkEditorNewTab] = useState(false);
+
+  // Sync link editor state when the selected block changes
+  useEffect(() => {
+    if (!isEditableLinkBlock || !selectedBlock) return;
+    setLinkEditorUrl(selectedBlock.attributes?.url || '');
+    setLinkEditorNewTab(selectedBlock.attributes?.linkTarget === '_blank');
+  }, [isEditableLinkBlock, selectedBlock?.clientId]);
+
+  const applyLinkEdit = useCallback(() => {
+    if (!isEditableLinkBlock || !selectedBlock) return;
+    updateBlockAttributes(selectedBlock.clientId, {
+      url: linkEditorUrl,
+      linkTarget: linkEditorNewTab ? '_blank' : undefined,
+      rel: linkEditorNewTab ? 'noreferrer noopener' : undefined,
+    });
+  }, [isEditableLinkBlock, linkEditorNewTab, linkEditorUrl, selectedBlock, updateBlockAttributes]);
+
   const navigationLinkControlValue = useMemo(() => {
     if (selectedBlock?.name !== 'core/navigation-link') {
       return null;
@@ -1433,6 +1714,16 @@ export function NativeBlockEditorFrame({
       setIsLinkSwitcherOpen(false);
     }
   }, [selectedBlockId, selectedLinkedTarget]);
+
+  // When core/navigation is selected, enter its inner-blocks editing mode so
+  // individual nav-link children become clickable.
+  useEffect(() => {
+    if (selectedBlock?.name !== 'core/navigation' || !selectedBlockId) return;
+    const { setBlockEditingMode } = dispatch(blockEditorStore);
+    if (typeof setBlockEditingMode === 'function') {
+      setBlockEditingMode(selectedBlockId, 'default');
+    }
+  }, [selectedBlockId, selectedBlock?.name]);
 
   const handleNavigationLinkChange = useCallback((nextValue = {}) => {
     if (selectedBlock?.name !== 'core/navigation-link') {
@@ -1563,6 +1854,7 @@ export function NativeBlockEditorFrame({
         settings={editorSettings}
       >
         <AssistantSelectionBridge />
+        <InspectorSelectionBridge onChange={handleBridgedSelection} />
         <NativeLinkViewerActions
           currentPath={routerLocation.pathname}
           resolveInternalLink={resolveInternalLink}
@@ -1601,63 +1893,106 @@ export function NativeBlockEditorFrame({
                     redoRef={redoRef}
                   />
                 </div>
+                {showEmptyPatternPicker
+                  && emptyPickerEnabled
+                  && !emptyPickerDismissedSession
+                  && (!Array.isArray(blocks) || blocks.length === 0) ? (
+                    <EmptyPagePatternPicker
+                      onApply={(nextBlocks) => {
+                        handleChange(nextBlocks);
+                        setEmptyPickerDismissedSession(true);
+                      }}
+                      onDismiss={() => {
+                        setEmptyPickerDismissedSession(true);
+                        setEmptyPickerEnabled(readEmptyPagePickerEnabled());
+                      }}
+                    />
+                  ) : null}
                 {activeLinkedTarget?.resolution?.adminPath || getLinkHref(activeLinkedTarget) ? (
                   <div className="native-editor__linked-target-actions" role="status" aria-live="polite">
                     <div className="native-editor__linked-target-copy">
+                      <span className="native-editor__linked-target-icon" aria-hidden="true"><Link size={12} /></span>
                       <span className="native-editor__linked-target-eyebrow">Linked</span>
                       <strong className="native-editor__linked-target-title">
                         {getLinkDisplayLabel(activeLinkedTarget)}
                       </strong>
                     </div>
-                    <div className="native-editor__linked-target-buttons">
-                      {canSwitchNavigationLink ? (
-                        <>
-                          <Button
-                            ref={linkSwitcherButtonRef}
-                            className="native-editor__linked-target-button"
-                            variant="secondary"
-                            onClick={() => setIsLinkSwitcherOpen((open) => !open)}
-                          >
-                            Switch link
-                          </Button>
-                          {isLinkSwitcherOpen ? (
-                            <Popover
-                              anchor={linkSwitcherButtonRef.current}
-                              className="native-editor__linked-target-popover"
-                              placement="top-start"
-                              offset={10}
-                              onClose={() => setIsLinkSwitcherOpen(false)}
+
+                    {isEditableLinkBlock ? (
+                      <div className="native-editor__link-editor">
+                        <input
+                          type="url"
+                          className="native-editor__link-editor__input"
+                          value={linkEditorUrl}
+                          placeholder="https://"
+                          onChange={(e) => setLinkEditorUrl(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLinkEdit(); } }}
+                        />
+                        <button
+                          type="button"
+                          className={`native-editor__link-editor__newtab${linkEditorNewTab ? ' is-active' : ''}`}
+                          onClick={() => setLinkEditorNewTab((v) => !v)}
+                          title="Open in new tab"
+                        >
+                          New tab
+                        </button>
+                        <Button className="native-editor__link-editor__apply" onClick={applyLinkEdit}>
+                          Apply
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="native-editor__linked-target-buttons">
+                        {canSwitchNavigationLink ? (
+                          <>
+                            <Button
+                              ref={linkSwitcherButtonRef}
+                              className="native-editor__linked-target-edit"
+                              variant="secondary"
+                              onClick={() => setIsLinkSwitcherOpen((open) => !open)}
                             >
-                              <div className="native-editor__linked-target-popover-body">
-                                <LinkControl
-                                  value={navigationLinkControlValue}
-                                  onChange={handleNavigationLinkChange}
-                                  forceIsEditingLink={true}
-                                />
-                              </div>
-                            </Popover>
-                          ) : null}
-                        </>
-                      ) : null}
-                      {activeLinkedTarget?.resolution?.adminPath && activeLinkedTarget.resolution.adminPath !== routerLocation.pathname ? (
-                        <Button
-                          className="native-editor__linked-target-button"
-                          variant="secondary"
-                          onClick={() => routeTarget(activeLinkedTarget)}
-                        >
-                          {getEditorActionLabel(activeLinkedTarget.resolution, routerLocation.pathname)}
-                        </Button>
-                      ) : null}
-                      {getLinkHref(activeLinkedTarget) && !getLinkHref(activeLinkedTarget).startsWith('#') ? (
-                        <Button
-                          className="native-editor__linked-target-button"
-                          variant="secondary"
-                          onClick={() => routeTarget(activeLinkedTarget, { newTab: true })}
-                        >
-                          View on site
-                        </Button>
-                      ) : null}
-                    </div>
+                              Switch link
+                            </Button>
+                            {isLinkSwitcherOpen ? (
+                              <Popover
+                                anchor={linkSwitcherButtonRef.current}
+                                className="native-editor__linked-target-popover"
+                                placement="top-start"
+                                offset={10}
+                                onClose={() => setIsLinkSwitcherOpen(false)}
+                              >
+                                <div className="native-editor__linked-target-popover-body">
+                                  <LinkControl
+                                    value={navigationLinkControlValue}
+                                    onChange={handleNavigationLinkChange}
+                                    forceIsEditingLink={true}
+                                  />
+                                </div>
+                              </Popover>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {activeLinkedTarget?.resolution?.adminPath && activeLinkedTarget.resolution.adminPath !== routerLocation.pathname ? (
+                          <Button
+                            className="native-editor__linked-target-edit"
+                            variant="secondary"
+                            onClick={() => routeTarget(activeLinkedTarget)}
+                          >
+                            {getEditorActionLabel(activeLinkedTarget.resolution, routerLocation.pathname)}
+                          </Button>
+                        ) : null}
+                        {getLinkHref(activeLinkedTarget) && !getLinkHref(activeLinkedTarget).startsWith('#') ? (
+                          <Tooltip text="View on site">
+                            <Button
+                              className="native-editor__linked-target-view"
+                              onClick={() => routeTarget(activeLinkedTarget, { newTab: true })}
+                              aria-label="View on site"
+                            >
+                              <ArrowUpRight size={14} />
+                            </Button>
+                          </Tooltip>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -1667,58 +2002,52 @@ export function NativeBlockEditorFrame({
             </section>
 
             {sidebarOpen ? (
-              <aside className="native-editor__sidebar">
-                <TabPanel
-                  className="native-editor__inspector-tabs"
-                  activeClass="is-active"
-                  initialTabName={inspectorTab}
-                  onSelect={setInspectorTab}
-                  tabs={[
-                    { name: 'document', title: documentLabel },
-                    { name: 'block', title: 'Block' },
-                  ]}
-                >
-                  {(tab) => (
-                    <div className="native-editor__inspector-panel">
-                      {tab.name === 'document' ? (
-                        <div className="native-editor__document-sidebar">
-                          {documentSidebar}
-                        </div>
-                      ) : (
-                        <div className="native-editor__block-sidebar">
-                          {selectedBlockId ? (
-                            <>
-                              <BlockInspector />
-                              {blockSidebarFooter ? (
-                                <PanelBody title="Actions" initialOpen={true}>
-                                  {blockSidebarFooter}
-                                </PanelBody>
-                              ) : null}
-                            </>
-                          ) : (
-                            <div className="native-editor__block-sidebar-empty">
-                              <div className="native-editor__block-sidebar-empty-icon" aria-hidden="true">
-                                <CarbonIcon name="Edit" size={20} />
-                              </div>
-                              <p className="native-editor__block-sidebar-empty-title">No block selected</p>
-                              <p className="native-editor__block-sidebar-empty-hint">
-                                Click a block in the canvas to edit its settings, or pick one from the inserter.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
+              <aside className="native-editor__sidebar" aria-label="Inspector sidebar">
+                <div className="native-editor__sidebar-header">
+                  <div
+                    className="native-editor__sidebar-tablist"
+                    role="tablist"
+                    aria-label="Inspector sections"
+                  >
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={inspectorTab === 'document'}
+                      className={`native-editor__sidebar-tab${inspectorTab === 'document' ? ' is-active' : ''}`}
+                      onClick={() => setInspectorTab('document')}
+                    >
+                      {documentLabel}
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={inspectorTab === 'block'}
+                      className={`native-editor__sidebar-tab${inspectorTab === 'block' ? ' is-active' : ''}`}
+                      onClick={() => setInspectorTab('block')}
+                    >
+                      Block
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="native-editor__sidebar-close"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Close sidebar"
+                  >
+                    <CarbonIcon name="Close" size={16} />
+                  </button>
+                </div>
+                <div className="native-editor__sidebar-body">
+                  {inspectorTab === 'document' ? (
+                    <div className="native-editor__document-sidebar">
+                      {documentSidebar}
+                    </div>
+                  ) : (
+                    <div className="native-editor__block-sidebar">
+                      <NativeBlockInspector blockSidebarFooter={blockSidebarFooter} />
                     </div>
                   )}
-                </TabPanel>
-                <button
-                  type="button"
-                  className="native-editor__sidebar-close"
-                  onClick={() => setSidebarOpen(false)}
-                  aria-label="Close sidebar"
-                >
-                  <CarbonIcon name="Close" size={16} />
-                </button>
+                </div>
               </aside>
             ) : null}
           </div>

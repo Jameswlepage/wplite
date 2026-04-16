@@ -1153,7 +1153,7 @@ export function LogsPage() {
               </div>
             ) : filteredEntries.length === 0 ? (
               <div className="empty-state">
-                <Debug size={32} className="empty-state__icon" />
+                <Debug size={20} className="empty-state__icon" />
                 <h2>No log entries</h2>
                 <p>{filter || !allOn ? 'No entries match your filters.' : 'The error log is empty — your site is running clean.'}</p>
               </div>

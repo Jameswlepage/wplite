@@ -88,6 +88,43 @@ function stripPatternHeaderComment(source) {
   });
 }
 
+/**
+ * Parse the leading `<!-- Key: Value -->` header of a pattern file and return
+ * both the metadata and the body with the header stripped.
+ */
+function parsePatternHeader(source) {
+  const value = String(source ?? '');
+  const headerMatch = value.match(/^\s*<!--([\s\S]*?)-->\s*/);
+  const header = { title: '', slug: '', categories: [], inserter: null };
+
+  if (!headerMatch) {
+    return { header, body: value };
+  }
+
+  const commentBody = headerMatch[1];
+  if (!/(?:^|\n)\s*(Title|Slug|Categories|Inserter)\s*:/i.test(commentBody)) {
+    return { header, body: value };
+  }
+
+  const fields = commentBody.split(/\r?\n/);
+  for (const line of fields) {
+    const m = line.match(/^\s*([A-Za-z][A-Za-z_-]*)\s*:\s*(.+?)\s*$/);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    const raw = m[2];
+    if (key === 'title') header.title = raw;
+    else if (key === 'slug') header.slug = raw;
+    else if (key === 'categories') {
+      header.categories = raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+    } else if (key === 'inserter') header.inserter = raw.trim().toLowerCase();
+  }
+
+  return { header, body: value.slice(headerMatch[0].length) };
+}
+
 async function readBlockDirectory(dirPath) {
   let entries = [];
 
@@ -370,7 +407,7 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
     path.join(themeTargetRoot, 'functions.php'),
     `<?php\nadd_action( 'init', function() {\n\tregister_block_pattern_category( '${themeSlug}', [\n\t\t'label' => __( '${toTitleCase(
       themeSlug
-    )}', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'after_setup_theme', function() {\n\tadd_theme_support( 'editor-styles' );\n\tadd_editor_style( 'style.css' );\n} );\n\nadd_action( 'enqueue_block_assets', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\t// Skip hot-reload inside an iframe (e.g. the Site Editor preview).\n\tif (window.self !== window.top) return;\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\tif (document.visibilityState !== 'visible') return;\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) return;\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) return;\n\n\t\t\t// Only reload if heartbeat is fresh (watcher actively running).\n\t\t\tif (payload.heartbeatAt) {\n\t\t\t\tconst age = Date.now() - new Date(payload.heartbeatAt).getTime();\n\t\t\t\tif (age > 10000) return;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 3000);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
+    )}', '${themeSlug}' ),\n\t] );\n\tregister_block_pattern_category( 'full-page', [\n\t\t'label' => __( 'Full Page', '${themeSlug}' ),\n\t\t'description' => __( 'Complete page layouts you can drop onto a blank page.', '${themeSlug}' ),\n\t] );\n} );\n\nadd_action( 'after_setup_theme', function() {\n\tadd_theme_support( 'editor-styles' );\n\tadd_editor_style( 'style.css' );\n} );\n\nadd_action( 'enqueue_block_assets', function() {\n\t$stylesheet = get_stylesheet_directory() . '/style.css';\n\twp_enqueue_style(\n\t\t'${themeSlug}-theme',\n\t\tget_stylesheet_uri(),\n\t\t[],\n\t\tfile_exists( $stylesheet ) ? (string) filemtime( $stylesheet ) : wp_get_theme()->get( 'Version' )\n\t);\n} );\n\nadd_action(\n\t'wp_footer',\n\tfunction() {\n\t\t?>\n<script>\n(function() {\n\t// Skip hot-reload inside an iframe (e.g. the Site Editor preview).\n\tif (window.self !== window.top) return;\n\tconst endpoint = <?php echo wp_json_encode( rest_url( 'portfolio/v1/dev-state' ) ); ?>;\n\tlet currentVersion = null;\n\n\tasync function checkDevState() {\n\t\tif (document.visibilityState !== 'visible') return;\n\t\ttry {\n\t\t\tconst response = await fetch(endpoint, {\n\t\t\t\tcache: 'no-store',\n\t\t\t\tcredentials: 'same-origin',\n\t\t\t});\n\t\t\tif (!response.ok) return;\n\n\t\t\tconst payload = await response.json();\n\t\t\tif (!payload?.enabled || !payload.version) return;\n\n\t\t\t// Only reload if heartbeat is fresh (watcher actively running).\n\t\t\tif (payload.heartbeatAt) {\n\t\t\t\tconst age = Date.now() - new Date(payload.heartbeatAt).getTime();\n\t\t\t\tif (age > 10000) return;\n\t\t\t}\n\n\t\t\tif (currentVersion && currentVersion !== payload.version) {\n\t\t\t\twindow.location.reload();\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\tcurrentVersion = payload.version;\n\t\t} catch (error) {\n\t\t\t// Keep polling quietly during local development.\n\t\t}\n\t}\n\n\tcheckDevState();\n\twindow.setInterval(checkDevState, 3000);\n})();\n</script>\n<?php\n\t},\n\t100\n);\n`
   );
 
   const headerPath = path.join(themeTargetRoot, 'parts', 'header.html');
@@ -405,10 +442,13 @@ async function copyThemeSource(themeSourceRoot, themeTargetRoot, themeSlug, site
     }
 
     const fileName = path.basename(entry.name, '.html');
-    const source = stripPatternHeaderComment(
-      await readFile(path.join(patternsDir, entry.name), 'utf8')
-    );
-    const pattern = `<?php\n/**\n * Title: ${toTitleCase(fileName)}\n * Slug: ${themeSlug}/${fileName}\n * Categories: ${themeSlug}\n * Inserter: yes\n */\n?>\n${source}\n`;
+    const rawSource = await readFile(path.join(patternsDir, entry.name), 'utf8');
+    const { header, body } = parsePatternHeader(rawSource);
+    const title = header.title || toTitleCase(fileName);
+    const slug = header.slug || `${themeSlug}/${fileName}`;
+    const inserter = header.inserter === 'no' ? 'no' : 'yes';
+    const categories = Array.from(new Set([...(header.categories || []), themeSlug]));
+    const pattern = `<?php\n/**\n * Title: ${title}\n * Slug: ${slug}\n * Categories: ${categories.join(', ')}\n * Inserter: ${inserter}\n */\n?>\n${body}\n`;
     await writeFile(path.join(generatedPatternsDir, `${fileName}.php`), pattern);
     await rm(path.join(generatedPatternsDir, entry.name), { force: true });
   }

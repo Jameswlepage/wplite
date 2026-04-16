@@ -245,16 +245,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 12px 10px;
+  gap: 8px;
+  padding: 6px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--wplite-bg, #242424);
+  min-height: 40px;
 }
 
 .native-editor__inserter-tablist {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 2px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
@@ -265,10 +266,10 @@
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.66);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
-  padding: 8px 12px;
+  padding: 5px 10px;
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
@@ -306,9 +307,30 @@
 }
 
 .native-editor__inserter-search {
-  padding: 12px;
+  padding: 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--wplite-bg, #242424);
+}
+
+/* Search input inside inserter — dark background to match panel */
+.native-editor__inserter-search .components-search-control,
+.native-editor__inserter-search .components-search-control__wrapper {
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+}
+
+.native-editor__inserter-search .components-search-control input,
+.native-editor__inserter-search .components-input-control__input,
+.native-editor__inserter-search input[type="search"],
+.native-editor__inserter-search input[type="text"] {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.native-editor__inserter-search .components-search-control__icon {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .native-editor__inserter-search-placeholder {
@@ -437,30 +459,67 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-left: 1px solid var(--wp-admin-border);
-  background: #ffffff;
+  border-left: 2px solid #1e1e1e;
+  background: var(--wplite-bg, #242424);
+  color: #ffffff;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
 
-.native-editor__sidebar .native-editor__inspector-tabs {
+.native-editor__sidebar-header {
   display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.native-editor__sidebar .components-tab-panel__tabs {
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--wplite-bg, #242424);
+  min-height: 40px;
   flex-shrink: 0;
 }
 
-.native-editor__sidebar .components-tab-panel__tabs-content {
+.native-editor__sidebar-tablist {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.native-editor__sidebar-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__sidebar-tab:hover,
+.native-editor__sidebar-tab:focus-visible {
+  color: #ffffff;
+  outline: none;
+}
+
+.native-editor__sidebar-tab.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.native-editor__sidebar-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  background: var(--wplite-bg, #242424);
+  color: #ffffff;
 }
 
 .native-editor__block-tools {
@@ -499,7 +558,7 @@
 }
 
 .native-editor__canvas-shell {
-  background: #ffffff;
+  background: var(--wplite-bg, #242424);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -698,7 +757,7 @@
 }
 
 .native-editor__canvas {
-  background: #ffffff;
+  background: var(--wplite-bg, #242424);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -743,7 +802,7 @@
   height: 100%;
   min-height: 100%;
   border: 0;
-  background: #ffffff;
+  background: var(--wplite-bg, #242424);
 }
 
 .wplite-editor-record-date-button {
@@ -785,6 +844,18 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
 }
 
+/* ── Linked target indicator bar ── */
+@keyframes linked-target-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .native-editor__linked-target-actions {
   position: absolute;
   left: 10px;
@@ -792,30 +863,39 @@
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
-  border: 1px solid #3c3c3c;
-  border-radius: 6px;
+  gap: 4px;
+  padding: 4px 4px 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
   background: var(--wplite-bg, #242424);
   color: #f0f0f0;
-  box-shadow: none;
-  max-width: min(420px, calc(100% - 20px));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  max-width: min(480px, calc(100% - 20px));
+  animation: linked-target-rise 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .native-editor__linked-target-copy {
   min-width: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 5px;
+  padding-right: 4px;
+}
+
+.native-editor__linked-target-icon {
+  flex-shrink: 0;
+  color: #7a7a7a;
+  display: flex;
+  align-items: center;
 }
 
 .native-editor__linked-target-eyebrow {
   flex-shrink: 0;
   font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #a9a9a9;
+  color: #7a7a7a;
 }
 
 .native-editor__linked-target-title {
@@ -824,35 +904,135 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
-  color: #f5f5f5;
+  color: #f0f0f0;
 }
 
 .native-editor__linked-target-buttons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
-.native-editor__linked-target-button.components-button {
+/* Edit button — matches topbar secondary Save button */
+.native-editor__linked-target-edit.components-button {
+  height: 28px;
   min-height: 28px;
   padding: 0 10px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: 2px;
+  font-size: 12px;
   font-weight: 500;
-  color: #ffffff;
-  border-color: #4a4a4a;
-  background: #2c2c2c;
+  color: #f0f0f0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: none;
 }
 
-.native-editor__linked-target-button.components-button:hover:not(:disabled),
-.native-editor__linked-target-button.components-button:focus:not(:disabled) {
+.native-editor__linked-target-edit.components-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.28);
   color: #ffffff;
-  border-color: #5a5a5a;
-  background: #343434;
+}
+
+/* View-on-site icon button */
+.native-editor__linked-target-view.components-button {
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 2px;
+  font-size: 12px;
+  color: #9a9a9a;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.native-editor__linked-target-view.components-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0f0f0;
+}
+
+/* Link editor mode (buttons / inline links) */
+.native-editor__link-editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+}
+
+.native-editor__link-editor__input {
+  height: 26px;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 0 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f0f0f0;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
+.native-editor__link-editor__input:focus {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.native-editor__link-editor__input::placeholder {
+  color: #5a5a5a;
+}
+
+.native-editor__link-editor__newtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #9a9a9a;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.native-editor__link-editor__newtab.is-active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f0f0f0;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.native-editor__link-editor__newtab:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #e0e0e0;
+}
+
+.native-editor__link-editor__apply.components-button {
+  height: 26px;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--wplite-accent, #3858e9);
+  border: 1px solid var(--wplite-accent, #3858e9);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.native-editor__link-editor__apply.components-button:hover:not(:disabled) {
+  background: #4a6aff;
+  border-color: #4a6aff;
 }
 
 .native-editor__linked-target-popover .components-popover__content {
@@ -890,9 +1070,17 @@
   max-width: none !important;
 }
 
-/* Block popover toolbar positioning */
+/* Block popover toolbar positioning — kept below workspace overlay (z-index 200+) */
 .native-editor .block-editor-block-popover {
   z-index: 31;
+}
+
+/* Cap Gutenberg inline inserter elements so they can't escape above the workspace overlay */
+.native-editor .block-editor-block-list__insertion-point,
+.native-editor .block-editor-block-list__insertion-point-inserter,
+.native-editor .block-list-appender,
+.native-editor .block-editor-inserter__toggle {
+  z-index: 30 !important;
 }
 
 .native-editor__inspector-tabs {
@@ -967,37 +1155,397 @@
 .native-editor__block-sidebar {
   display: block;
   padding: 0;
+  color: #ffffff;
 }
 
-/* ── PanelBody styling in the sidebar (Gutenberg pattern) ── */
-.native-editor__sidebar .components-panel__body {
-  border: 0;
-  border-bottom: 1px solid var(--wp-admin-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  margin: 0;
-  padding: 0 16px;
+/* ── PanelBody styling in the dark sidebar ── */
+.native-editor__sidebar .components-panel,
+.native-editor__sidebar .components-panel__body,
+.native-editor__sidebar .components-panel__body.is-opened {
+  border: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 16px !important;
 }
 
 .native-editor__sidebar .components-panel__body:last-child {
-  border-bottom: 0;
+  border-bottom: 0 !important;
 }
 
-.native-editor__sidebar .components-panel__body-title {
-  margin: 0 -16px;
-  border: 0;
+.native-editor__sidebar .components-panel__body > .components-panel__body-title,
+.native-editor__sidebar .components-panel__body-title,
+.native-editor__sidebar .components-panel__body.is-opened > .components-panel__body-title {
+  margin: 0 -16px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle {
-  min-height: 44px;
-  padding: 12px 16px;
-  font-weight: 500;
-  font-size: 13px;
+.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle,
+.native-editor__sidebar .components-panel__body > .components-panel__body-title > button,
+.native-editor__sidebar .components-panel__body.is-opened > .components-panel__body-title > button {
+  min-height: 44px !important;
+  padding: 12px 16px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: #ffffff !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle:hover,
+.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle:focus,
+.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle:focus-visible,
+.native-editor__sidebar .components-panel__body > .components-panel__body-title > button:hover,
+.native-editor__sidebar .components-panel__body > .components-panel__body-title > button:focus-visible {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.native-editor__sidebar .components-panel__body-title button.components-panel__body-toggle svg,
+.native-editor__sidebar .components-panel__body > .components-panel__body-title > button svg {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}
+
+/* Kill Gutenberg's default light row background under the title element
+   itself (it's applied with h2 selectors that bypass the button override). */
+.native-editor__sidebar h2.components-panel__body-title,
+.native-editor__sidebar .components-panel__body > h2,
+.native-editor__sidebar .components-panel__body > h3 {
+  background: transparent !important;
+  color: #ffffff !important;
 }
 
 .native-editor__sidebar .components-panel__body-content {
   padding: 0 0 16px;
+  color: #ffffff;
+}
+
+/* Field controls (TextControl / SelectControl / etc.) inside the dark sidebar */
+.native-editor__sidebar .components-base-control__label,
+.native-editor__sidebar .components-input-control__label,
+.native-editor__sidebar .components-text,
+.native-editor__sidebar label {
+  color: rgba(255, 255, 255, 0.82) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.native-editor__sidebar .components-base-control__help,
+.native-editor__sidebar .field-hint {
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 11px !important;
+}
+
+.native-editor__sidebar .components-input-control__container,
+.native-editor__sidebar .components-input-base,
+.native-editor__sidebar .components-text-control__input,
+.native-editor__sidebar .components-select-control__input,
+.native-editor__sidebar input[type="text"],
+.native-editor__sidebar input[type="number"],
+.native-editor__sidebar input[type="search"],
+.native-editor__sidebar select,
+.native-editor__sidebar textarea {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.native-editor__sidebar .components-text-control__input:focus,
+.native-editor__sidebar .components-select-control__input:focus,
+.native-editor__sidebar input[type="text"]:focus,
+.native-editor__sidebar input[type="number"]:focus,
+.native-editor__sidebar input[type="search"]:focus,
+.native-editor__sidebar select:focus,
+.native-editor__sidebar textarea:focus {
+  outline: none !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  box-shadow: 0 0 0 1px rgba(75, 99, 255, 0.45) !important;
+}
+
+.native-editor__sidebar input::placeholder,
+.native-editor__sidebar textarea::placeholder {
+  color: rgba(255, 255, 255, 0.38) !important;
+}
+
+/* Toggle / checkbox / radio in dark sidebar */
+.native-editor__sidebar .components-form-toggle .components-form-toggle__track {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.native-editor__sidebar .components-form-toggle.is-checked .components-form-toggle__track {
+  background: #4b63ff;
+  border-color: #4b63ff;
+}
+
+.native-editor__sidebar .components-checkbox-control__input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+/* DataForms panel groups inside document sidebar: flatten nested duplication */
+.native-editor__sidebar [class*="dataforms-layouts-panel__group"] {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
+  color: #ffffff;
+}
+
+/* Editor meta / details rows */
+.native-editor__sidebar .editor-meta {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.native-editor__sidebar .editor-meta span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── NativeBlockInspector (our own chrome, Gutenberg slot fills) ── */
+.native-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  color: #ffffff;
+}
+
+.native-inspector__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.native-inspector__card-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.native-inspector__card-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.native-inspector__card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.native-inspector__card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.native-inspector__card-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.native-inspector__group,
+.native-inspector__section {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.native-inspector__group:empty,
+.native-inspector__section:has(.native-inspector__section-body:empty) {
+  display: none;
+}
+
+.native-inspector__section-title {
+  padding: 10px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.native-inspector__section-body {
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.native-inspector__group > .block-editor-block-inspector__fills,
+.native-inspector__section-body > .block-editor-block-inspector__fills {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Reset Gutenberg fill chrome that comes through the slots.
+       The fills ship with their own PanelBody / ToolsPanel wrappers;
+       we flatten them so our outer sections provide the structure. ── */
+.native-editor__block-sidebar .components-panel__body,
+.native-editor__block-sidebar .components-tools-panel,
+.native-editor__block-sidebar .block-editor-tools-panel-color-gradient-settings__panel {
+  background: transparent !important;
+  border: 0 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  padding: 8px 0 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+.native-editor__block-sidebar .components-panel__body:first-child,
+.native-editor__block-sidebar .components-tools-panel:first-child {
+  border-top: 0 !important;
+}
+
+.native-editor__block-sidebar .components-panel__body-title,
+.native-editor__block-sidebar .components-tools-panel-header {
+  background: transparent !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+}
+
+.native-editor__block-sidebar .components-panel__body-title > button,
+.native-editor__block-sidebar .components-tools-panel-header > * > button,
+.native-editor__block-sidebar .components-tools-panel-header button {
+  background: transparent !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 4px 0 !important;
+  min-height: 28px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.native-editor__block-sidebar .components-panel__body-title > button:hover,
+.native-editor__block-sidebar .components-panel__body-title > button:focus-visible {
+  background: transparent !important;
+  color: #ffffff !important;
+  outline: none !important;
+}
+
+.native-editor__block-sidebar .components-panel__body-title svg,
+.native-editor__block-sidebar .components-tools-panel-header svg {
+  fill: rgba(255, 255, 255, 0.6) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.native-editor__block-sidebar .components-panel__body-content,
+.native-editor__block-sidebar .components-tools-panel__items {
+  padding: 8px 0 4px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Menu trigger + dropdowns inside ToolsPanel */
+.native-editor__block-sidebar .components-tools-panel-header .components-dropdown-menu__toggle {
+  color: rgba(255, 255, 255, 0.72) !important;
+  background: transparent !important;
+}
+
+.native-editor__block-sidebar .components-tools-panel-header .components-dropdown-menu__toggle:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* Group / layout / other block-specific visualisations */
+.native-editor__block-sidebar .block-editor-block-card {
+  display: none !important; /* replaced by our NativeInspector card */
+}
+
+.native-editor__block-sidebar-empty {
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.native-editor__block-sidebar-empty-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.native-editor__block-sidebar-empty-title {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.native-editor__block-sidebar-empty-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 220px;
+}
+
+/* Close button in the sidebar header */
+.native-editor__sidebar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__sidebar-close:hover,
+.native-editor__sidebar-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  outline: none;
 }
 
 /* DataForms panel groups inside document sidebar: flatten nested duplication */
@@ -1257,4 +1805,375 @@
 @keyframes link-peek-in {
   from { opacity: 0; transform: translateY(2px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   In-canvas quick inserter popover (the `+` that opens between
+   blocks). Portaled to document body via <Popover>, so targeted
+   globally. Skinned to match the side inserter's dark chrome.
+   ─────────────────────────────────────────────────────────────── */
+.block-editor-inserter__popover .components-popover__content,
+.components-popover.block-editor-inserter__popover > .components-popover__content,
+.components-popover.block-editor-inserter__quick-inserter > .components-popover__content,
+.block-editor-inserter__quick-inserter.components-popover .components-popover__content {
+  background: var(--wplite-bg, #242424) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.48), 0 2px 6px rgba(0, 0, 0, 0.32) !important;
+  color: #ffffff !important;
+  overflow: hidden !important;
+}
+
+.block-editor-inserter__quick-inserter,
+.block-editor-inserter__quick-inserter .block-editor-inserter__menu,
+.block-editor-inserter__quick-inserter .block-editor-inserter__main-area,
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter,
+.block-editor-inserter__popover .block-editor-inserter__menu,
+.block-editor-inserter__popover .block-editor-inserter__main-area,
+.block-editor-inserter__popover .block-editor-tabbed-sidebar,
+.block-editor-inserter__popover .block-editor-tabbed-sidebar__main,
+.block-editor-inserter__popover .block-editor-tabbed-sidebar__content,
+.block-editor-inserter__popover .block-editor-inserter__block-list,
+.block-editor-inserter__popover .block-editor-inserter__panel-content,
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter-results {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__quick-inserter {
+  width: 350px !important;
+  min-width: 350px !important;
+  max-width: calc(100vw - 24px) !important;
+  padding: 10px !important;
+}
+
+/* Search bar inside the popover */
+.block-editor-inserter__popover .block-editor-inserter__search,
+.block-editor-inserter__popover .components-search-control,
+.block-editor-inserter__popover .components-search-control__input-wrapper,
+.block-editor-inserter__quick-inserter .components-search-control,
+.block-editor-inserter__quick-inserter .components-search-control__input-wrapper {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__popover .components-search-control__input-wrapper:focus-within,
+.block-editor-inserter__quick-inserter .components-search-control__input-wrapper:focus-within {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__popover input[type="search"],
+.block-editor-inserter__popover input[type="text"],
+.block-editor-inserter__popover .components-input-control__input,
+.block-editor-inserter__popover .components-search-control__input,
+.block-editor-inserter__quick-inserter input[type="search"],
+.block-editor-inserter__quick-inserter input[type="text"],
+.block-editor-inserter__quick-inserter .components-input-control__input,
+.block-editor-inserter__quick-inserter .components-search-control__input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+}
+
+.block-editor-inserter__popover input::placeholder,
+.block-editor-inserter__quick-inserter input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.block-editor-inserter__popover .components-search-control__icon,
+.block-editor-inserter__quick-inserter .components-search-control__icon {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.block-editor-inserter__popover .components-search-control__icon svg,
+.block-editor-inserter__quick-inserter .components-search-control__icon svg {
+  fill: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Block / pattern type tiles inside the popover */
+.block-editor-inserter__popover .block-editor-block-types-list,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list {
+  padding: 8px 0 0 !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-types-list__item,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item {
+  min-height: 84px !important;
+  padding: 10px 6px !important;
+  background: transparent !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-types-list__item:hover,
+.block-editor-inserter__popover .block-editor-block-types-list__item:focus,
+.block-editor-inserter__popover .block-editor-block-types-list__item.is-active,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:focus,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item.is-active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-types-list__item-icon,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
+  width: 36px !important;
+  height: 36px !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-types-list__item-icon svg,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon svg {
+  width: 22px !important;
+  height: 22px !important;
+  fill: currentColor !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-types-list__item-title,
+.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+  white-space: normal !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+/* "Browse all" footer button inside the quick inserter */
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter-expand,
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand,
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter .components-button,
+.block-editor-inserter__quick-inserter > .components-button {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-top: 8px !important;
+}
+
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter-expand:hover,
+.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand:hover,
+.block-editor-inserter__popover .block-editor-inserter__quick-inserter .components-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+/* Empty / no-results copy */
+.block-editor-inserter__popover .block-editor-inserter__no-results,
+.block-editor-inserter__popover .block-editor-inserter__tips,
+.block-editor-inserter__popover .block-editor-inserter__panel-title,
+.block-editor-inserter__quick-inserter .block-editor-inserter__no-results,
+.block-editor-inserter__quick-inserter .block-editor-inserter__tips,
+.block-editor-inserter__quick-inserter .block-editor-inserter__panel-title {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Patterns / media cards inside the quick inserter */
+.block-editor-inserter__popover .block-editor-block-patterns-list__item,
+.block-editor-inserter__popover .block-editor-inserter__media-list__item,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item,
+.block-editor-inserter__quick-inserter .block-editor-inserter__media-list__item {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.block-editor-inserter__popover .block-editor-block-patterns-list__item:hover,
+.block-editor-inserter__popover .block-editor-inserter__media-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:hover,
+.block-editor-inserter__quick-inserter .block-editor-inserter__media-list__item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Scrollbar inside the popover content */
+.block-editor-inserter__popover .components-popover__content::-webkit-scrollbar,
+.block-editor-inserter__quick-inserter::-webkit-scrollbar {
+  width: 8px;
+}
+.block-editor-inserter__popover .components-popover__content::-webkit-scrollbar-thumb,
+.block-editor-inserter__quick-inserter::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+}
+
+/* ───────────────────────────────────────────────────────────────
+   Empty-page pattern picker — overlaid inside .native-editor__canvas-shell
+   when the canvas is empty and the user hasn't dismissed it.
+   ─────────────────────────────────────────────────────────────── */
+.native-editor__empty-picker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  width: min(640px, calc(100% - 48px));
+  max-height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--wplite-bg, #242424);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38), 0 4px 12px rgba(0, 0, 0, 0.24);
+  overflow: hidden;
+}
+
+.native-editor__empty-picker-head {
+  padding: 18px 20px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.native-editor__empty-picker-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.native-editor__empty-picker-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.native-editor__empty-picker-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.native-editor__empty-picker-empty {
+  padding: 24px 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.native-editor__empty-picker-empty code {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.native-editor__empty-picker-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.native-editor__empty-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 92px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.native-editor__empty-picker-card:hover,
+.native-editor__empty-picker-card:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.native-editor__empty-picker-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.native-editor__empty-picker-card-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.native-editor__empty-picker-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.native-editor__empty-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+
+.native-editor__empty-picker-toggle input[type="checkbox"] {
+  accent-color: #4b63ff;
+}
+
+.native-editor__empty-picker-dismiss {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.native-editor__empty-picker-dismiss:hover {
+  background: rgba(255, 255, 255, 0.16);
 }

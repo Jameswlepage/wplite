@@ -23,7 +23,7 @@ import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
-import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
+import { useRegisterWorkspaceSurface, useRegisterAssistantSurface } from './workspace-context.jsx';
 import { useRegisterAssistantContext } from './assistant-provider.jsx';
 
 const PAGE_TEMPLATE_SLOT_CLASS = 'wplite-page-template-slot';
@@ -448,9 +448,18 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
       const templateSplit = templateRecord
         ? splitTemplateEditorBlocks(blocks)
         : { templateBlocks: [], pageContentBlocks: blocks };
-      const pageContentBlocks = templateRecord?.slotFound
-        ? templateSplit.pageContentBlocks
-        : blocksFromContent(nextDraft.content);
+      let pageContentBlocks;
+      if (!templateRecord) {
+        // No template wrapper: the blocks state IS the page content.
+        pageContentBlocks = blocks;
+      } else if (templateRecord.slotFound) {
+        // Template has a post-content slot: use the blocks extracted from it.
+        pageContentBlocks = templateSplit.pageContentBlocks;
+      } else {
+        // Template doesn't render post-content: preserve the existing content
+        // field unchanged (the editor canvas never surfaced it).
+        pageContentBlocks = blocksFromContent(nextDraft.content);
+      }
 
       const pageSavePromise = wpApiFetch(endpoint, {
         method: 'POST',
@@ -699,6 +708,30 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
   }, [blocks, draft.content, draft.slug, draft.sourcePath, draft.template, draft.title, isNew, pageId, routeManifest]);
   useRegisterAssistantContext(assistantContext);
 
+  const assistantSurface = useMemo(() => {
+    if (isNew) {
+      return {
+        placeholder: 'Describe the page you want to create…',
+        suggestions: [
+          { id: 'new-home', label: 'Draft a homepage', prompt: 'Draft a homepage with a hero, a short about section, three featured items, and a closing CTA.' },
+          { id: 'new-about', label: 'Outline about page', prompt: 'Outline an about page with a personal intro, values, and a contact section.' },
+          { id: 'new-services', label: 'Services grid', prompt: 'Create a services page with a short intro, a three-column services grid, and a contact CTA.' },
+          { id: 'new-contact', label: 'Contact page', prompt: 'Create a contact page with a heading, a short lede, and a two-column block (contact details + form placeholder).' },
+          { id: 'new-blank-hero', label: 'Just a hero', prompt: 'Give me a full-width hero with a headline, a lede paragraph, and a primary button.' },
+        ],
+      };
+    }
+    return {
+      placeholder: 'Ask for changes to this page…',
+      suggestions: [
+        { id: 'tighten', label: 'Tighten copy', prompt: 'Rewrite the page copy to be more concise and scannable.' },
+        { id: 'add-cta', label: 'Add CTA', prompt: 'Add a prominent call-to-action block near the bottom of the page.' },
+        { id: 'split-section', label: 'Split into sections', prompt: 'Break this page into clearly-labelled sections with H2 headings.' },
+      ],
+    };
+  }, [isNew]);
+  useRegisterAssistantSurface(assistantSurface);
+
   if (loading) {
     return <EditorSkeleton />;
   }
@@ -760,6 +793,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
       onOpenInternalLink={(path) => navigate(path)}
       wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
       wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
+      showEmptyPatternPicker={!templateRecord}
       documentSidebar={
         <>
           <PanelBody title="Summary" initialOpen={true}>

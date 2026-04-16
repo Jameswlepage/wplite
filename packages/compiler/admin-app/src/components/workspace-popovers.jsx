@@ -465,14 +465,13 @@ function getTitle(item) {
 }
 
 const MEDIA_VIEW_DEFAULT = {
-  type: 'grid',
+  type: 'table',
   page: 1,
   perPage: 40,
   search: '',
-  fields: ['mimeBucket'],
+  fields: ['mimeType', 'mimeBucket'],
   titleField: 'title',
   mediaField: 'thumb',
-  descriptionField: 'mimeType',
   layout: {},
   filters: [],
 };
@@ -631,10 +630,7 @@ export function MediaPopover({ open, onClose, onOpenItem, pushNotice }) {
         <div className="workspace-browser workspace-browser--media">
           <section className="workspace-browser__main workspace-browser__main--dataviews">
             <div className="workspace-browser__toolbar workspace-browser__toolbar--media">
-              <div>
-                <h3>Library</h3>
-                <p>{filtered.length} of {media.length} assets</p>
-              </div>
+              <span className="workspace-browser__toolbar-count">{filtered.length} of {media.length} assets</span>
               <div className="workspace-browser__toolbar-actions">
                 <input
                   ref={fileInputRef}
@@ -948,11 +944,49 @@ export function CommentsPopover({ open, onClose, onOpenItem, pushNotice }) {
   );
 }
 
+const TIMEZONE_OPTIONS = [
+  { value: '', label: '— Select a timezone —' },
+  { value: 'UTC', label: 'UTC' },
+  { value: 'America/New_York', label: 'Eastern Time (US)' },
+  { value: 'America/Chicago', label: 'Central Time (US)' },
+  { value: 'America/Denver', label: 'Mountain Time (US)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (US)' },
+  { value: 'America/Anchorage', label: 'Alaska' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii' },
+  { value: 'America/Toronto', label: 'Eastern Time (Canada)' },
+  { value: 'America/Vancouver', label: 'Pacific Time (Canada)' },
+  { value: 'America/Sao_Paulo', label: 'Brazil (São Paulo)' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Argentina' },
+  { value: 'America/Mexico_City', label: 'Mexico City' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Paris / Berlin / Rome' },
+  { value: 'Europe/Helsinki', label: 'Helsinki / Kyiv' },
+  { value: 'Europe/Moscow', label: 'Moscow' },
+  { value: 'Europe/Istanbul', label: 'Istanbul' },
+  { value: 'Africa/Cairo', label: 'Cairo' },
+  { value: 'Africa/Johannesburg', label: 'Johannesburg' },
+  { value: 'Africa/Lagos', label: 'Lagos' },
+  { value: 'Asia/Dubai', label: 'Dubai' },
+  { value: 'Asia/Karachi', label: 'Karachi' },
+  { value: 'Asia/Kolkata', label: 'India (IST)' },
+  { value: 'Asia/Dhaka', label: 'Dhaka' },
+  { value: 'Asia/Bangkok', label: 'Bangkok / Jakarta' },
+  { value: 'Asia/Singapore', label: 'Singapore / Kuala Lumpur' },
+  { value: 'Asia/Shanghai', label: 'China (CST)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo' },
+  { value: 'Asia/Seoul', label: 'Seoul' },
+  { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
+  { value: 'Australia/Melbourne', label: 'Melbourne' },
+  { value: 'Australia/Perth', label: 'Perth' },
+  { value: 'Pacific/Auckland', label: 'Auckland' },
+];
+
 function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
   const [draft, setDraft] = useState(null);
   const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1040,6 +1074,8 @@ function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
       }));
 
       pushNotice?.({ status: 'success', message: 'Site settings saved.' });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
     } catch (error) {
       pushNotice?.({ status: 'error', message: error.message });
     } finally {
@@ -1066,7 +1102,7 @@ function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
           <h3>General</h3>
           <p>Identity, homepage, and discussion defaults.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
+        <Button variant={isSaved ? 'secondary' : 'primary'} isBusy={isSaving} type="submit">{isSaved ? '✓ Saved' : 'Save Settings'}</Button>
       </div>
       <div className="workspace-settings-pane__grid">
         <div className="workspace-settings-pane__main">
@@ -1157,7 +1193,13 @@ function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
             <CardHeader><h2>Formatting</h2></CardHeader>
             <CardBody>
               <div className="settings-field-group">
-                <TextControl label="Timezone" value={draft.timezone} onChange={(value) => setDraft((current) => ({ ...current, timezone: value }))} __next40pxDefaultSize />
+                <SelectControl
+                  label="Timezone"
+                  value={draft.timezone}
+                  options={TIMEZONE_OPTIONS}
+                  onChange={(value) => setDraft((current) => ({ ...current, timezone: value }))}
+                  __next40pxDefaultSize
+                />
                 <div className="inline-field-grid">
                   <TextControl label="Date Format" value={draft.date_format} onChange={(value) => setDraft((current) => ({ ...current, date_format: value }))} __next40pxDefaultSize />
                   <TextControl label="Time Format" value={draft.time_format} onChange={(value) => setDraft((current) => ({ ...current, time_format: value }))} __next40pxDefaultSize />
@@ -1191,6 +1233,7 @@ function EmbeddedSingletonSettings({ bootstrap, singletonData, setSingletonData,
   const schema = singleton ? bootstrap.adminSchema.forms?.[singleton.id] : null;
   const [draft, setDraft] = useState(() => (singleton ? singletonData[singleton.id] ?? createEmptySingleton() : {}));
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (singleton) {
@@ -1225,6 +1268,8 @@ function EmbeddedSingletonSettings({ bootstrap, singletonData, setSingletonData,
       const payload = await apiFetch(`singleton/${singleton.id}`, { method: 'POST', body: draft });
       setSingletonData((current) => ({ ...current, [singleton.id]: payload.item }));
       pushNotice?.({ status: 'success', message: `${singleton.label} saved.` });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
     } catch (error) {
       pushNotice?.({ status: 'error', message: error.message });
     } finally {
@@ -1245,9 +1290,9 @@ function EmbeddedSingletonSettings({ bootstrap, singletonData, setSingletonData,
       <div className="workspace-settings-pane__header">
         <div>
           <h3>{singleton.label}</h3>
-          <p>Compiler-owned settings surface backed by WordPress options.</p>
+          <p>Manage your {singleton.label.toLowerCase()} settings.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
+        <Button variant={isSaved ? 'secondary' : 'primary'} isBusy={isSaving} type="submit">{isSaved ? '✓ Saved' : 'Save Settings'}</Button>
       </div>
       <Card className="surface-card">
         <CardBody>
@@ -1267,6 +1312,7 @@ function EmbeddedAccountSettings({ bootstrap, setBootstrap, pushNotice }) {
   const [draft, setDraft] = useState(() => createAccountDraft(bootstrap?.currentUser ?? {}));
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1332,6 +1378,8 @@ function EmbeddedAccountSettings({ bootstrap, setBootstrap, pushNotice }) {
       }
 
       pushNotice?.({ status: 'success', message: 'Account settings saved.' });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
     } catch (error) {
       pushNotice?.({ status: 'error', message: error.message });
     } finally {
@@ -1354,7 +1402,7 @@ function EmbeddedAccountSettings({ bootstrap, setBootstrap, pushNotice }) {
           <h3>Account</h3>
           <p>Your WordPress profile, editor preferences, and security controls.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
+        <Button variant={isSaved ? 'secondary' : 'primary'} isBusy={isSaving} type="submit">{isSaved ? '✓ Saved' : 'Save Settings'}</Button>
       </div>
       <div className="workspace-settings-pane__grid">
         <div className="workspace-settings-pane__main">
