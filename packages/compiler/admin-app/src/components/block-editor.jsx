@@ -7,6 +7,7 @@ import {
   BlockInspector,
   BlockToolbar,
   BlockTools,
+  LinkControl,
   __experimentalLibrary as InserterLibrary,
 } from '@wordpress/block-editor';
 import {
@@ -85,6 +86,7 @@ const OverflowIcon = () => <CarbonIcon name="OverflowMenuVertical" size={20} />;
 const LaunchIcon = () => <CarbonIcon name="Launch" size={16} />;
 const SidebarCloseIcon = () => <CarbonIcon name="SidePanelClose" size={20} />;
 const SidebarOpenIcon = () => <CarbonIcon name="SidePanelOpen" size={20} />;
+const ViewIcon = () => <CarbonIcon name="ArrowRight" size={16} />;
 
 function findBlockByClientId(blocks = [], clientId) {
   for (const block of blocks ?? []) {
@@ -144,38 +146,6 @@ function resolveEditableLinkSource(block, href) {
     if (htmlLink) {
       return { type: 'html', key };
     }
-  }
-
-  return null;
-}
-
-function unwrapAnchor(anchor) {
-  const parent = anchor.parentNode;
-  while (anchor.firstChild) {
-    parent.insertBefore(anchor.firstChild, anchor);
-  }
-  parent.removeChild(anchor);
-}
-
-function buildUpdatedLinkAttributes(block, source, nextHref) {
-  if (!block || !source) return null;
-  const attributes = block.attributes ?? {};
-
-  if (source.type === 'attribute') {
-    return { [source.key]: nextHref ?? '' };
-  }
-
-  if (source.type === 'html' && typeof attributes[source.key] === 'string') {
-    const htmlLink = extractHtmlLinkSource(attributes[source.key], source.href);
-    if (!htmlLink) return null;
-
-    if (nextHref) {
-      htmlLink.anchor.setAttribute('href', nextHref);
-    } else {
-      unwrapAnchor(htmlLink.anchor);
-    }
-
-    return { [source.key]: htmlLink.container.innerHTML };
   }
 
   return null;
@@ -256,6 +226,39 @@ function getLinkedBlockClientId(target) {
   return getBlockClientIdFromNode(target?.node);
 }
 
+function extractQueryRecordHints(node) {
+  const queryItem = node?.closest?.('.wp-block-post');
+  if (!queryItem) {
+    return null;
+  }
+
+  const dataPostId = Number.parseInt(
+    queryItem.getAttribute?.('data-wplite-post-id') || '',
+    10
+  );
+  const className = String(queryItem.getAttribute?.('class') || '');
+  const classPostId = Number.parseInt(
+    className.match(/(?:^|\s)post-(\d+)(?:\s|$)/)?.[1] || '',
+    10
+  );
+  const postId = dataPostId || classPostId;
+  const postType = String(
+    queryItem.getAttribute?.('data-wplite-post-type')
+    || className.match(/(?:^|\s)type-([^\s]+)/)?.[1]
+    || ''
+  ).trim();
+
+  if (!Number.isFinite(postId) || postId <= 0 || !postType) {
+    return null;
+  }
+
+  return {
+    postId,
+    postType,
+    node: queryItem,
+  };
+}
+
 function extractBlockTargetHints(block) {
   if (!block || typeof block !== 'object') {
     return null;
@@ -304,6 +307,104 @@ function extractBlockTargetHints(block) {
   if (postType) hints.postType = postType;
 
   return Object.keys(hints).length > 0 ? hints : null;
+}
+
+function getNavigationBindingForResolution(resolution) {
+  if (!resolution?.id || resolution?.kind !== 'page') {
+    return null;
+  }
+
+  return {
+    kind: 'post-type',
+    type: 'page',
+    id: Number(resolution.id),
+    metadata: {
+      bindings: {
+        url: {
+          source: 'core/post-data',
+          args: {
+            field: 'link',
+          },
+        },
+      },
+    },
+  };
+}
+
+function normalizeNavigationBlock(block, resolveInternalLink) {
+  if (!block || typeof block !== 'object') {
+    return block;
+  }
+
+  let attributesChanged = false;
+  let innerBlocksChanged = false;
+  let nextAttributes = block.attributes ?? {};
+
+  if (block.name === 'core/navigation-link') {
+    const resolution = resolveInternalLink?.({
+      ...(extractBlockTargetHints(block) ?? {}),
+      href: block.attributes?.url,
+    });
+    const binding = getNavigationBindingForResolution(resolution);
+    const hasBinding = block.attributes?.metadata?.bindings?.url?.source === 'core/post-data';
+    if (
+      binding
+      && (
+        block.attributes?.kind !== binding.kind
+        || block.attributes?.type !== binding.type
+        || Number(block.attributes?.id) !== binding.id
+        || !hasBinding
+      )
+    ) {
+      const existingBindings = block.attributes?.metadata?.bindings ?? {};
+      nextAttributes = {
+        ...nextAttributes,
+        kind: binding.kind,
+        type: binding.type,
+        id: binding.id,
+        url: resolution?.href || block.attributes?.url,
+        metadata: {
+          ...(block.attributes?.metadata ?? {}),
+          bindings: {
+            ...existingBindings,
+            ...binding.metadata.bindings,
+          },
+        },
+      };
+      attributesChanged = true;
+    }
+  }
+
+  const nextInnerBlocks = (block.innerBlocks ?? []).map((innerBlock) => {
+    const normalized = normalizeNavigationBlock(innerBlock, resolveInternalLink);
+    if (normalized !== innerBlock) {
+      innerBlocksChanged = true;
+    }
+    return normalized;
+  });
+
+  if (!attributesChanged && !innerBlocksChanged) {
+    return block;
+  }
+
+  return {
+    ...block,
+    attributes: nextAttributes,
+    innerBlocks: innerBlocksChanged ? nextInnerBlocks : block.innerBlocks,
+  };
+}
+
+function upgradeNavigationBlocks(blocks, resolveInternalLink) {
+  let changed = false;
+  const nextBlocks = (blocks ?? []).map((block) => {
+    const normalized = normalizeNavigationBlock(block, resolveInternalLink);
+    if (normalized !== block) {
+      changed = true;
+    }
+    return normalized;
+  });
+
+  return changed ? nextBlocks : blocks;
 }
 
 /* ── Inline title widget for the topbar center ── */
@@ -374,6 +475,57 @@ function TopbarTitle({ title, placeholder, onChange }) {
   );
 }
 
+function NativeLinkViewerActions({
+  currentPath,
+  resolveInternalLink,
+  routeTarget,
+}) {
+  return (
+    <LinkControl.ViewerFill>
+      {(value = {}) => {
+        const href = String(value.url ?? '').trim();
+        const resolution = resolveInternalLink?.({
+          href,
+          kind: value.kind,
+          type: value.type,
+          id: value.id,
+          postId: value.postId,
+          postType: value.postType,
+          routeId: value.routeId,
+          modelId: value.modelId,
+        }) ?? null;
+
+        if (!href && !resolution?.adminPath) {
+          return null;
+        }
+
+        return (
+          <>
+            {resolution?.adminPath ? (
+              <Button
+                icon={ViewIcon}
+                label={getEditorActionLabel(resolution, currentPath)}
+                onClick={() => routeTarget({ ...value, href, resolution })}
+                size="compact"
+                showTooltip
+              />
+            ) : null}
+            {href && !href.startsWith('#') ? (
+              <Button
+                icon={LaunchIcon}
+                label="View on site"
+                onClick={() => routeTarget({ ...value, href, resolution }, { newTab: true })}
+                size="compact"
+                showTooltip
+              />
+            ) : null}
+          </>
+        );
+      }}
+    </LinkControl.ViewerFill>
+  );
+}
+
 /* ── Native Block Editor Frame ── */
 export function NativeBlockEditorFrame({
   eyebrow = 'Editor',
@@ -405,8 +557,7 @@ export function NativeBlockEditorFrame({
   const [editorBundle, setEditorBundle] = useState(null);
   const [bundleError, setBundleError] = useState(null);
   const canvasRef = useRef(null);
-  const linkCardRef = useRef(null);
-  const { selectBlock, updateBlockAttributes } = useDispatch(blockEditorStore);
+  const { selectBlock } = useDispatch(blockEditorStore);
   const routerLocation = useLocation();
   const currentAdminPathRef = useRef(routerLocation.pathname);
   useEffect(() => { currentAdminPathRef.current = routerLocation.pathname; }, [routerLocation.pathname]);
@@ -462,7 +613,6 @@ export function NativeBlockEditorFrame({
   const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inserterOpen, setInserterOpen] = useState(false);
-  const [linkState, setLinkState] = useState(null);
   const [linkPeek, setLinkPeek] = useState(null);
   const linkPeekRef = useRef(null);
 
@@ -491,18 +641,24 @@ export function NativeBlockEditorFrame({
 
   const handleInput = useCallback((nextBlocks) => {
     // Transient change — update state but don't record a history entry.
-    onChangeBlocks?.(nextBlocks);
+    const normalizedBlocks = resolveInternalLinkRef.current
+      ? upgradeNavigationBlocks(nextBlocks, resolveInternalLinkRef.current)
+      : nextBlocks;
+    onChangeBlocks?.(normalizedBlocks);
   }, [onChangeBlocks]);
 
   const handleChange = useCallback((nextBlocks) => {
+    const normalizedBlocks = resolveInternalLinkRef.current
+      ? upgradeNavigationBlocks(nextBlocks, resolveInternalLinkRef.current)
+      : nextBlocks;
     const history = historyRef.current;
-    if (history.last !== nextBlocks) {
+    if (history.last !== normalizedBlocks) {
       history.past.push(history.last);
       if (history.past.length > 100) history.past.shift();
       history.future.length = 0;
-      history.last = nextBlocks;
+      history.last = normalizedBlocks;
     }
-    onChangeBlocks?.(nextBlocks);
+    onChangeBlocks?.(normalizedBlocks);
   }, [onChangeBlocks]);
 
   const undo = useCallback(() => {
@@ -555,6 +711,57 @@ export function NativeBlockEditorFrame({
   const onOpenInternalLinkRef = useRef(onOpenInternalLink);
   useEffect(() => { onOpenInternalLinkRef.current = onOpenInternalLink; }, [onOpenInternalLink]);
 
+  const routeTarget = useCallback((target, { newTab = false } = {}) => {
+    if (!target) {
+      return false;
+    }
+
+    const href = getLinkHref(target);
+    const resolution = target.resolution
+      ?? resolveInternalLinkRef.current?.({
+        ...target,
+        ...(href ? { href } : {}),
+      })
+      ?? null;
+    const currentPath = currentAdminPathRef.current || '';
+    const openHandler = onOpenInternalLinkRef.current || onOpenInternalLink;
+
+    if (newTab) {
+      if (href && !href.startsWith('#')) {
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return true;
+      }
+      return false;
+    }
+
+    if (resolution?.adminPath && typeof openHandler === 'function') {
+      if (resolution.adminPath === currentPath) {
+        const clientId = getLinkedBlockClientId(target);
+        if (clientId) {
+          selectBlock(clientId);
+        }
+        return true;
+      }
+
+      openHandler(resolution.adminPath);
+      return true;
+    }
+
+    if (
+      target?.postType === 'wp_template_part'
+      && wpAdminTemplateUrl
+    ) {
+      window.open(wpAdminTemplateUrl, '_blank', 'noopener,noreferrer');
+      return true;
+    }
+
+    return false;
+  }, [selectBlock, wpAdminTemplateUrl]);
+
+  const handleNavigateToEntityRecord = useCallback((target) => {
+    routeTarget(target);
+  }, [routeTarget]);
+
   const toggleInserter = useCallback(() => setInserterOpen((v) => !v), []);
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
@@ -585,14 +792,6 @@ export function NativeBlockEditorFrame({
   }, [selectedBlockId]);
 
   useEffect(() => {
-    if (!selectedBlockId) setLinkState(null);
-  }, [selectedBlockId]);
-  // `linkState` is only used for edit-link state (prompt + remove). It is
-  // no longer populated from clicks — clicks navigate directly via the
-  // iframe listener above. The selected-block card in the footer renders
-  // from `selectedLink` derived purely from selection.
-
-  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
@@ -601,56 +800,19 @@ export function NativeBlockEditorFrame({
 
     function bindToFrame(iframe) {
       frameCleanup();
-
-      let hrefGuardObserver = null;
-
-      function neutralizeAnchor(anchor) {
-        if (!anchor || anchor.__wpliteNeutralized) return;
-        // Make bypassed clicks inert rather than forcing target=_blank.
-        // A forced _blank with an unresolvable href (e.g. "#" inside a
-        // srcdoc iframe resolves to about:srcdoc#, which Chrome renders
-        // as a "Can't open this page" error) would open a broken tab.
-        // Keeping the click same-tab just means a no-op scroll on "#".
-        const rel = (anchor.getAttribute('rel') || '').split(/\s+/).filter(Boolean);
-        if (!rel.includes('noopener')) rel.push('noopener');
-        if (!rel.includes('noreferrer')) rel.push('noreferrer');
-        anchor.setAttribute('rel', rel.join(' '));
-        anchor.__wpliteNeutralized = true;
-      }
-
-      function scanAnchors(root) {
-        if (!root || typeof root.querySelectorAll !== 'function') return;
-        if (root.tagName === 'A' && root.hasAttribute?.('href')) {
-          neutralizeAnchor(root);
-        }
-        root.querySelectorAll('a[href]').forEach(neutralizeAnchor);
-      }
+      let bindFrameRetry = 0;
 
       function bindFrameListeners() {
         const frameDoc = iframe.contentDocument;
-        if (!frameDoc) return;
-
-        // Neutralize anchors now + watch for new/changed ones.
-        scanAnchors(frameDoc.body);
-        if (hrefGuardObserver) hrefGuardObserver.disconnect();
-        hrefGuardObserver = new MutationObserver((mutations) => {
-          for (const m of mutations) {
-            if (m.type === 'childList') {
-              m.addedNodes.forEach((node) => {
-                if (node.nodeType === 1) scanAnchors(node);
-              });
-            } else if (m.type === 'attributes' && m.target?.tagName === 'A') {
-              m.target.__wpliteNeutralized = false;
-              neutralizeAnchor(m.target);
-            }
+        if (!frameDoc || !frameDoc.body) {
+          if (!bindFrameRetry) {
+            bindFrameRetry = window.requestAnimationFrame(() => {
+              bindFrameRetry = 0;
+              bindFrameListeners();
+            });
           }
-        });
-        hrefGuardObserver.observe(frameDoc.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['target', 'rel', 'href'],
-        });
+          return;
+        }
 
         // Canonical href: always prefer the raw `href` attribute and resolve
         // it against the parent admin origin — NEVER the iframe's own
@@ -680,24 +842,26 @@ export function NativeBlockEditorFrame({
           const anchor = target.closest('a[href]');
           const block = getBlockFromNode(target);
           const blockHints = extractBlockTargetHints(block) ?? {};
-          const taggedRecord = target.closest('[data-wplite-post-id]');
-          const postId = Number.parseInt(
-            taggedRecord?.getAttribute?.('data-wplite-post-id') || '',
-            10
-          );
-          const postType = String(
-            taggedRecord?.getAttribute?.('data-wplite-post-type') || ''
-          ).trim();
+          const queryRecord = anchor ? extractQueryRecordHints(target) : null;
+          const linkSource = anchor && block
+            ? resolveEditableLinkSource(block, getCanonicalHref(anchor))
+            : null;
           const href = anchor ? getCanonicalHref(anchor) : '';
           const resolverInput = {
             ...blockHints,
-            ...(Number.isFinite(postId) && postId > 0 ? { postId } : {}),
-            ...(postType ? { postType } : {}),
+            ...(queryRecord ? {
+              postId: queryRecord.postId,
+              postType: queryRecord.postType,
+            } : {}),
             ...(href && !href.startsWith('#') ? { href } : {}),
           };
           const resolution = resolveInternalLinkRef.current?.(resolverInput) ?? null;
 
-          if (!resolution && !resolverInput.href) {
+          if (!anchor && Object.keys(blockHints).length === 0) {
+            return null;
+          }
+
+          if (!resolution && !resolverInput.href && !queryRecord) {
             return null;
           }
 
@@ -711,9 +875,14 @@ export function NativeBlockEditorFrame({
               || block?.attributes?.title
               || '',
             resolution,
-            node: anchor || taggedRecord || target.closest('[data-block]') || target,
+            node: anchor || queryRecord?.node || target.closest('[data-block]') || target,
             anchor: anchor || null,
             clientId: getBlockClientIdFromNode(target),
+            blockName: block?.name || '',
+            isInlineTextLink: linkSource?.type === 'html',
+            isQueryRecordLink: Boolean(queryRecord && anchor),
+            isNavigationLink: block?.name === 'core/navigation-link' || block?.name === 'core/navigation-submenu',
+            isBlockAttributeLink: linkSource?.type === 'attribute',
           };
         }
 
@@ -722,35 +891,20 @@ export function NativeBlockEditorFrame({
           if (clientId) selectBlock(clientId);
         }
 
-        function openResolvedTarget(targetInfo, { newTab = false } = {}) {
-          const href = getLinkHref(targetInfo);
-          if (!href && !targetInfo?.resolution?.adminPath) {
-            return;
+        function shouldRouteOnSingleClick(targetInfo) {
+          if (!targetInfo?.resolution?.adminPath) {
+            return false;
           }
 
-          if (newTab) {
-            if (href) {
-              try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
-            }
-            return;
+          if (targetInfo.isInlineTextLink) {
+            return false;
           }
 
-          const openHandler = onOpenInternalLinkRef.current;
-          const currentPath = currentAdminPathRef.current || '';
-          if (targetInfo?.resolution?.adminPath && typeof openHandler === 'function') {
-            if (targetInfo.resolution.adminPath === currentPath) {
-              if (targetInfo?.node) {
-                selectContainingBlock(targetInfo.node);
-              }
-              return;
-            }
-            openHandler(targetInfo.resolution.adminPath);
-            return;
-          }
-
-          if (!href.startsWith('#')) {
-            try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
-          }
+          return (
+            targetInfo.isQueryRecordLink
+            || targetInfo.isNavigationLink
+            || targetInfo.isBlockAttributeLink
+          );
         }
 
         function handleLinkActivation(event) {
@@ -777,7 +931,7 @@ export function NativeBlockEditorFrame({
           }
 
           if (isMiddleButton || event.metaKey || event.ctrlKey) {
-            openResolvedTarget(targetInfo, { newTab: true });
+            routeTarget(targetInfo, { newTab: true });
             return;
           }
 
@@ -788,8 +942,8 @@ export function NativeBlockEditorFrame({
             return;
           }
 
-          if (event.detail >= 2) {
-            openResolvedTarget(targetInfo);
+          if (event.detail >= 2 || shouldRouteOnSingleClick(targetInfo)) {
+            routeTarget(targetInfo);
             return;
           }
 
@@ -858,13 +1012,16 @@ export function NativeBlockEditorFrame({
         frameDoc.addEventListener('keydown', handleHistoryKeydown, true);
 
         frameCleanup = () => {
+          if (bindFrameRetry) {
+            window.cancelAnimationFrame(bindFrameRetry);
+            bindFrameRetry = 0;
+          }
           frameDoc.removeEventListener('click', handleLinkActivation, true);
           frameDoc.removeEventListener('auxclick', handleLinkActivation, true);
           frameDoc.removeEventListener('mouseover', handleMouseOver, true);
           frameDoc.removeEventListener('mouseout', handleMouseOut, true);
           frameDoc.removeEventListener('keydown', handleHistoryKeydown, true);
           if (peekTimer) clearTimeout(peekTimer);
-          if (hrefGuardObserver) hrefGuardObserver.disconnect();
         };
       }
 
@@ -909,37 +1066,9 @@ export function NativeBlockEditorFrame({
       observer?.disconnect();
     };
     // Stable deps — refs carry the latest resolver/callback/blocks.
-  }, [getBlockFromNode, selectBlock]);
-
-  useEffect(() => {
-    if (!linkState) return undefined;
-
-    function handlePointerDown(event) {
-      if (linkCardRef.current?.contains(event.target)) {
-        return;
-      }
-      setLinkState(null);
-    }
-
-    function handleKeyDown(event) {
-      if (event.key === 'Escape') {
-        setLinkState(null);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [linkState]);
+  }, [getBlockFromNode, routeTarget, selectBlock]);
 
   const selectedLink = useMemo(() => {
-    if (linkState && linkState.clientId === selectedBlockId) {
-      return linkState;
-    }
-
     const primaryLink = extractPrimaryLink(selectedBlock);
     const blockHints = extractBlockTargetHints(selectedBlock);
     if (!primaryLink && !blockHints) {
@@ -965,39 +1094,22 @@ export function NativeBlockEditorFrame({
         || selectedBlock?.attributes?.title
         || '',
       clientId: selectedBlockId,
-      source: editableSource
-        ? { ...editableSource, href: primaryLink.href }
-        : null,
+      isInlineTextLink: editableSource?.type === 'html',
       resolution,
-      cardPosition: null,
     };
-  }, [linkState, resolveInternalLink, selectedBlock, selectedBlockId]);
-
-  function focusLinkedBlock(target = selectedLink) {
-    const clientId = getLinkedBlockClientId(target);
-    if (!clientId) return false;
-    selectBlock(clientId);
-    return true;
-  }
+  }, [resolveInternalLink, selectedBlock, selectedBlockId]);
 
   function openLinkTarget(target = selectedLink) {
+    if (!target) return;
     const href = getLinkHref(target);
-    if (!href && !target?.resolution?.adminPath) return;
-    const currentPath = currentAdminPathRef.current || '';
-    const openHandler = onOpenInternalLinkRef.current || onOpenInternalLink;
-    if (target.resolution?.adminPath && typeof openHandler === 'function') {
-      if (target.resolution.adminPath === currentPath && focusLinkedBlock(target)) {
-        return;
-      }
-      openHandler(target.resolution.adminPath);
-      return;
+    if (!routeTarget(target) && href && !href.startsWith('#')) {
+      window.open(href, '_blank', 'noopener,noreferrer');
     }
-    window.open(href, '_blank', 'noopener,noreferrer');
   }
 
   function viewLinkTarget(target = selectedLink) {
     const href = getLinkHref(target);
-    if (!href) return;
+    if (!href || href.startsWith('#')) return;
     window.open(href, '_blank', 'noopener,noreferrer');
   }
 
@@ -1007,48 +1119,16 @@ export function NativeBlockEditorFrame({
     await navigator.clipboard.writeText(href);
   }
 
-  function editLinkTarget(target = selectedLink) {
-    if (!target?.clientId || !target?.source) return;
-    const block = findBlockByClientId(blocks, target.clientId);
-    if (!block) return;
-
-    const nextHref = window.prompt('Edit link', getLinkHref(target));
-    if (typeof nextHref !== 'string') return;
-
-    const updated = buildUpdatedLinkAttributes(block, target.source, nextHref.trim());
-    if (!updated) return;
-
-    updateBlockAttributes(target.clientId, updated);
-    setLinkState((current) => current ? ({
-      ...current,
-      href: nextHref.trim(),
-      resolution: resolveInternalLink?.({
-        ...(extractBlockTargetHints(block) ?? {}),
-        href: nextHref.trim(),
-      }) ?? null,
-    }) : current);
-  }
-
-  function removeLinkTarget(target = selectedLink) {
-    if (!target?.clientId || !target?.source) return;
-    const block = findBlockByClientId(blocks, target.clientId);
-    if (!block) return;
-
-    const updated = buildUpdatedLinkAttributes(block, target.source, null);
-    if (!updated) return;
-
-    updateBlockAttributes(target.clientId, updated);
-    setLinkState(null);
-  }
-
   const canvasStyles = useMemo(
     () => buildCanvasStyles(editorBundle),
     [editorBundle]
   );
 
   const editorSettings = useMemo(
-    () => buildBlockEditorSettings(editorBundle),
-    [editorBundle]
+    () => buildBlockEditorSettings(editorBundle, {
+      onNavigateToEntityRecord: handleNavigateToEntityRecord,
+    }),
+    [editorBundle, handleNavigateToEntityRecord]
   );
 
   if (bundleError) {
@@ -1075,6 +1155,11 @@ export function NativeBlockEditorFrame({
       settings={editorSettings}
     >
       <AssistantSelectionBridge />
+      <NativeLinkViewerActions
+        currentPath={routerLocation.pathname}
+        resolveInternalLink={resolveInternalLink}
+        routeTarget={routeTarget}
+      />
       <div className="native-editor">
         <BlockEditorKeyboardShortcuts />
         <BlockTools className="native-editor__block-tools">
@@ -1108,7 +1193,7 @@ export function NativeBlockEditorFrame({
                       {getLinkDisplayLabel(selectedLink)}
                     </span>
                     <button type="button" className="native-editor__footer-action" onClick={() => openLinkTarget(selectedLink)}>
-                      {getEditorActionLabel(selectedLink.resolution, currentAdminPathRef.current)}
+                      {getEditorActionLabel(selectedLink.resolution, routerLocation.pathname)}
                     </button>
                     {selectedLink.resolution?.adminPath ? (
                       <button type="button" className="native-editor__footer-action" onClick={() => viewLinkTarget(selectedLink)}>
@@ -1118,16 +1203,6 @@ export function NativeBlockEditorFrame({
                     <button type="button" className="native-editor__footer-action" onClick={() => copyLinkTarget(selectedLink)}>
                       Copy
                     </button>
-                    {selectedLink.source ? (
-                      <>
-                        <button type="button" className="native-editor__footer-action" onClick={() => editLinkTarget(selectedLink)}>
-                          Edit
-                        </button>
-                        <button type="button" className="native-editor__footer-action" onClick={() => removeLinkTarget(selectedLink)}>
-                          Remove
-                        </button>
-                      </>
-                    ) : null}
                   </div>
                 ) : null}
               </footer>
@@ -1216,10 +1291,10 @@ export function NativeBlockEditorFrame({
                   openLinkTarget(linkPeek);
                   setLinkPeek(null);
                 }}
-                title={getEditorActionTitle(linkPeek, currentAdminPathRef.current)}
+                title={getEditorActionTitle(linkPeek, routerLocation.pathname)}
               >
                 <CarbonIcon name={linkPeek.resolution?.adminPath ? 'ArrowRight' : 'Launch'} size={14} />
-                <span>{getEditorActionLabel(linkPeek.resolution, currentAdminPathRef.current)}</span>
+                <span>{getEditorActionLabel(linkPeek.resolution, routerLocation.pathname)}</span>
               </button>
               {linkPeek.resolution?.adminPath ? (
                 <button

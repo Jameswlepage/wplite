@@ -62,58 +62,6 @@ add_filter(
 );
 
 /**
- * When blocks render inside Query Loop / post-template context, annotate their
- * outermost element with the current post identity. The admin app uses these
- * hints to route from rendered records back to the correct editor target
- * without guessing from arbitrary anchors.
- */
-add_filter(
-	'render_block',
-	function ( $block_content, $parsed_block, $block ) {
-		if ( ! is_string( $block_content ) || '' === trim( $block_content ) ) {
-			return $block_content;
-		}
-
-		if ( ! ( $block instanceof WP_Block ) ) {
-			return $block_content;
-		}
-
-		$post_id = (int) ( $block->context['postId'] ?? 0 );
-		$post_type = sanitize_key( (string) ( $block->context['postType'] ?? '' ) );
-		if ( $post_id <= 0 || '' === $post_type ) {
-			return $block_content;
-		}
-
-		if ( ! preg_match( '/<([a-zA-Z][^\\s\\/>]*)([^>]*?)(\\/?)>/', $block_content, $matches, PREG_OFFSET_CAPTURE ) ) {
-			return $block_content;
-		}
-
-		$full_match = $matches[0][0];
-		$tag_name = $matches[1][0];
-		$tag_attributes = $matches[2][0];
-		$self_closing = ! empty( $matches[3][0] ) ? '/' : '';
-		$match_offset = (int) $matches[0][1];
-
-		if ( false !== stripos( $tag_attributes, 'data-wplite-post-id=' ) ) {
-			return $block_content;
-		}
-
-		$replacement = sprintf(
-			'<%1$s%2$s data-wplite-post-id="%3$d" data-wplite-post-type="%4$s"%5$s>',
-			$tag_name,
-			$tag_attributes,
-			$post_id,
-			esc_attr( $post_type ),
-			$self_closing
-		);
-
-		return substr_replace( $block_content, $replacement, $match_offset, strlen( $full_match ) );
-	},
-	10,
-	3
-);
-
-/**
  * Expose hero_url as the "featured_media" src in the REST post response,
  * via a virtual _embedded.wp:featuredmedia entry. Keeps the block
  * editor's query-loop preview happy without needing real attachments.

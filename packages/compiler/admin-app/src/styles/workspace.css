@@ -1047,6 +1047,7 @@
   padding: 14px 18px;
   border-bottom: 1px solid var(--wplite-border);
   background: var(--wplite-bg);
+  flex-shrink: 0;
 }
 
 .workspace-overlay__eyebrow {
@@ -1102,6 +1103,7 @@
   grid-template-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .workspace-browser__sidebar {
@@ -2491,74 +2493,6 @@
 .workspace-chat__hero-preset {
   background: transparent;
   color: var(--wplite-text-muted);
-}
-
-/* ── WP link-control popover (edit/remove/copy link) dark theme ── */
-.components-popover.block-editor-link-control__popover .components-popover__content,
-.components-popover .block-editor-link-control,
-.components-popover .block-editor-link-control__search-results-wrapper,
-.components-popover .block-editor-url-popover {
-  background: #2d2d2d !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
-}
-
-.components-popover .block-editor-link-control__search-input-wrapper .components-base-control__field,
-.components-popover .block-editor-link-control__search-input,
-.components-popover .block-editor-url-input__input,
-.components-popover .block-editor-link-control input[type="url"],
-.components-popover .block-editor-link-control input[type="text"] {
-  background: #1e1e1e !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: none !important;
-}
-
-.components-popover .block-editor-link-control__search-input::placeholder,
-.components-popover .block-editor-url-input__input::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
-}
-
-.components-popover .block-editor-link-control__drawer-title,
-.components-popover .block-editor-link-control__label,
-.components-popover .block-editor-link-control__search-item-header,
-.components-popover .block-editor-link-control__search-result,
-.components-popover .block-editor-link-control .components-button,
-.components-popover .block-editor-link-control strong,
-.components-popover .block-editor-link-control span {
-  color: #ffffff !important;
-}
-
-.components-popover .block-editor-link-control__search-item-info,
-.components-popover .block-editor-link-control__search-item-description {
-  color: rgba(255, 255, 255, 0.62) !important;
-}
-
-.components-popover .block-editor-link-control__search-result:hover,
-.components-popover .block-editor-link-control__search-result:focus,
-.components-popover .block-editor-link-control__search-item.is-selected {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
-}
-
-.components-popover .block-editor-link-control .components-button.has-icon {
-  color: #ffffff !important;
-}
-
-.components-popover .block-editor-link-control .components-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-.components-popover .block-editor-link-control .components-toggle-control,
-.components-popover .block-editor-link-control .components-form-toggle {
-  color: #ffffff !important;
-}
-
-.components-popover .block-editor-link-control hr,
-.components-popover .block-editor-link-control__tools {
-  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
 /* ── Assistant chat: attachments + drag/drop target ─────────── */

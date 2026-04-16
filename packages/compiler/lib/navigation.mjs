@@ -33,18 +33,23 @@ export function compileNavigationMarkup(menuItems, { routes, models }) {
       const url = buildMenuLinkUrl(item, { routesById, modelsById });
       const attributes = {
         label: String(item.label ?? ''),
-        type: 'custom',
         url,
-        kind: 'custom',
         isTopLevelLink: true,
       };
 
       if (item.type === 'page' && item.object) {
+        attributes.kind = 'post-type';
+        attributes.type = 'page';
         attributes.wpliteTargetKind = 'page';
         attributes.wpliteRouteId = String(item.object);
       } else if (item.type === 'archive' && item.object) {
+        attributes.kind = 'custom';
+        attributes.type = 'custom';
         attributes.wpliteTargetKind = 'archive';
         attributes.wpliteModelId = String(item.object);
+      } else {
+        attributes.kind = 'custom';
+        attributes.type = 'custom';
       }
 
       return `\t\t\t\t<!-- wp:navigation-link ${JSON.stringify(attributes)} /-->`;

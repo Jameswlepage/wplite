@@ -372,7 +372,7 @@ async function fetchUrlData(url) {
  * through unchanged. We layer in JS handlers (mediaUpload, link
  * suggestions, URL metadata) that PHP can't serialize.
  */
-export function buildBlockEditorSettings(bundle) {
+export function buildBlockEditorSettings(bundle, callbacks = {}) {
   const serverSettings = bundle?.editorSettings ?? {};
 
   return {
@@ -383,6 +383,7 @@ export function buildBlockEditorSettings(bundle) {
     mediaUpload,
     __experimentalFetchLinkSuggestions: fetchLinkSuggestions,
     __experimentalFetchUrlData: fetchUrlData,
+    ...callbacks,
   };
 }
 
