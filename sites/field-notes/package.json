@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wp-light build",
-    "dev": "wp-light dev",
-    "apply": "wp-light apply",
-    "pull": "wp-light pull",
-    "eject": "wp-light eject",
+    "build": "wp-lite build",
+    "dev": "wp-lite dev",
+    "apply": "wp-lite apply",
+    "pull": "wp-lite pull",
+    "eject": "wp-lite eject",
     "wp-env:start": "npm run build && npx wp-env start",
     "wp-env:stop": "wp-env stop",
     "wp-env:destroy": "wp-env destroy"

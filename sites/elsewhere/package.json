@@ -3,16 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wp-light build",
-    "dev": "wp-light dev",
-    "apply": "wp-light apply",
-    "pull": "wp-light pull",
-    "verify": "wp-light verify --json",
-    "eject": "wp-light eject",
+    "build": "wp-lite build",
+    "dev": "wp-lite dev",
+    "apply": "wp-lite apply",
+    "pull": "wp-lite pull",
+    "verify": "wp-lite verify --json",
+    "eject": "wp-lite eject",
     "wp-env:start": "npm run build && npx wp-env start",
     "wp-env:stop": "wp-env stop",
     "wp-env:destroy": "wp-env destroy",
-    "seed": "wp-light seed",
+    "seed": "wp-lite seed",
     "rebuild": "npm run build && npm run seed"
   },
   "dependencies": {

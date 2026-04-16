@@ -48,7 +48,7 @@ Generated output (do **not** edit):
    root unless the user says otherwise.
 3. You edit source files in `app/`, `content/`, `theme/`, `blocks/`, or
    `admin/` using `Edit` / `Write`.
-4. The running `wp-light dev` watcher detects the change, rebuilds, reseeds
+4. The running `wp-lite dev` watcher detects the change, rebuilds, reseeds
    the running WP install, and triggers a browser refresh.
 
 You do not need to run builds. You do not need to restart servers. The
