@@ -4,6 +4,8 @@
 
 Everything lives in code. WordPress stays as the runtime.
 
+<img width="3024" height="1728" alt="CleanShot 2026-04-16 at 14 57 57@2x" src="https://github.com/user-attachments/assets/98442faa-408c-4b04-bc1e-8300d74d7b13" />
+
 ---
 
 ## The Problem This Solves
