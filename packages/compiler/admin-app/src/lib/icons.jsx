@@ -34,6 +34,7 @@ import {
   Menu,
   OpenPanelLeft,
   OverflowMenuVertical,
+  Plug,
   Portfolio,
   Quotes,
   Renew,
