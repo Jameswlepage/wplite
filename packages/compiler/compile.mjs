@@ -689,6 +689,10 @@ async function resolveBlueprint(root, site) {
 const MCP_ADAPTER_PLUGIN_ZIP =
   'https://github.com/WordPress/mcp-adapter/releases/download/v0.5.0/mcp-adapter.zip';
 
+// Local wplite package that exposes OAuth 2.1 for the MCP endpoint. Path is
+// relative to a site root (wp-env resolves plugin paths from there).
+const WP_MCP_OAUTH_PLUGIN_PATH = '../../packages/wp-mcp-oauth';
+
 function defaultWpEnv(site) {
   const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
   const themeSlug = site.theme?.slug ?? 'wp-lite-theme';
@@ -699,6 +703,7 @@ function defaultWpEnv(site) {
     plugins: [
       `./generated/wp-content/plugins/${pluginSlug}`,
       MCP_ADAPTER_PLUGIN_ZIP,
+      WP_MCP_OAUTH_PLUGIN_PATH,
     ],
     themes: [`./generated/wp-content/themes/${themeSlug}`],
     config: {
