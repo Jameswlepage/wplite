@@ -1,18 +1,43 @@
-/* ── Notices (Snackbar) ── */
+/* ── Notices (Snackbar toast) ── */
 .wplite-snackbar-region {
   position: fixed;
   left: 16px;
   bottom: 16px;
   z-index: 100000;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 280px;
+  max-width: min(400px, calc(100vw - 32px));
 }
 
 .wplite-snackbar-region .components-snackbar-list {
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
 }
 
 .wplite-snackbar-region .components-snackbar {
   pointer-events: auto;
+  min-width: 280px;
+  max-width: min(400px, calc(100vw - 32px));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.24), 0 1px 4px rgba(0, 0, 0, 0.12);
+  animation: snackbar-slide-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes snackbar-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Screen layouts ── */

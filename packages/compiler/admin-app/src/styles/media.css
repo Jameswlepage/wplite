@@ -1032,3 +1032,80 @@
   white-space: nowrap;
   color: #2a2a2a;
 }
+
+/* Description field (mimeType) rendered directly in unnamed Stack — needs padding to match title/fields */
+.workspace-browser--media .dataviews-view-grid .dataviews-view-grid__card > * > *:not(.dataviews-view-grid__fields):not(.dataviews-view-grid__badge-fields):first-child {
+  padding: 0 14px 2px;
+  font-size: 12px;
+  color: var(--wplite-text-muted, #6b6b6b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Generate controls popover ── */
+.media-ed-gen-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.media-ed-gen-controls__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--wplite-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.media-ed-gen-controls__trigger:hover,
+.media-ed-gen-controls__trigger[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--wplite-text);
+}
+
+.media-ed-gen-controls__trigger.is-modified {
+  color: var(--wplite-accent, #3858e9);
+  border-color: currentColor;
+}
+
+.media-ed-gen-controls__badge {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.media-ed-gen-controls__annotations {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--wplite-text-muted);
+}
+
+.media-ed-gen-controls__annotations button {
+  border: 0;
+  background: transparent;
+  color: var(--wplite-accent, #3858e9);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.media-ed-gen-controls__popover {
+  min-width: 220px;
+}
+
+.media-ed-gen-controls__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+}

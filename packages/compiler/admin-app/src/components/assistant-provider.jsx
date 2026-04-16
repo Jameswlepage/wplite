@@ -15,6 +15,8 @@ import {
   createSession as createLocalSession,
   updateSession as updateLocalSession,
   deleteSession as deleteLocalSession,
+  getPersistedActiveSessionId,
+  persistActiveSessionId,
 } from '../lib/acp-sessions.js';
 
 const AssistantContext = createContext(null);
@@ -182,8 +184,17 @@ export function AssistantProvider({ children }) {
   useEffect(() => {
     if (activeSessionId) return;
     const existing = listSessions();
-    const seed = existing.find((s) => (s.messages || []).length > 0) || existing[0];
-    if (seed) {
+    // Restore last-active session first (even if empty), so a new empty
+    // session created before reload doesn't get replaced by an older session
+    // with messages.
+    const persistedId = getPersistedActiveSessionId();
+    const persisted = persistedId ? existing.find((s) => s.id === persistedId) : null;
+    if (persisted) {
+      setActiveSessionId(persisted.id);
+      setMessages(persisted.messages || []);
+    } else if (existing.length > 0) {
+      // No persisted choice — fall back to most-recent session.
+      const seed = existing[0];
       setActiveSessionId(seed.id);
       setMessages(seed.messages || []);
     } else {
@@ -192,6 +203,11 @@ export function AssistantProvider({ children }) {
       setActiveSessionId(created.id);
       setMessages([]);
     }
+  }, [activeSessionId]);
+
+  // Persist the active session ID so reloads restore the same session.
+  useEffect(() => {
+    persistActiveSessionId(activeSessionId);
   }, [activeSessionId]);
 
   useEffect(() => {
