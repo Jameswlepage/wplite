@@ -65,7 +65,12 @@ function groupMessages(messages) {
         bucket = { kind: 'tool-group', id: `group-${m.id}`, tools: [] };
         out.push(bucket);
       }
-      bucket.tools.push(m);
+      const existingIndex = bucket.tools.findIndex((tool) => tool.toolCallId === m.toolCallId);
+      if (existingIndex === -1) {
+        bucket.tools.push(m);
+      } else {
+        bucket.tools.splice(existingIndex, 1, m);
+      }
     } else {
       bucket = null;
       out.push({ kind: 'message', id: m.id, message: m });
@@ -203,9 +208,9 @@ function ToolGroupCard({ tools, pendingPermissionToolIds }) {
       </button>
       {open ? (
         <div className="workspace-chat__tool-group-body">
-          {tools.map((t) => (
+          {tools.map((t, index) => (
             <ToolCallRow
-              key={t.id}
+              key={`${t.toolCallId || t.id}-${index}`}
               tool={t}
               awaitingPermission={awaitingIds.has(t.toolCallId)}
             />

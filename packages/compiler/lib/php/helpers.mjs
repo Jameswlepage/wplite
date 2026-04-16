@@ -717,6 +717,8 @@ function portfolio_light_prepare_record( $post, $model ) {
 \t\t'content'    => $post->post_content,
 \t\t'excerpt'    => $post->post_excerpt,
 \t\t'sourcePath' => (string) get_post_meta( $post->ID, '_wplite_source_path', true ),
+\t\t'featuredMedia' => (int) get_post_thumbnail_id( $post ),
+\t\t'heroUrl'    => (string) get_post_meta( $post->ID, 'hero_url', true ),
 \t\t'date'       => get_post_time( DATE_ATOM, true, $post ),
 \t\t'modified'   => get_post_modified_time( DATE_ATOM, true, $post ),
 \t\t'link'       => get_permalink( $post ),
@@ -814,6 +816,14 @@ function portfolio_light_upsert_record( $model, $payload, $existing_id = 0 ) {
 \t\t$postarr['comment_status'] = 'open' === sanitize_key( (string) $payload['commentStatus'] ) ? 'open' : 'closed';
 \t}
 
+\tif ( ! empty( $payload['date'] ) ) {
+\t\t$timestamp = strtotime( (string) $payload['date'] );
+\t\tif ( $timestamp ) {
+\t\t\t$postarr['post_date_gmt'] = gmdate( 'Y-m-d H:i:s', $timestamp );
+\t\t\t$postarr['post_date']     = get_date_from_gmt( $postarr['post_date_gmt'] );
+\t\t}
+\t}
+
 \tif ( ! empty( $payload['slug'] ) ) {
 \t\t$postarr['post_name'] = sanitize_title( $payload['slug'] );
 \t}
@@ -850,6 +860,15 @@ function portfolio_light_upsert_record( $model, $payload, $existing_id = 0 ) {
 \t\t\t)
 \t\t);
 \t\twp_set_object_terms( $post_id, $terms, $taxonomy, false );
+\t}
+
+\tif ( array_key_exists( 'featuredMedia', $payload ) || array_key_exists( 'featured_media', $payload ) ) {
+\t\t$featured_media = absint( $payload['featuredMedia'] ?? $payload['featured_media'] ?? 0 );
+\t\tif ( $featured_media ) {
+\t\t\tset_post_thumbnail( $post_id, $featured_media );
+\t\t} else {
+\t\t\tdelete_post_thumbnail( $post_id );
+\t\t}
 \t}
 
 \treturn get_post( $post_id );

@@ -9,8 +9,18 @@ import {
 } from '@wordpress/blocks';
 import { createHigherOrderComponent } from '@wordpress/compose';
 import { addFilter } from '@wordpress/hooks';
+import {
+  __experimentalPublishDateTimePicker as PublishDateTimePicker,
+  MediaPlaceholder,
+  MediaReplaceFlow,
+  PlainText,
+  useBlockProps,
+} from '@wordpress/block-editor';
+import { Button, Popover, Spinner } from '@wordpress/components';
+import { __ } from '@wordpress/i18n';
 import ServerSideRender from '@wordpress/server-side-render';
 import { wpApiFetch } from './helpers.js';
+import { useEditorRecord } from './editor-record-context.jsx';
 
 /**
  * When a dynamic block is rendered inside a post-template or other iterating
@@ -29,6 +39,270 @@ function buildBlockRendererQueryArgs(context) {
 
 let editorPreviewFiltersRegistered = false;
 
+function shouldUseEditorRecordBlock(props, record) {
+  if (!record?.setField) {
+    return false;
+  }
+
+  if (Number.isFinite(props?.context?.queryId)) {
+    return false;
+  }
+
+  const recordPostType = String(record.postType ?? '').trim();
+  const blockPostType = String(props?.context?.postType ?? '').trim();
+  if (recordPostType && blockPostType && recordPostType !== blockPostType) {
+    return false;
+  }
+
+  const recordPostId = Number.parseInt(String(record.postId ?? ''), 10);
+  const blockPostId = Number.parseInt(String(props?.context?.postId ?? ''), 10);
+  if (
+    Number.isFinite(recordPostId)
+    && recordPostId > 0
+    && Number.isFinite(blockPostId)
+    && blockPostId > 0
+    && recordPostId !== blockPostId
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeIsoDate(value) {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function formatRecordDate(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return __('Set date');
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsed);
+}
+
+function getAttachmentPreviewUrl(item) {
+  return (
+    item?.media_details?.sizes?.large?.source_url
+    ?? item?.media_details?.sizes?.medium?.source_url
+    ?? item?.media_details?.sizes?.thumbnail?.source_url
+    ?? item?.source_url
+    ?? ''
+  );
+}
+
+function EditorRecordPostTitleEdit({ BlockEdit, ...props }) {
+  const record = useEditorRecord();
+  if (!shouldUseEditorRecordBlock(props, record)) {
+    return <BlockEdit {...props} />;
+  }
+
+  const {
+    attributes: { level = 1, isLink, rel, linkTarget },
+  } = props;
+  const TagName = level === 0 ? 'p' : `h${level}`;
+  const blockProps = useBlockProps();
+  const title = String(record.title ?? '');
+
+  if (isLink && record.link) {
+    return (
+      <TagName {...blockProps}>
+        <PlainText
+          tagName="a"
+          href={record.link}
+          target={linkTarget}
+          rel={rel}
+          value={title}
+          onChange={(nextTitle) => record.setField('title', nextTitle)}
+          placeholder={!title.length ? __('(no title)') : null}
+          __experimentalVersion={2}
+        />
+      </TagName>
+    );
+  }
+
+  return (
+    <PlainText
+      tagName={TagName}
+      value={title}
+      onChange={(nextTitle) => record.setField('title', nextTitle)}
+      placeholder={__('(no title)')}
+      __experimentalVersion={2}
+      {...blockProps}
+    />
+  );
+}
+
+function EditorRecordPostDateEdit({ BlockEdit, ...props }) {
+  const record = useEditorRecord();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const anchorRef = React.useRef(null);
+
+  if (!shouldUseEditorRecordBlock(props, record)) {
+    return <BlockEdit {...props} />;
+  }
+
+  const blockProps = useBlockProps();
+  const currentDate = normalizeIsoDate(record.date);
+
+  return (
+    <>
+      <div {...blockProps}>
+        <button
+          ref={anchorRef}
+          type="button"
+          className="wplite-editor-record-date-button"
+          onClick={() => setIsOpen(true)}
+        >
+          {formatRecordDate(currentDate)}
+        </button>
+      </div>
+      {isOpen ? (
+        <Popover
+          anchor={anchorRef.current}
+          onClose={() => setIsOpen(false)}
+          placement="bottom-start"
+        >
+          <PublishDateTimePicker
+            title={__('Publish Date')}
+            currentDate={currentDate}
+            onChange={(nextDate) => {
+              record.setField('date', normalizeIsoDate(nextDate));
+            }}
+            onClose={() => setIsOpen(false)}
+          />
+        </Popover>
+      ) : null}
+    </>
+  );
+}
+
+function EditorRecordFeaturedImageEdit({ BlockEdit, ...props }) {
+  const record = useEditorRecord();
+  const featuredMediaId = Number.parseInt(String(record?.featuredMedia ?? ''), 10) || 0;
+  const [attachment, setAttachment] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    if (!featuredMediaId) {
+      setAttachment(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIsLoading(true);
+    wpApiFetch(`wp/v2/media/${featuredMediaId}?context=edit`)
+      .then((media) => {
+        if (!cancelled) {
+          setAttachment(media);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAttachment(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [featuredMediaId]);
+
+  if (!shouldUseEditorRecordBlock(props, record)) {
+    return <BlockEdit {...props} />;
+  }
+
+  const blockProps = useBlockProps();
+  const fallbackUrl = String(record.heroUrl ?? '');
+  const imageUrl = getAttachmentPreviewUrl(attachment) || fallbackUrl;
+
+  function syncImageFields(nextMediaId, nextImageUrl = '') {
+    record.setField('featuredMedia', nextMediaId);
+    if (record.heroUrlFieldKey) {
+      record.setField(record.heroUrlFieldKey, nextImageUrl);
+    }
+  }
+
+  function handleSelectMedia(media) {
+    if (!media) return;
+    setAttachment(media);
+    syncImageFields(Number(media.id) || 0, media.url || media.source_url || '');
+  }
+
+  function handleRemoveMedia() {
+    setAttachment(null);
+    syncImageFields(0, '');
+  }
+
+  if (isLoading && !imageUrl) {
+    return (
+      <div {...blockProps} className="wplite-editor-record-image-loading">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!imageUrl) {
+    return (
+      <div {...blockProps}>
+        <MediaPlaceholder
+          icon="format-image"
+          labels={{ title: __('Featured image') }}
+          onSelect={handleSelectMedia}
+          accept="image/*"
+          allowedTypes={['image']}
+          multiple={false}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <figure {...blockProps} className="wplite-editor-record-image">
+      <img
+        src={imageUrl}
+        alt={attachment?.alt_text || record.title || ''}
+        className="wplite-editor-record-image__preview"
+      />
+      <div className="wplite-editor-record-image__toolbar">
+        <MediaReplaceFlow
+          mediaId={featuredMediaId || undefined}
+          mediaURL={imageUrl}
+          allowedTypes={['image']}
+          accept="image/*"
+          onSelect={handleSelectMedia}
+          name={__('Replace')}
+        />
+        <Button
+          variant="secondary"
+          size="compact"
+          onClick={handleRemoveMedia}
+        >
+          {__('Remove')}
+        </Button>
+      </div>
+    </figure>
+  );
+}
+
 function registerEditorPreviewFilters() {
   if (editorPreviewFiltersRegistered) {
     return;
@@ -37,6 +311,10 @@ function registerEditorPreviewFilters() {
   const withServerRenderedPostFeaturedImage = createHigherOrderComponent(
     (BlockEdit) => (props) => {
       if (props?.name !== 'core/post-featured-image') {
+        return <BlockEdit {...props} />;
+      }
+
+      if (!Number.isFinite(props?.context?.queryId)) {
         return <BlockEdit {...props} />;
       }
 
@@ -62,6 +340,57 @@ function registerEditorPreviewFilters() {
     'editor.BlockEdit',
     'wplite/query-post-featured-image-preview',
     withServerRenderedPostFeaturedImage
+  );
+
+  const withEditorRecordPostTitle = createHigherOrderComponent(
+    (BlockEdit) => (props) => {
+      if (props?.name !== 'core/post-title') {
+        return <BlockEdit {...props} />;
+      }
+
+      return <EditorRecordPostTitleEdit {...props} BlockEdit={BlockEdit} />;
+    },
+    'withEditorRecordPostTitle'
+  );
+
+  const withEditorRecordPostDate = createHigherOrderComponent(
+    (BlockEdit) => (props) => {
+      if (props?.name !== 'core/post-date') {
+        return <BlockEdit {...props} />;
+      }
+
+      return <EditorRecordPostDateEdit {...props} BlockEdit={BlockEdit} />;
+    },
+    'withEditorRecordPostDate'
+  );
+
+  const withEditorRecordPostFeaturedImage = createHigherOrderComponent(
+    (BlockEdit) => (props) => {
+      if (props?.name !== 'core/post-featured-image') {
+        return <BlockEdit {...props} />;
+      }
+
+      return <EditorRecordFeaturedImageEdit {...props} BlockEdit={BlockEdit} />;
+    },
+    'withEditorRecordPostFeaturedImage'
+  );
+
+  addFilter(
+    'editor.BlockEdit',
+    'wplite/editor-record-post-title',
+    withEditorRecordPostTitle
+  );
+
+  addFilter(
+    'editor.BlockEdit',
+    'wplite/editor-record-post-date',
+    withEditorRecordPostDate
+  );
+
+  addFilter(
+    'editor.BlockEdit',
+    'wplite/editor-record-post-featured-image',
+    withEditorRecordPostFeaturedImage
   );
 
   editorPreviewFiltersRegistered = true;
@@ -372,7 +701,7 @@ async function fetchUrlData(url) {
  * through unchanged. We layer in JS handlers (mediaUpload, link
  * suggestions, URL metadata) that PHP can't serialize.
  */
-export function buildBlockEditorSettings(bundle) {
+export function buildBlockEditorSettings(bundle, callbacks = {}) {
   const serverSettings = bundle?.editorSettings ?? {};
 
   return {
@@ -383,6 +712,7 @@ export function buildBlockEditorSettings(bundle) {
     mediaUpload,
     __experimentalFetchLinkSuggestions: fetchLinkSuggestions,
     __experimentalFetchUrlData: fetchUrlData,
+    ...callbacks,
   };
 }
 

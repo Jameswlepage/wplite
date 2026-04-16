@@ -234,11 +234,90 @@
   display: flex;
   flex-direction: column;
   border-right: 2px solid #1e1e1e;
-  background: #2d2d2d;
+  background: var(--wplite-bg, #242424);
   color: #ffffff;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.native-editor__inserter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-tablist {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.native-editor__inserter-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__inserter-tab:hover,
+.native-editor__inserter-tab:focus-visible {
+  color: #ffffff;
+  outline: none;
+}
+
+.native-editor__inserter-tab.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.native-editor__inserter-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__inserter-close:hover,
+.native-editor__inserter-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  outline: none;
+}
+
+.native-editor__inserter-search {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-search-placeholder {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .native-editor__inserter-panel-body {
@@ -247,6 +326,22 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-results {
+  min-height: 0;
+  padding: 10px 10px 24px;
+}
+
+.native-editor__inserter-empty-state {
+  padding: 18px 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .native-editor__inserter-panel-body .block-editor-inserter__menu,
@@ -411,6 +506,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* Gutenberg's Iframe scale-container flips to position: absolute + width:
@@ -648,6 +744,123 @@
   min-height: 100%;
   border: 0;
   background: #ffffff;
+}
+
+.wplite-editor-record-date-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wplite-editor-record-image-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.wplite-editor-record-image {
+  position: relative;
+}
+
+.wplite-editor-record-image__preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wplite-editor-record-image__toolbar {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(36, 36, 36, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.native-editor__linked-target-actions {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  background: var(--wplite-bg, #242424);
+  color: #f0f0f0;
+  box-shadow: none;
+  max-width: min(420px, calc(100% - 20px));
+}
+
+.native-editor__linked-target-copy {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.native-editor__linked-target-eyebrow {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #a9a9a9;
+}
+
+.native-editor__linked-target-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  color: #f5f5f5;
+}
+
+.native-editor__linked-target-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.native-editor__linked-target-button.components-button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  border-color: #4a4a4a;
+  background: #2c2c2c;
+  box-shadow: none;
+}
+
+.native-editor__linked-target-button.components-button:hover:not(:disabled),
+.native-editor__linked-target-button.components-button:focus:not(:disabled) {
+  color: #ffffff;
+  border-color: #5a5a5a;
+  background: #343434;
+}
+
+.native-editor__linked-target-popover .components-popover__content {
+  width: min(360px, calc(100vw - 24px));
+}
+
+.native-editor__linked-target-popover-body {
+  padding: 12px;
 }
 
 .native-editor__canvas--template .block-editor-block-list__layout,
@@ -954,131 +1167,6 @@
   -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
-}
-
-/* ───────────────────────────────────────────────────────────────
-   LinkControl / URL popover. Renders via Gutenberg's Popover
-   into document.body, which escapes any .app-shell--workspace
-   scope. Styles here are intentionally global so the portal
-   still picks them up.
-   ─────────────────────────────────────────────────────────────── */
-.components-popover.block-editor-link-control > .components-popover__content,
-.components-popover.block-editor-url-popover > .components-popover__content,
-.components-popover.block-editor-url-input__popover > .components-popover__content,
-.components-popover:has(> .components-popover__content > .block-editor-link-control) > .components-popover__content {
-  background: #242424 !important;
-  color: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
-  padding: 0 !important;
-}
-
-.block-editor-link-control,
-.block-editor-url-popover,
-.block-editor-url-popover__row {
-  background: transparent !important;
-  color: inherit !important;
-}
-
-.block-editor-link-control__search-input-container,
-.block-editor-link-control__field,
-.block-editor-url-input {
-  background: transparent !important;
-}
-
-.block-editor-link-control input[type="text"],
-.block-editor-link-control input[type="url"],
-.block-editor-url-input input,
-.block-editor-url-popover input[type="text"],
-.block-editor-url-popover input[type="url"] {
-  background: #1e1e1e !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: none !important;
-}
-
-.block-editor-link-control input::placeholder,
-.block-editor-url-input input::placeholder,
-.block-editor-url-popover input::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
-}
-
-.block-editor-link-control__search-results-wrapper,
-.block-editor-link-control__search-results {
-  background: transparent !important;
-  color: inherit !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-.block-editor-link-control__search-item {
-  background: transparent !important;
-  color: rgba(255, 255, 255, 0.88) !important;
-  border-color: rgba(255, 255, 255, 0.06) !important;
-}
-
-.block-editor-link-control__search-item:hover,
-.block-editor-link-control__search-item:focus,
-.block-editor-link-control__search-item.is-selected,
-.block-editor-link-control__search-item[aria-selected="true"] {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
-}
-
-.block-editor-link-control__search-item-title,
-.block-editor-link-control__search-item-header-title {
-  color: #ffffff !important;
-}
-
-.block-editor-link-control__search-item-info,
-.block-editor-link-control__search-item-description,
-.block-editor-link-control__search-item-type {
-  color: rgba(255, 255, 255, 0.55) !important;
-}
-
-.block-editor-link-control__settings,
-.block-editor-link-control__tools,
-.block-editor-link-control__drawer {
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-  color: inherit !important;
-}
-
-.block-editor-link-control .components-toggle-control__label,
-.block-editor-link-control .components-base-control__label,
-.block-editor-link-control label {
-  color: rgba(255, 255, 255, 0.88) !important;
-}
-
-.block-editor-link-control .components-button,
-.block-editor-url-popover .components-button {
-  color: rgba(255, 255, 255, 0.92) !important;
-}
-
-.block-editor-link-control .components-button.is-primary,
-.block-editor-url-popover .components-button.is-primary {
-  background: var(--wp-admin-accent, #3858e9) !important;
-  color: #ffffff !important;
-  border: 0 !important;
-}
-
-.block-editor-link-control .components-button:hover:not(:disabled),
-.block-editor-url-popover .components-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-.block-editor-link-control__search-item-icon svg,
-.block-editor-link-control svg,
-.block-editor-url-popover svg {
-  fill: currentColor !important;
-}
-
-/* Popover tip/arrow color match */
-.components-popover.block-editor-link-control > .components-popover__content::before,
-.components-popover.block-editor-link-control > .components-popover__content::after,
-.components-popover.block-editor-url-popover > .components-popover__content::before,
-.components-popover.block-editor-url-popover > .components-popover__content::after {
-  border-color: rgba(255, 255, 255, 0.14) transparent !important;
 }
 
 /* Link-peek floating pill (outer document, hovers over iframe anchors) */

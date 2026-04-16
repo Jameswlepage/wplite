@@ -266,6 +266,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         method: 'POST',
         body: {
           ...nextDraft,
+          featuredMedia: Number(nextDraft.featuredMedia || 0),
           ...(editorManaged ? { content: contentSerialized } : {}),
         },
       });
@@ -436,6 +437,21 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     }
 
     const resolveInternalLink = createInternalLinkResolver({ bootstrap, recordsByModel });
+    const recordContext = !isNew && model ? {
+      postId: draft.id,
+      postType: model.postType,
+      title: draft.title,
+      date: draft.date,
+      link: draft.link,
+      featuredMedia: draft.featuredMedia,
+      heroUrlFieldKey: Object.prototype.hasOwnProperty.call(draft, 'hero_url')
+        ? 'hero_url'
+        : (Object.prototype.hasOwnProperty.call(draft, 'heroUrl') ? 'heroUrl' : null),
+      heroUrl: draft.hero_url || draft.heroUrl || '',
+      setField: (field, value) => {
+        setDraft((current) => ({ ...current, [field]: value }));
+      },
+    } : null;
 
     return (
       <NativeBlockEditorFrame
@@ -456,9 +472,10 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         primaryActionLabel="Save Entry"
         onPrimaryAction={handleSave}
         isPrimaryBusy={isSaving}
-        viewUrl={existing?.link}
+        viewUrl={draft.link || existing?.link}
         documentLabel={documentLabel}
         canvasLayout={Boolean(templateRecord) ? 'template' : 'content'}
+        recordContext={recordContext}
         resolveInternalLink={resolveInternalLink}
         onOpenInternalLink={(path) => navigate(path)}
         wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}

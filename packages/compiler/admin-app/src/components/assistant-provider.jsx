@@ -58,19 +58,33 @@ function applyUpdate(messages, update, turnId) {
   }
 
   if (kind === 'tool_call') {
-    return [
-      ...messages,
-      {
-        id: `tool-${update.toolCallId}`,
-        turnId,
-        role: 'tool',
-        kind: 'tool',
-        toolCallId: update.toolCallId,
-        title: summarizeToolCall(update),
-        status: update.status || 'pending',
-        raw: update,
-      },
-    ];
+    const existingIndex = messages.findIndex(
+      (message) => message.kind === 'tool' && message.toolCallId === update.toolCallId
+    );
+    const nextMessage = {
+      id: `tool-${update.toolCallId}`,
+      turnId,
+      role: 'tool',
+      kind: 'tool',
+      toolCallId: update.toolCallId,
+      title: summarizeToolCall(update),
+      status: update.status || 'pending',
+      raw: update,
+    };
+
+    if (existingIndex === -1) {
+      return [...messages, nextMessage];
+    }
+
+    return messages.map((message, index) => (
+      index === existingIndex
+        ? {
+            ...message,
+            ...nextMessage,
+            raw: { ...(message.raw || {}), ...update },
+          }
+        : message
+    ));
   }
 
   if (kind === 'tool_call_update') {
