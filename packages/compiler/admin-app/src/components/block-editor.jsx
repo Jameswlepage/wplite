@@ -226,7 +226,8 @@ function getEditorActionLabel(resolution, currentPath = '') {
 
 function getEditorActionTitle(target, currentPath = '') {
   if (!target?.resolution?.adminPath) {
-    return target?.href ? `Open ${target.href} in new tab` : 'Open link in new tab';
+    const href = getLinkHref(target);
+    return href ? `Open ${href} in new tab` : 'Open link in new tab';
   }
   if (target.resolution.adminPath === currentPath) {
     return 'Focus this block in the current editor';
@@ -238,13 +239,71 @@ function getLinkDisplayLabel(target) {
   return target?.resolution?.label || target?.text || 'Linked content';
 }
 
+function getLinkHref(target) {
+  return target?.href || target?.resolution?.href || '';
+}
+
+function getBlockClientIdFromNode(node) {
+  const blockNode = node?.closest?.('[data-block]');
+  return blockNode?.getAttribute?.('data-block') ?? null;
+}
+
 function getLinkedBlockClientId(target) {
   if (target?.clientId) {
     return target.clientId;
   }
 
-  const blockNode = target?.node?.closest?.('[data-block]');
-  return blockNode?.getAttribute?.('data-block') ?? null;
+  return getBlockClientIdFromNode(target?.node);
+}
+
+function extractBlockTargetHints(block) {
+  if (!block || typeof block !== 'object') {
+    return null;
+  }
+
+  const attributes = block.attributes ?? {};
+  const targetKind = String(
+    attributes.wpliteTargetKind
+    ?? attributes.targetKind
+    ?? ''
+  ).trim();
+
+  const routeId = String(
+    attributes.wpliteRouteId
+    ?? attributes.routeId
+    ?? ''
+  ).trim();
+
+  const modelId = String(
+    attributes.wpliteModelId
+    ?? attributes.modelId
+    ?? ''
+  ).trim();
+
+  const postId = Number.parseInt(
+    String(
+      attributes.wplitePostId
+      ?? attributes.postId
+      ?? attributes.id
+      ?? ''
+    ),
+    10
+  );
+
+  const postType = String(
+    attributes.wplitePostType
+    ?? attributes.postType
+    ?? ''
+  ).trim();
+
+  const hints = {};
+  if (targetKind) hints.targetKind = targetKind;
+  if (routeId) hints.routeId = routeId;
+  if (modelId) hints.modelId = modelId;
+  if (Number.isFinite(postId) && postId > 0) hints.postId = postId;
+  if (postType) hints.postType = postType;
+
+  return Object.keys(hints).length > 0 ? hints : null;
 }
 
 /* ── Inline title widget for the topbar center ── */
@@ -339,7 +398,7 @@ export function NativeBlockEditorFrame({
   blockSidebarFooter = null,
   wpAdminUrl,
   wpAdminTemplateUrl,
-  fitCanvas = false,
+  canvasLayout = 'content',
   resolveInternalLink = null,
   onOpenInternalLink = null,
 }) {
@@ -410,6 +469,11 @@ export function NativeBlockEditorFrame({
   // Refs to avoid re-binding the iframe click listener on every keystroke.
   const blocksRef = useRef(blocks);
   useEffect(() => { blocksRef.current = blocks; }, [blocks]);
+
+  const getBlockFromNode = useCallback((node) => {
+    const clientId = getBlockClientIdFromNode(node);
+    return clientId ? findBlockByClientId(blocksRef.current, clientId) : null;
+  }, []);
 
   // ── Undo / redo ────────────────────────────────────────────────────
   // BlockEditorProvider doesn't manage history on its own (that belongs
@@ -588,25 +652,6 @@ export function NativeBlockEditorFrame({
           attributeFilter: ['target', 'rel', 'href'],
         });
 
-        // ── Hard navigation guard ──────────────────────────────────────
-        // The iframe must NEVER navigate away from the editor. We install
-        // capture-phase mousedown + click handlers that preventDefault on
-        // any `a[href]` activation. This runs before Gutenberg and before
-        // the browser's default link-follow, so the iframe stays put.
-        function guardLinkActivation(event) {
-          const anchor = event.target.closest?.('a[href]');
-          if (!anchor) return null;
-          // Always preventDefault — even for "#"/empty hrefs. Inside a
-          // srcdoc iframe these otherwise resolve to about:srcdoc#… and
-          // Chrome surfaces "Can't open this page" if the click ever
-          // escapes us. Routing lives in handleLinkClick.
-          event.preventDefault();
-          event.stopPropagation();
-          const rawHref = anchor.getAttribute('href') || '';
-          if (rawHref === '' || rawHref.startsWith('#')) return null;
-          return anchor;
-        }
-
         // Canonical href: always prefer the raw `href` attribute and resolve
         // it against the parent admin origin — NEVER the iframe's own
         // resolved `anchor.href`, which inside a srcdoc iframe comes back as
@@ -629,153 +674,126 @@ export function NativeBlockEditorFrame({
           }
         }
 
-        // Locate the Query Loop post-template iteration that owns the event
-        // target, and return the permalink href for that iteration if one is
-        // rendered inside it. We intentionally do NOT match the post-template
-        // root itself — only its direct iteration children — so clicking the
-        // template chrome still works normally.
-        function resolvePostTemplateItemTarget(target) {
+        function resolveInteractiveTarget(target) {
           if (!target || typeof target.closest !== 'function') return null;
-          const postTemplate = target.closest('[data-type="core/post-template"]');
-          if (!postTemplate || target === postTemplate) return null;
 
-          let iteration = target;
-          while (iteration.parentElement && iteration.parentElement !== postTemplate) {
-            iteration = iteration.parentElement;
+          const anchor = target.closest('a[href]');
+          const block = getBlockFromNode(target);
+          const blockHints = extractBlockTargetHints(block) ?? {};
+          const taggedRecord = target.closest('[data-wplite-post-id]');
+          const postId = Number.parseInt(
+            taggedRecord?.getAttribute?.('data-wplite-post-id') || '',
+            10
+          );
+          const postType = String(
+            taggedRecord?.getAttribute?.('data-wplite-post-type') || ''
+          ).trim();
+          const href = anchor ? getCanonicalHref(anchor) : '';
+          const resolverInput = {
+            ...blockHints,
+            ...(Number.isFinite(postId) && postId > 0 ? { postId } : {}),
+            ...(postType ? { postType } : {}),
+            ...(href && !href.startsWith('#') ? { href } : {}),
+          };
+          const resolution = resolveInternalLinkRef.current?.(resolverInput) ?? null;
+
+          if (!resolution && !resolverInput.href) {
+            return null;
           }
-          if (!iteration || iteration.parentElement !== postTemplate) return null;
 
-          const link = iteration.querySelector('a[href]');
-          const href = link ? getCanonicalHref(link) : '';
-          if (!href || href.startsWith('#')) return null;
           return {
-            href,
-            node: iteration,
-            anchor: link,
-            text: link?.textContent?.trim() || '',
+            ...resolverInput,
+            href: resolverInput.href || resolution?.href || '',
+            text:
+              anchor?.textContent?.trim()
+              || block?.attributes?.label
+              || block?.attributes?.text
+              || block?.attributes?.title
+              || '',
+            resolution,
+            node: anchor || taggedRecord || target.closest('[data-block]') || target,
+            anchor: anchor || null,
+            clientId: getBlockClientIdFromNode(target),
           };
         }
 
-        function resolveHoverTarget(target) {
-          const anchor = target?.closest?.('a[href]');
-          if (anchor) {
-            const rawHref = getCanonicalHref(anchor);
-            if (rawHref && !rawHref.startsWith('#')) {
-              return {
-                href: rawHref,
-                node: anchor,
-                anchor,
-                text: anchor.textContent?.trim() || '',
-              };
-            }
-          }
-
-          return resolvePostTemplateItemTarget(target);
-        }
-
         function selectContainingBlock(node) {
-          const blockNode = node?.closest?.('[data-block]');
-          const clientId = blockNode?.getAttribute?.('data-block') ?? null;
+          const clientId = getBlockClientIdFromNode(node);
           if (clientId) selectBlock(clientId);
         }
 
-        function navigateToHref(href, event, targetNode = null) {
-          if (!href) return;
-          if (event.metaKey || event.ctrlKey) {
-            try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
+        function openResolvedTarget(targetInfo, { newTab = false } = {}) {
+          const href = getLinkHref(targetInfo);
+          if (!href && !targetInfo?.resolution?.adminPath) {
             return;
           }
-          const resolver = resolveInternalLinkRef.current;
-          const resolution = resolver ? resolver(href) : null;
+
+          if (newTab) {
+            if (href) {
+              try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
+            }
+            return;
+          }
+
           const openHandler = onOpenInternalLinkRef.current;
           const currentPath = currentAdminPathRef.current || '';
-          if (resolution?.adminPath && typeof openHandler === 'function'
-          ) {
-            if (resolution.adminPath === currentPath) {
-              if (targetNode) {
-                selectContainingBlock(targetNode);
+          if (targetInfo?.resolution?.adminPath && typeof openHandler === 'function') {
+            if (targetInfo.resolution.adminPath === currentPath) {
+              if (targetInfo?.node) {
+                selectContainingBlock(targetInfo.node);
               }
               return;
             }
-            openHandler(resolution.adminPath);
+            openHandler(targetInfo.resolution.adminPath);
             return;
           }
+
           if (!href.startsWith('#')) {
             try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
           }
         }
 
-        function handleMouseDown(event) {
-          if (event.button !== 0 && event.button !== undefined) return;
-          // Clicks inside a Query Loop iteration must not let Gutenberg
-          // scope the canvas into the Post Template — that strands the
-          // user on an uneditable template preview. Swallow the mousedown
-          // entirely; the companion click handler does the routing.
-          if (!event.altKey && !event.shiftKey && resolvePostTemplateItemTarget(event.target)) {
+        function handleLinkActivation(event) {
+          const isPrimaryButton = event.button === 0 || event.button === undefined;
+          const isMiddleButton = event.type === 'auxclick' && event.button === 1;
+          if (!isPrimaryButton && !isMiddleButton) return;
+
+          const targetInfo = resolveInteractiveTarget(event.target);
+          const anchor = event.target.closest?.('a[href]');
+          if (anchor) {
+            // The iframe must never navigate away from the editor, even when
+            // the click only selects a block.
             event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
+          }
+
+          if (!targetInfo) {
             return;
           }
-          // For ordinary anchor clicks we deliberately do NOT stopPropagation
-          // here. Gutenberg's own mousedown handler selects the surrounding
-          // block (required so the block toolbar + link-editing UI become
-          // reachable). Navigation is canceled in the companion click
-          // handler below via preventDefault.
-        }
 
-        function handleLinkClick(event) {
-          if (event.button !== 0 && event.button !== undefined) return;
+          if (isMiddleButton || event.metaKey || event.ctrlKey) {
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
+            openResolvedTarget(targetInfo, { newTab: true });
+            return;
+          }
 
-          // Alt/Shift-click: select the containing block so authors can edit
-          // in place. Gutenberg's own selection already ran on mousedown.
           if (event.altKey || event.shiftKey) {
-            const anchor = guardLinkActivation(event);
-            if (anchor) selectContainingBlock(anchor);
+            if (targetInfo.node) {
+              selectContainingBlock(targetInfo.node);
+            }
             return;
           }
 
-          // Query Loop iteration click: always route to the linked content
-          // item's editor, regardless of whether the precise click target
-          // was an anchor or the surrounding tile chrome.
-          const iterationTarget = resolvePostTemplateItemTarget(event.target);
-          if (iterationTarget?.href) {
-            event.preventDefault();
+          if (event.detail >= 2) {
             event.stopPropagation();
             event.stopImmediatePropagation?.();
-            navigateToHref(iterationTarget.href, event, iterationTarget.node);
+            openResolvedTarget(targetInfo);
             return;
           }
 
-          const anchor = guardLinkActivation(event);
-          if (!anchor) return;
-          const href = getCanonicalHref(anchor);
-
-          if (event.metaKey || event.ctrlKey) {
-            if (href) { try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {} }
-            return;
+          if (targetInfo.node) {
+            selectContainingBlock(targetInfo.node);
           }
-
-          const resolver = resolveInternalLinkRef.current;
-          const resolution = resolver ? resolver(href) : null;
-          const openHandler = onOpenInternalLinkRef.current;
-          const currentPath = currentAdminPathRef.current || '';
-
-          if (resolution?.adminPath && typeof openHandler === 'function') {
-            if (resolution.adminPath === currentPath) {
-              selectContainingBlock(anchor);
-              return;
-            }
-            openHandler(resolution.adminPath);
-            return;
-          }
-
-          if (href && !href.startsWith('#')) {
-            try { window.open(href, '_blank', 'noopener,noreferrer'); } catch {}
-            return;
-          }
-
-          selectContainingBlock(anchor);
         }
 
         // ── Hover peek ─────────────────────────────────────────────────
@@ -785,21 +803,18 @@ export function NativeBlockEditorFrame({
         function positionPeek(targetInfo) {
           const iframeRect = iframe.getBoundingClientRect();
           const anchorRect = targetInfo.node.getBoundingClientRect();
-          const href = targetInfo.href || '';
-          const resolver = resolveInternalLinkRef.current;
-          const resolution = resolver?.(href) ?? null;
           setLinkPeek({
-            href,
+            href: targetInfo.href || targetInfo.resolution?.href || '',
             text: targetInfo.text || '',
-            resolution,
+            resolution: targetInfo.resolution,
             top: iframeRect.top + anchorRect.top - 6,
             left: iframeRect.left + anchorRect.right + 8,
           });
         }
 
         function handleMouseOver(event) {
-          const targetInfo = resolveHoverTarget(event.target);
-          if (!targetInfo?.href) return;
+          const targetInfo = resolveInteractiveTarget(event.target);
+          if (!targetInfo?.href && !targetInfo?.resolution?.adminPath) return;
           if (peekTimer) clearTimeout(peekTimer);
           positionPeek(targetInfo);
         }
@@ -822,10 +837,10 @@ export function NativeBlockEditorFrame({
         }
 
         function handleMouseOut(event) {
-          const fromTarget = resolveHoverTarget(event.target);
+          const fromTarget = resolveInteractiveTarget(event.target);
           if (!fromTarget?.node) return;
 
-          const toTarget = resolveHoverTarget(event.relatedTarget);
+          const toTarget = resolveInteractiveTarget(event.relatedTarget);
           if (toTarget?.node === fromTarget.node) {
             return;
           }
@@ -834,17 +849,15 @@ export function NativeBlockEditorFrame({
           peekTimer = setTimeout(() => setLinkPeek(null), 140);
         }
 
-        frameDoc.addEventListener('mousedown', handleMouseDown, true);
-        frameDoc.addEventListener('click', handleLinkClick, true);
-        frameDoc.addEventListener('auxclick', handleLinkClick, true);
+        frameDoc.addEventListener('click', handleLinkActivation, true);
+        frameDoc.addEventListener('auxclick', handleLinkActivation, true);
         frameDoc.addEventListener('mouseover', handleMouseOver, true);
         frameDoc.addEventListener('mouseout', handleMouseOut, true);
         frameDoc.addEventListener('keydown', handleHistoryKeydown, true);
 
         frameCleanup = () => {
-          frameDoc.removeEventListener('mousedown', handleMouseDown, true);
-          frameDoc.removeEventListener('click', handleLinkClick, true);
-          frameDoc.removeEventListener('auxclick', handleLinkClick, true);
+          frameDoc.removeEventListener('click', handleLinkActivation, true);
+          frameDoc.removeEventListener('auxclick', handleLinkActivation, true);
           frameDoc.removeEventListener('mouseover', handleMouseOver, true);
           frameDoc.removeEventListener('mouseout', handleMouseOut, true);
           frameDoc.removeEventListener('keydown', handleHistoryKeydown, true);
@@ -894,7 +907,7 @@ export function NativeBlockEditorFrame({
       observer?.disconnect();
     };
     // Stable deps — refs carry the latest resolver/callback/blocks.
-  }, [selectBlock]);
+  }, [getBlockFromNode, selectBlock]);
 
   useEffect(() => {
     if (!linkState) return undefined;
@@ -926,18 +939,34 @@ export function NativeBlockEditorFrame({
     }
 
     const primaryLink = extractPrimaryLink(selectedBlock);
-    if (!primaryLink) {
+    const blockHints = extractBlockTargetHints(selectedBlock);
+    if (!primaryLink && !blockHints) {
       return null;
     }
 
+    const resolutionInput = {
+      ...(blockHints ?? {}),
+      ...(primaryLink?.href ? { href: primaryLink.href } : {}),
+    };
+    const resolution = resolveInternalLink?.(resolutionInput) ?? null;
+    const editableSource = primaryLink?.href && selectedBlock
+      ? resolveEditableLinkSource(selectedBlock, primaryLink.href)
+      : null;
+
     return {
-      href: primaryLink.href,
-      text: primaryLink.text,
+      ...resolutionInput,
+      href: primaryLink?.href || resolution?.href || '',
+      text:
+        primaryLink?.text
+        || selectedBlock?.attributes?.label
+        || selectedBlock?.attributes?.text
+        || selectedBlock?.attributes?.title
+        || '',
       clientId: selectedBlockId,
-      source: selectedBlock && resolveEditableLinkSource(selectedBlock, primaryLink.href)
-        ? { ...resolveEditableLinkSource(selectedBlock, primaryLink.href), href: primaryLink.href }
+      source: editableSource
+        ? { ...editableSource, href: primaryLink.href }
         : null,
-      resolution: resolveInternalLink?.(primaryLink.href) ?? null,
+      resolution,
       cardPosition: null,
     };
   }, [linkState, resolveInternalLink, selectedBlock, selectedBlockId]);
@@ -950,7 +979,8 @@ export function NativeBlockEditorFrame({
   }
 
   function openLinkTarget(target = selectedLink) {
-    if (!target?.href) return;
+    const href = getLinkHref(target);
+    if (!href && !target?.resolution?.adminPath) return;
     const currentPath = currentAdminPathRef.current || '';
     const openHandler = onOpenInternalLinkRef.current || onOpenInternalLink;
     if (target.resolution?.adminPath && typeof openHandler === 'function') {
@@ -960,17 +990,19 @@ export function NativeBlockEditorFrame({
       openHandler(target.resolution.adminPath);
       return;
     }
-    window.open(target.href, '_blank', 'noopener,noreferrer');
+    window.open(href, '_blank', 'noopener,noreferrer');
   }
 
   function viewLinkTarget(target = selectedLink) {
-    if (!target?.href) return;
-    window.open(target.href, '_blank', 'noopener,noreferrer');
+    const href = getLinkHref(target);
+    if (!href) return;
+    window.open(href, '_blank', 'noopener,noreferrer');
   }
 
   async function copyLinkTarget(target = selectedLink) {
-    if (!target?.href) return;
-    await navigator.clipboard.writeText(target.href);
+    const href = getLinkHref(target);
+    if (!href) return;
+    await navigator.clipboard.writeText(href);
   }
 
   function editLinkTarget(target = selectedLink) {
@@ -978,7 +1010,7 @@ export function NativeBlockEditorFrame({
     const block = findBlockByClientId(blocks, target.clientId);
     if (!block) return;
 
-    const nextHref = window.prompt('Edit link', target.href);
+    const nextHref = window.prompt('Edit link', getLinkHref(target));
     if (typeof nextHref !== 'string') return;
 
     const updated = buildUpdatedLinkAttributes(block, target.source, nextHref.trim());
@@ -988,7 +1020,10 @@ export function NativeBlockEditorFrame({
     setLinkState((current) => current ? ({
       ...current,
       href: nextHref.trim(),
-      resolution: resolveInternalLink?.(nextHref.trim()) ?? null,
+      resolution: resolveInternalLink?.({
+        ...(extractBlockTargetHints(block) ?? {}),
+        href: nextHref.trim(),
+      }) ?? null,
     }) : current);
   }
 
@@ -1056,7 +1091,10 @@ export function NativeBlockEditorFrame({
             ) : null}
             <section className="native-editor__main">
               <div className="native-editor__canvas-shell">
-                <div ref={canvasRef} className={`native-editor__canvas${fitCanvas ? ' native-editor__canvas--fit' : ''}`}>
+                <div
+                  ref={canvasRef}
+                  className={`native-editor__canvas native-editor__canvas--${canvasLayout === 'template' ? 'template' : 'content'}`}
+                >
                   <BlockCanvas height="100%" styles={canvasStyles} />
                 </div>
               </div>
