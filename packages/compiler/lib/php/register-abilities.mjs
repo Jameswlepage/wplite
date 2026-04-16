@@ -56,13 +56,16 @@ function portfolio_light_mcp_server_url() {
  * Keeps the Connectors settings tab fully static — no extra fetch needed.
  */
 function portfolio_light_get_mcp_info() {
+\t$oauth_available = class_exists( '\\\\WPMCPOAuth\\\\Bearer' );
 \treturn [
-\t\t'available'  => class_exists( '\\\\WP\\\\MCP\\\\Core\\\\McpAdapter' ),
-\t\t'serverId'   => portfolio_light_mcp_server_id(),
-\t\t'namespace'  => portfolio_light_mcp_server_namespace(),
-\t\t'route'      => portfolio_light_mcp_server_route(),
-\t\t'endpoint'   => portfolio_light_mcp_server_url(),
-\t\t'abilities'  => portfolio_light_mcp_ability_ids(),
+\t\t'available'       => class_exists( '\\\\WP\\\\MCP\\\\Core\\\\McpAdapter' ),
+\t\t'serverId'        => portfolio_light_mcp_server_id(),
+\t\t'namespace'       => portfolio_light_mcp_server_namespace(),
+\t\t'route'           => portfolio_light_mcp_server_route(),
+\t\t'endpoint'        => portfolio_light_mcp_server_url(),
+\t\t'abilities'       => portfolio_light_mcp_ability_ids(),
+\t\t'oauthAvailable'  => $oauth_available,
+\t\t'oauthDiscoveryUrl' => $oauth_available ? home_url( '/.well-known/oauth-authorization-server' ) : null,
 \t];
 }
 
@@ -386,6 +389,14 @@ add_action( 'mcp_adapter_init', function( $adapter ) {
 \tif ( ! is_object( $adapter ) || ! method_exists( $adapter, 'create_server' ) ) {
 \t\treturn;
 \t}
+\t// If the wp-mcp-oauth plugin is active, delegate transport auth to its
+\t// Bearer validator so Claude Desktop's OAuth connector flow works. Otherwise
+\t// fall through to the adapter's default is_user_logged_in() check, which is
+\t// fine for same-origin admin-app traffic.
+\t$permission_callback = class_exists( '\\\\WPMCPOAuth\\\\Bearer' )
+\t\t? [ '\\\\WPMCPOAuth\\\\Bearer', 'check_request' ]
+\t\t: null;
+
 \t$adapter->create_server(
 \t\tportfolio_light_mcp_server_id(),
 \t\tportfolio_light_mcp_server_namespace(),
@@ -398,8 +409,22 @@ add_action( 'mcp_adapter_init', function( $adapter ) {
 \t\t'\\\\WP\\\\MCP\\\\Infrastructure\\\\Observability\\\\NullMcpObservabilityHandler',
 \t\tportfolio_light_mcp_ability_ids(),
 \t\t[],
-\t\t[]
+\t\t[],
+\t\t$permission_callback
 \t);
+} );
+
+// Tell wp-mcp-oauth that our MCP route is a protected resource so it will
+// emit the RFC 9728 WWW-Authenticate challenge on 401 responses and refuse to
+// validate tokens bound to any other resource URI.
+add_filter( 'wp_mcp_oauth_protected_resources', function( $resources ) {
+\t$resources   = is_array( $resources ) ? $resources : [];
+\t$resources[] = portfolio_light_mcp_server_url();
+\treturn $resources;
+} );
+
+add_filter( 'wp_mcp_oauth_default_resource', function() {
+\treturn portfolio_light_mcp_server_url();
 } );
 `;
 }

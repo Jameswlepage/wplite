@@ -1687,8 +1687,25 @@ export function ConnectorsPage({ bootstrap }) {
   const endpoint = mcp?.endpoint ?? '';
   const abilities = mcp?.abilities ?? [];
   const available = !!mcp?.available;
+  const oauthAvailable = !!mcp?.oauthAvailable;
+  const oauthDiscoveryUrl = mcp?.oauthDiscoveryUrl ?? '';
 
-  const clientConfig = endpoint
+  const directConfig = endpoint
+    ? JSON.stringify(
+        {
+          mcpServers: {
+            wplite: {
+              type: 'http',
+              url: endpoint,
+            },
+          },
+        },
+        null,
+        2
+      )
+    : '';
+
+  const proxyConfig = endpoint
     ? JSON.stringify(
         {
           mcpServers: {
@@ -1735,7 +1752,9 @@ export function ConnectorsPage({ bootstrap }) {
         <CardHeader><h2>Server endpoint</h2></CardHeader>
         <CardBody>
           <p className="field-hint">
-            Point any MCP client at this URL. Authentication uses the same Application Password you configure for the REST API.
+            Point any MCP client at this URL. {oauthAvailable
+              ? 'The OAuth 2.1 authorization server is active — clients discover it from the endpoint and run the full browser-based authorize flow.'
+              : 'The OAuth plugin is not loaded; clients currently need an Application Password + the stdio proxy to authenticate.'}
           </p>
           <div className="api-auth-row">
             <div className="api-password-display">
@@ -1753,6 +1772,14 @@ export function ConnectorsPage({ bootstrap }) {
               )}
             </div>
           </div>
+          {oauthAvailable && oauthDiscoveryUrl ? (
+            <p className="field-hint" style={{ marginTop: 12 }}>
+              OAuth discovery:{' '}
+              <a href={oauthDiscoveryUrl} target="_blank" rel="noreferrer">
+                <code>{oauthDiscoveryUrl}</code>
+              </a>
+            </p>
+          ) : null}
         </CardBody>
       </Card>
 
@@ -1771,26 +1798,53 @@ export function ConnectorsPage({ bootstrap }) {
         </CardBody>
       </Card>
 
-      {clientConfig && (
+      {oauthAvailable && directConfig ? (
         <Card className="surface-card">
-          <CardHeader><h2>Claude Desktop configuration</h2></CardHeader>
+          <CardHeader><h2>Direct connection (OAuth 2.1)</h2></CardHeader>
           <CardBody>
             <p className="field-hint">
-              Add this to your Claude Desktop <code>mcpServers</code> config. The <code>@automattic/mcp-wordpress-remote</code> proxy translates the Application Password auth into MCP.
+              Paste the endpoint into Claude Desktop's <strong>Settings → Connectors → Add custom connector</strong>, or drop this block into any client that accepts HTTP-transport <code>mcpServers</code> entries (Claude Code, Cursor, VS Code). The client runs the OAuth authorize flow in your browser — no API keys to copy.
             </p>
             <div className="api-snippet-group">
               <div className="api-snippet-header">
-                <h3>JSON</h3>
+                <h3>mcpServers</h3>
                 <Button
                   variant="tertiary"
                   size="compact"
                   icon={<Copy size={16} />}
-                  onClick={() => copy(clientConfig, 'config')}
+                  onClick={() => copy(directConfig, 'direct')}
                 >
-                  {copied === 'config' ? 'Copied' : 'Copy'}
+                  {copied === 'direct' ? 'Copied' : 'Copy'}
                 </Button>
               </div>
-              <pre className="api-code-block"><code>{clientConfig}</code></pre>
+              <pre className="api-code-block"><code>{directConfig}</code></pre>
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {proxyConfig && (
+        <Card className="surface-card">
+          <CardHeader><h2>{oauthAvailable ? 'Fallback: stdio proxy' : 'Claude Desktop configuration'}</h2></CardHeader>
+          <CardBody>
+            <p className="field-hint">
+              {oauthAvailable
+                ? 'For MCP clients that don\'t yet support Streamable HTTP + OAuth, fall back to the stdio proxy. Authenticates with a WordPress Application Password.'
+                : 'Add this to your Claude Desktop mcpServers config. The @automattic/mcp-wordpress-remote proxy translates the Application Password auth into MCP.'}
+            </p>
+            <div className="api-snippet-group">
+              <div className="api-snippet-header">
+                <h3>mcpServers</h3>
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  icon={<Copy size={16} />}
+                  onClick={() => copy(proxyConfig, 'proxy')}
+                >
+                  {copied === 'proxy' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <pre className="api-code-block"><code>{proxyConfig}</code></pre>
             </div>
           </CardBody>
         </Card>
