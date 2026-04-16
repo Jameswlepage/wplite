@@ -400,8 +400,12 @@ function SuggestionStack({ items, canRefresh, onPick, onRefresh, disabled }) {
   return (
     <div className="workspace-chat__suggestions-stack" aria-label="Suggested prompts">
       <ul className="workspace-chat__suggestions-list">
-        {items.map((s) => (
-          <li key={s.id || s.label} className="workspace-chat__suggestions-item">
+        {items.map((s, i) => (
+          <li
+            key={s.id || s.label}
+            className="workspace-chat__suggestions-item"
+            style={{ '--stagger-i': i }}
+          >
             <button
               type="button"
               className="workspace-chat__suggestions-btn"
