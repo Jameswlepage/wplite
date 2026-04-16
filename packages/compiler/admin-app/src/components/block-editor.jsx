@@ -760,19 +760,23 @@ export function NativeBlockEditorFrame({
 
           const targetInfo = resolveInteractiveTarget(event.target);
           const anchor = event.target.closest?.('a[href]');
-          if (anchor) {
-            // The iframe must never navigate away from the editor, even when
-            // the click only selects a block.
+          if (anchor || targetInfo) {
+            // The iframe must never navigate away from the editor, and
+            // frontend/theme runtime click handlers inside the frame must not
+            // receive the event. Selection/follow behavior is handled here.
             event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation?.();
           }
 
           if (!targetInfo) {
+            if (anchor) {
+              selectContainingBlock(anchor);
+            }
             return;
           }
 
           if (isMiddleButton || event.metaKey || event.ctrlKey) {
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
             openResolvedTarget(targetInfo, { newTab: true });
             return;
           }
@@ -785,8 +789,6 @@ export function NativeBlockEditorFrame({
           }
 
           if (event.detail >= 2) {
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
             openResolvedTarget(targetInfo);
             return;
           }
