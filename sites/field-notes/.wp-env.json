@@ -2,7 +2,8 @@
   "port": 8864,
   "testsPort": 8865,
   "plugins": [
-    "./generated/wp-content/plugins/field-notes-app"
+    "./generated/wp-content/plugins/field-notes-app",
+    "https://github.com/WordPress/mcp-adapter/releases/download/v0.5.0/mcp-adapter.zip"
   ],
   "themes": [
     "./generated/wp-content/themes/field-notes-theme"

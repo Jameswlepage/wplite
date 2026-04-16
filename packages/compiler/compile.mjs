@@ -644,6 +644,11 @@ async function resolveBlueprint(root, site) {
   return JSON.stringify(blueprint, null, 2);
 }
 
+// Pinned release of the official WordPress MCP Adapter. Bumping this version
+// requires regenerating .wp-env.json for each site (any build does this).
+const MCP_ADAPTER_PLUGIN_ZIP =
+  'https://github.com/WordPress/mcp-adapter/releases/download/v0.5.0/mcp-adapter.zip';
+
 function defaultWpEnv(site) {
   const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
   const themeSlug = site.theme?.slug ?? 'wp-lite-theme';
@@ -651,7 +656,10 @@ function defaultWpEnv(site) {
   return {
     port: basePort,
     testsPort: basePort + 1,
-    plugins: [`./generated/wp-content/plugins/${pluginSlug}`],
+    plugins: [
+      `./generated/wp-content/plugins/${pluginSlug}`,
+      MCP_ADAPTER_PLUGIN_ZIP,
+    ],
     themes: [`./generated/wp-content/themes/${themeSlug}`],
     config: {
       WP_DEBUG: true,

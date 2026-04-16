@@ -12,6 +12,7 @@ import { phpRegisterUserAvatarFile } from './php/register-user-avatar.mjs';
 import { phpRegisterSingletonsFile } from './php/register-singletons.mjs';
 import { phpRegisterHeadFile } from './php/register-head.mjs';
 import { phpRegisterRestFile } from './php/register-rest.mjs';
+import { phpRegisterAbilitiesFile } from './php/register-abilities.mjs';
 import { phpRegisterAdminAppFile } from './php/register-admin-app.mjs';
 import { phpRegisterFrontendLauncherFile, frontendLauncherCss, frontendLauncherJs } from './php/register-frontend-launcher.mjs';
 import { phpRegisterLoginStyleFile } from './php/register-login-style.mjs';
@@ -94,6 +95,7 @@ export async function writeGeneratedPlugin(siteSchema, adminSchemas, site, paths
   await writeFile(path.join(incDir, 'register-singletons.php'), phpRegisterSingletonsFile());
   await writeFile(path.join(incDir, 'register-head.php'), phpRegisterHeadFile());
   await writeFile(path.join(incDir, 'register-rest.php'), phpRegisterRestFile());
+  await writeFile(path.join(incDir, 'register-abilities.php'), phpRegisterAbilitiesFile());
   await writeFile(path.join(incDir, 'register-admin-app.php'), phpRegisterAdminAppFile());
   await writeFile(path.join(incDir, 'register-login-style.php'), phpRegisterLoginStyleFile());
   await writeFile(path.join(incDir, 'register-frontend-launcher.php'), phpRegisterFrontendLauncherFile());
