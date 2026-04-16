@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "wp-lite": "./wp-lite.mjs"
+    "wp-lite": "./wp-lite.mjs",
+    "wp-light": "./wp-light.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.76.0",
