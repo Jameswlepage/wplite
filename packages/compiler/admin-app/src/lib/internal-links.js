@@ -73,6 +73,31 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
   const fullMap = new Map();
   const recordIdMap = new Map();
   const slugParamMap = new Map();
+  const routeIdMap = new Map();
+  const modelRecordMap = new Map();
+  const postTypeRecordMap = new Map();
+  const archiveMap = new Map();
+
+  function registerRecordIdentity(modelId, postType, recordId, resolution) {
+    const numericId = Number(recordId);
+    if (!Number.isFinite(numericId) || numericId <= 0 || !resolution) {
+      return;
+    }
+
+    recordIdMap.set(numericId, resolution);
+
+    if (modelId) {
+      const bucket = modelRecordMap.get(modelId) ?? new Map();
+      bucket.set(numericId, resolution);
+      modelRecordMap.set(modelId, bucket);
+    }
+
+    if (postType) {
+      const bucket = postTypeRecordMap.get(postType) ?? new Map();
+      bucket.set(numericId, resolution);
+      postTypeRecordMap.set(postType, bucket);
+    }
+  }
 
   function registerRecordQueryVar(paramName, slug, resolution) {
     if (!paramName || !slug || !resolution) return;
@@ -122,9 +147,12 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
     );
 
     if (resolution) {
-      recordIdMap.set(Number(page.id), resolution);
+      registerRecordIdentity('page', 'page', page.id, resolution);
       if (page.slug && !pageSlugMap.has(page.slug)) {
         pageSlugMap.set(page.slug, resolution);
+      }
+      if (page.routeId && !routeIdMap.has(page.routeId)) {
+        routeIdMap.set(page.routeId, resolution);
       }
     }
   }
@@ -165,7 +193,7 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
         { kind: 'record', id: Number(record.id), modelId: postModel.id }
       );
       if (resolution) {
-        recordIdMap.set(Number(record.id), resolution);
+        registerRecordIdentity(postModel.id, postModel.postType, record.id, resolution);
         registerRecordQueryVar(postModel.postType, record.slug, resolution);
         registerRecordQueryVar('name', record.slug, resolution);
       }
@@ -184,7 +212,7 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
         { kind: 'record', id: Number(record.id), modelId: model.id }
       );
       if (resolution) {
-        recordIdMap.set(Number(record.id), resolution);
+        registerRecordIdentity(model.id, model.postType, record.id, resolution);
         registerRecordQueryVar(model.postType, record.slug, resolution);
         registerRecordQueryVar(model.id, record.slug, resolution);
         if (model.postType) {
@@ -197,11 +225,69 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
     if (model.archiveSlug) {
       const archiveUrl = `${window.location.origin}/${model.archiveSlug}`;
       const archivePath = collectionPathForModel(model);
-      register(archiveUrl, archivePath, model.label || model.id, model.label || 'Collection');
+      const resolution = register(
+        archiveUrl,
+        archivePath,
+        model.label || model.id,
+        model.label || 'Collection',
+        { kind: 'archive', modelId: model.id }
+      );
+      if (resolution) {
+        archiveMap.set(model.id, resolution);
+      }
     }
   }
 
-  return (href) => {
+  function resolveByHints(input = {}) {
+    const routeId = String(input.routeId ?? input.wpliteRouteId ?? '').trim();
+    if (routeId && routeIdMap.has(routeId)) {
+      return routeIdMap.get(routeId) ?? null;
+    }
+
+    const targetKind = String(input.targetKind ?? input.kind ?? input.wpliteTargetKind ?? '').trim();
+    const modelId = String(input.modelId ?? input.wpliteModelId ?? '').trim();
+    if (targetKind === 'archive' && modelId && archiveMap.has(modelId)) {
+      return archiveMap.get(modelId) ?? null;
+    }
+
+    const postId = Number.parseInt(
+      String(input.postId ?? input.id ?? input.recordId ?? input.wplitePostId ?? ''),
+      10
+    );
+    const postType = String(input.postType ?? input.wplitePostType ?? '').trim();
+
+    if (Number.isFinite(postId) && postId > 0) {
+      if (modelId) {
+        const modelBucket = modelRecordMap.get(modelId);
+        if (modelBucket?.has(postId)) {
+          return modelBucket.get(postId) ?? null;
+        }
+      }
+
+      if (postType) {
+        const postTypeBucket = postTypeRecordMap.get(postType);
+        if (postTypeBucket?.has(postId)) {
+          return postTypeBucket.get(postId) ?? null;
+        }
+      }
+
+      if (recordIdMap.has(postId)) {
+        return recordIdMap.get(postId) ?? null;
+      }
+    }
+
+    return null;
+  }
+
+  return (input) => {
+    if (input && typeof input === 'object') {
+      const hintedResolution = resolveByHints(input);
+      if (hintedResolution) {
+        return hintedResolution;
+      }
+    }
+
+    const href = typeof input === 'string' ? input : input?.href;
     const url = normalizeInternalUrl(href);
     if (!url) return null;
 

@@ -7,6 +7,8 @@ import {
   rawHandler,
   registerBlockType,
 } from '@wordpress/blocks';
+import { createHigherOrderComponent } from '@wordpress/compose';
+import { addFilter } from '@wordpress/hooks';
 import ServerSideRender from '@wordpress/server-side-render';
 import { wpApiFetch } from './helpers.js';
 
@@ -24,6 +26,48 @@ function buildBlockRendererQueryArgs(context) {
   if (context.postType) args.post_type = context.postType;
   return Object.keys(args).length > 0 ? args : undefined;
 }
+
+let editorPreviewFiltersRegistered = false;
+
+function registerEditorPreviewFilters() {
+  if (editorPreviewFiltersRegistered) {
+    return;
+  }
+
+  const withServerRenderedPostFeaturedImage = createHigherOrderComponent(
+    (BlockEdit) => (props) => {
+      if (props?.name !== 'core/post-featured-image') {
+        return <BlockEdit {...props} />;
+      }
+
+      const urlQueryArgs = buildBlockRendererQueryArgs(props?.context);
+      if (!urlQueryArgs?.post_id || !urlQueryArgs?.post_type) {
+        return <BlockEdit {...props} />;
+      }
+
+      return (
+        <div className="server-block-preview">
+          <ServerSideRender
+            block="core/post-featured-image"
+            attributes={props.attributes}
+            urlQueryArgs={urlQueryArgs}
+          />
+        </div>
+      );
+    },
+    'withServerRenderedPostFeaturedImage'
+  );
+
+  addFilter(
+    'editor.BlockEdit',
+    'wplite/query-post-featured-image-preview',
+    withServerRenderedPostFeaturedImage
+  );
+
+  editorPreviewFiltersRegistered = true;
+}
+
+registerEditorPreviewFilters();
 
 /**
  * Register site-specific dynamic blocks shipped in the bootstrap payload.
@@ -343,128 +387,24 @@ export function buildBlockEditorSettings(bundle) {
 }
 
 /**
- * Dark-theme CSS for popovers/quick-inserter that render INSIDE the iframed
- * editor canvas. These don't get our outer admin-app stylesheet, so we inject
- * them through BlockCanvas `styles` prop.
+ * Minimal component tokens for popovers rendered inside the iframed editor
+ * canvas. We intentionally keep the inline inserter native instead of trying
+ * to reskin its layout from outside wp-admin.
  */
 const IFRAME_ADMIN_CSS = `
-.components-popover.block-editor-inserter__popover .components-popover__content {
-  background: #2d2d2d !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
-  padding: 8px !important;
-}
-
-.block-editor-inserter__quick-inserter {
-  background: transparent !important;
-  color: #ffffff !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  width: 320px !important;
-}
-
-.block-editor-inserter__quick-inserter-separator,
-.block-editor-inserter__quick-inserter .components-panel__body,
-.block-editor-inserter__quick-inserter .components-panel__header,
-.block-editor-inserter__quick-inserter .block-editor-inserter__tabs,
-.block-editor-inserter__quick-inserter .block-editor-inserter__block-list,
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-content {
-  border: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__search,
-.block-editor-inserter__quick-inserter .components-search-control {
-  margin: 0 0 8px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control input,
-.block-editor-inserter__quick-inserter .components-search-control__input,
-.block-editor-inserter__search input {
-  background: #1e1e1e !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: none !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control input::placeholder,
-.block-editor-inserter__quick-inserter .components-search-control__input::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control__icon svg,
-.block-editor-inserter__search svg {
-  fill: rgba(255, 255, 255, 0.6) !important;
-}
-
-/* Let Gutenberg keep its native layout; only re-skin colors + borders. */
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item {
-  color: #ffffff !important;
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  border-radius: 4px !important;
-  box-shadow: none !important;
-  outline: 0 !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:hover,
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:focus,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:hover,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:focus {
-  color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
-  color: #ffffff !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
-  color: rgba(255, 255, 255, 0.82) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
-  color: #ffffff !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-title,
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-header,
-.block-editor-inserter__quick-inserter .components-panel__header,
-.block-editor-inserter__quick-inserter .block-editor-inserter__category-tabs {
-  color: rgba(255, 255, 255, 0.7) !important;
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand,
-.block-editor-inserter__quick-inserter .components-button {
-  color: #ffffff !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand:hover,
-.block-editor-inserter__quick-inserter .components-button:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__no-results {
-  color: rgba(255, 255, 255, 0.6) !important;
+:root {
+  --wp-admin-theme-color: #3858e9;
+  --wp-admin-theme-color--rgb: 56, 88, 233;
+  --wp-admin-theme-color-darker-10: rgb(33.0384615385, 68.7307692308, 230.4615384615);
+  --wp-admin-theme-color-darker-10--rgb: 33.0384615385, 68.7307692308, 230.4615384615;
+  --wp-admin-theme-color-darker-20: rgb(23.6923076923, 58.1538461538, 214.3076923077);
+  --wp-admin-theme-color-darker-20--rgb: 23.6923076923, 58.1538461538, 214.3076923077;
+  --wp-components-color-accent: var(--wp-admin-theme-color);
+  --wp-components-color-accent-darker-10: var(--wp-admin-theme-color-darker-10);
+  --wp-components-color-accent-darker-20: var(--wp-admin-theme-color-darker-20);
+  --wp-components-color-accent-inverted: #fff;
+  --wp-components-color-background: #fff;
+  --wp-components-color-foreground: #1e1e1e;
 }
 `;
 
@@ -472,8 +412,9 @@ const IFRAME_ADMIN_CSS = `
  * Return the canvas styles array WP would pass to its own iframed editor.
  * These entries include the global stylesheet (theme.json-derived presets,
  * element styles, layout) and the theme stylesheet, resolved server-side.
- * We append our iframe-scoped admin CSS so popovers/quick-inserter that
- * render inside the iframe can be dark-themed to match the outer chrome.
+ * We append minimal iframe-scoped component tokens so popovers rendered inside
+ * the iframe inherit the same base WordPress component palette as the rest of
+ * the app.
  *
  * Note: we intentionally preserve server-provided `id` fields on style
  * entries. Stripping them triggered stale core-data cycles inside the

@@ -611,43 +611,16 @@
   padding: 0;
 }
 
-/* Scale the editor canvas so the whole page reads at a "front-end" aspect
-   ratio. The iframe is laid out at a fixed desktop logical width; the
-   container is zoomed down so you see more of the page at once instead of
-   the layout collapsing to match the narrower admin canvas. */
-.native-editor__canvas--fit {
-  background: #ffffff;
-  overflow: hidden;
-  zoom: 0.7;
-}
-
-.native-editor__canvas--fit .block-editor-iframe__container,
-.native-editor__canvas--fit .block-editor-iframe__scale-container,
-.native-editor__canvas--fit iframe {
-  min-width: 1440px !important;
-}
-
-@supports not (zoom: 1) {
-  .native-editor__canvas--fit {
-    transform: scale(0.7);
-    transform-origin: top left;
-    width: calc(100% / 0.7);
-    height: calc(100% / 0.7);
-  }
-}
-
-/* Non-template canvas: cap width + add padding so unstyled content
-   doesn't go edge-to-edge. */
-.native-editor__canvas:not(.native-editor__canvas--fit) .block-editor-block-list__layout,
-.native-editor__canvas:not(.native-editor__canvas--fit) .editor-styles-wrapper .block-editor-block-list__layout {
+.native-editor__canvas--content .block-editor-block-list__layout,
+.native-editor__canvas--content .editor-styles-wrapper .block-editor-block-list__layout {
   max-width: 780px;
   margin-left: auto;
   margin-right: auto;
   padding: 48px 24px 96px;
 }
 
-.native-editor__canvas:not(.native-editor__canvas--fit) .block-editor-block-list__layout .block-editor-block-list__layout,
-.native-editor__canvas:not(.native-editor__canvas--fit) .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
+.native-editor__canvas--content .block-editor-block-list__layout .block-editor-block-list__layout,
+.native-editor__canvas--content .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
   max-width: none;
   padding: 0;
 }
@@ -659,11 +632,7 @@
   min-height: 100%;
 }
 
-.native-editor__canvas--fit .block-editor-iframe__container {
-  width: 100%;
-}
-
-.native-editor__canvas--fit .block-editor-iframe__scale-container {
+.native-editor__canvas .block-editor-iframe__scale-container {
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -681,34 +650,28 @@
   background: #ffffff;
 }
 
-.native-editor__canvas--fit iframe {
-  background: #ffffff;
-  width: 100%;
-  box-shadow: none;
-}
-
-/* In template-fit mode we remove internal editor padding so the template shell
-   can fill the canvas width. Content editors keep default WP spacing. */
-.native-editor__canvas--fit .block-editor-block-list__layout,
-.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__layout {
+.native-editor__canvas--template .block-editor-block-list__layout,
+.native-editor__canvas--template .editor-styles-wrapper .block-editor-block-list__layout {
   padding: 0 !important;
   margin: 0 !important;
+  max-width: none !important;
 }
 
-.native-editor__canvas--fit .block-editor-block-list__layout .block-editor-block-list__layout,
-.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
+.native-editor__canvas--template .block-editor-block-list__layout .block-editor-block-list__layout,
+.native-editor__canvas--template .editor-styles-wrapper .block-editor-block-list__layout .block-editor-block-list__layout {
   padding: 0 !important;
+  max-width: none !important;
 }
 
-.native-editor__canvas--fit .block-editor-block-list__block,
-.native-editor__canvas--fit .editor-styles-wrapper .block-editor-block-list__block {
+.native-editor__canvas--template .block-editor-block-list__block,
+.native-editor__canvas--template .editor-styles-wrapper .block-editor-block-list__block {
   margin-left: 0 !important;
   margin-right: 0 !important;
   max-width: none !important;
 }
 
-.native-editor__canvas--fit .block-editor-default-block-appender,
-.native-editor__canvas--fit .editor-styles-wrapper .block-editor-default-block-appender {
+.native-editor__canvas--template .block-editor-default-block-appender,
+.native-editor__canvas--template .editor-styles-wrapper .block-editor-default-block-appender {
   margin-left: 0 !important;
   margin-right: 0 !important;
   max-width: none !important;
@@ -884,186 +847,6 @@
   margin: 12px 0;
   color: var(--wp-admin-text-muted);
   font-size: 12px;
-}
-
-/* ───────────────────────────────────────────────────────────────
-   Inline block inserter (the "+" popover inside the canvas).
-   Dark theme to match the admin chrome.
-   ─────────────────────────────────────────────────────────────── */
-.components-popover.block-editor-inserter__popover .components-popover__content,
-.block-editor-inserter__quick-inserter,
-.block-editor-inserter__quick-inserter-separator {
-  background: #2d2d2d !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 6px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4) !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control input,
-.block-editor-inserter__quick-inserter .components-search-control__input,
-.block-editor-inserter__search input {
-  background: #1e1e1e !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  box-shadow: none !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control input::placeholder,
-.block-editor-inserter__quick-inserter .components-search-control__input::placeholder {
-  color: rgba(255, 255, 255, 0.45) !important;
-}
-
-.block-editor-inserter__quick-inserter .components-search-control__icon svg,
-.block-editor-inserter__search svg {
-  fill: rgba(255, 255, 255, 0.6) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item {
-  color: #ffffff !important;
-  background: transparent !important;
-  border-radius: 4px !important;
-  box-shadow: none !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:hover,
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item:focus,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:hover,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item:focus {
-  color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  outline: 0 !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
-  color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border-radius: 4px !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title,
-.block-editor-inserter__quick-inserter .block-editor-block-patterns-list__item-title {
-  color: #ffffff !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-title,
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-header,
-.block-editor-inserter__quick-inserter .components-panel__header,
-.block-editor-inserter__quick-inserter .block-editor-inserter__category-tabs {
-  color: rgba(255, 255, 255, 0.7) !important;
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand,
-.block-editor-inserter__quick-inserter .components-button {
-  color: #ffffff !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-expand:hover,
-.block-editor-inserter__quick-inserter .components-button:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__no-results {
-  color: rgba(255, 255, 255, 0.6) !important;
-}
-
-/* The popover tip/arrow should match the dark bg */
-.components-popover.block-editor-inserter__popover .components-popover__content::before,
-.components-popover.block-editor-inserter__popover .components-popover__content::after {
-  border-color: rgba(255, 255, 255, 0.14) transparent !important;
-}
-
-/* ───────────────────────────────────────────────────────────────
-   Quick inserter: structural clamps so tiles render at a sane
-   size and the popover scrolls instead of clipping titles.
-   ─────────────────────────────────────────────────────────────── */
-.block-editor-inserter__quick-inserter {
-  width: 350px !important;
-  max-height: min(520px, calc(100vh - 96px)) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  padding: 8px !important;
-}
-
-.block-editor-inserter__quick-inserter .block-editor-inserter__quick-inserter-results,
-.block-editor-inserter__quick-inserter .block-editor-inserter__panel-content,
-.block-editor-inserter__quick-inserter .block-editor-inserter__results {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-}
-
-/* Wrap the search input + its icon prefix in a single dark pill. */
-.block-editor-inserter__quick-inserter .components-search-control,
-.block-editor-inserter__quick-inserter .components-search-control__input-wrapper,
-.block-editor-inserter__quick-inserter .components-input-control,
-.block-editor-inserter__quick-inserter .components-input-control__container,
-.block-editor-inserter__quick-inserter .components-base-control__field {
-  background: #1e1e1e !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  border-radius: 4px !important;
-  box-shadow: none !important;
-}
-.block-editor-inserter__quick-inserter .components-input-control__prefix,
-.block-editor-inserter__quick-inserter .components-input-control__suffix,
-.block-editor-inserter__quick-inserter .components-search-control__icon {
-  background: transparent !important;
-  color: rgba(255, 255, 255, 0.6) !important;
-}
-.block-editor-inserter__quick-inserter .components-input-control__prefix svg,
-.block-editor-inserter__quick-inserter .components-search-control__icon svg {
-  fill: rgba(255, 255, 255, 0.6) !important;
-}
-
-/* Tile grid: predictable column count, consistent padding, clamp icons. */
-.block-editor-inserter__quick-inserter .block-editor-block-types-list,
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__list-items {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 2px !important;
-  padding: 4px 0 !important;
-}
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__list-item {
-  padding: 0 !important;
-}
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item {
-  min-height: 92px !important;
-  padding: 10px 6px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
-}
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon {
-  width: 36px !important;
-  height: 36px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-icon svg {
-  max-width: 24px !important;
-  max-height: 24px !important;
-  width: 24px !important;
-  height: 24px !important;
-}
-.block-editor-inserter__quick-inserter .block-editor-block-types-list__item-title {
-  font-size: 11px !important;
-  line-height: 1.3 !important;
-  margin: 0 !important;
-  text-align: center !important;
-  word-break: break-word !important;
-  white-space: normal !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
 }
 
 /* ───────────────────────────────────────────────────────────────

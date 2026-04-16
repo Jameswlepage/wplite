@@ -31,7 +31,23 @@ export function compileNavigationMarkup(menuItems, { routes, models }) {
   const itemsMarkup = (menuItems ?? [])
     .map((item) => {
       const url = buildMenuLinkUrl(item, { routesById, modelsById });
-      return `\t\t\t\t<!-- wp:navigation-link {"label":"${String(item.label ?? '').replace(/"/g, '\\"')}","type":"custom","url":"${url}","kind":"custom","isTopLevelLink":true} /-->`;
+      const attributes = {
+        label: String(item.label ?? ''),
+        type: 'custom',
+        url,
+        kind: 'custom',
+        isTopLevelLink: true,
+      };
+
+      if (item.type === 'page' && item.object) {
+        attributes.wpliteTargetKind = 'page';
+        attributes.wpliteRouteId = String(item.object);
+      } else if (item.type === 'archive' && item.object) {
+        attributes.wpliteTargetKind = 'archive';
+        attributes.wpliteModelId = String(item.object);
+      }
+
+      return `\t\t\t\t<!-- wp:navigation-link ${JSON.stringify(attributes)} /-->`;
     })
     .join('\n');
 

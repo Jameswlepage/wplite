@@ -458,7 +458,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         isPrimaryBusy={isSaving}
         viewUrl={existing?.link}
         documentLabel={documentLabel}
-        fitCanvas={Boolean(templateRecord)}
+        canvasLayout={Boolean(templateRecord) ? 'template' : 'content'}
         resolveInternalLink={resolveInternalLink}
         onOpenInternalLink={(path) => navigate(path)}
         wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}
