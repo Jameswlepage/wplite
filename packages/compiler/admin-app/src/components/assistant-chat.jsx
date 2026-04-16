@@ -674,7 +674,7 @@ export function AssistantChat() {
         {!sessionListOpen && bridgeMissing ? (
           <div className="workspace-chat__empty">
             The assistant is powered by a local ACP agent — start the dev
-            server with <code>wp-light dev</code> to activate it.
+            server with <code>wp-lite dev</code> to activate it.
           </div>
         ) : null}
 
@@ -900,7 +900,7 @@ export function AssistantChat() {
           className="workspace-chat__input"
           placeholder={
             bridgeMissing
-              ? 'Run wp-light dev to enable the assistant…'
+              ? 'Run wp-lite dev to enable the assistant…'
               : (surfacePlaceholder || 'Ask anything…')
           }
           rows={1}

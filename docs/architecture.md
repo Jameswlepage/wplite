@@ -7,7 +7,7 @@
 1. Source layer  
    The flat site definition in `app/`, `content/`, `theme/`, `blocks/`, and `admin/`.
 2. Compiler layer  
-   The `wp-light` CLI and compiler in [`packages/compiler`](../packages/compiler).
+   The `wp-lite` CLI and compiler in [`packages/compiler`](../packages/compiler).
 3. WordPress runtime layer  
    The generated plugin and generated theme inside each site's `generated/` directory.
 4. App/runtime UI layer  
@@ -46,7 +46,7 @@ The compiler is responsible for:
 Key files:
 
 - [`packages/compiler/compile.mjs`](../packages/compiler/compile.mjs)
-- [`packages/compiler/wp-light.mjs`](../packages/compiler/wp-light.mjs)
+- [`packages/compiler/wp-lite.mjs`](../packages/compiler/wp-lite.mjs)
 - [`packages/compiler/admin-app/src/main.jsx`](../packages/compiler/admin-app/src/main.jsx)
 
 ## WordPress Responsibilities
@@ -182,12 +182,12 @@ These outputs are used by `apply`, `dev`, and `pull`.
 ## Example Flow
 
 1. Edit `app/models/project.json`.
-2. Run `wp-light build`.
+2. Run `wp-lite build`.
 3. The compiler regenerates post type, meta, and admin schema outputs.
-4. Run `wp-light apply`.
+4. Run `wp-lite apply`.
 5. WordPress reloads the plugin/theme outputs and reseeds content.
 6. Open `/app` to manage structured fields and body content.
-7. Optionally run `wp-light pull` to sync editable WordPress content back to files.
+7. Optionally run `wp-lite pull` to sync editable WordPress content back to files.
 
 ## Known Legacy Artifacts
 

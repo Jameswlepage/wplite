@@ -423,22 +423,22 @@ add_action( 'init', function () {
   );
 } );`;
 
-const COMMANDS_SNIPPET = String.raw`npx wp-light init
+const COMMANDS_SNIPPET = String.raw`npx wp-lite init
 # Display the current site.json for the active site root.
 
-npx wp-light build
+npx wp-lite build
 # Compile site schema, generated plugin/theme output, and the /app admin bundle.
 
-npx wp-light apply
+npx wp-lite apply
 # Build, boot the local target, activate generated runtime, and seed content.
 
-npx wp-light dev
+npx wp-lite dev
 # Watch the source tree, rebuild, reseed, and refresh the local site.
 
-npx wp-light pull
+npx wp-lite pull
 # Write synced WordPress content back into markdown and singleton JSON files.
 
-npx wp-light eject
+npx wp-lite eject
 # Mark the project as graduated out of the light layer.`;
 
 const NPM_SCRIPTS_SNIPPET = String.raw`npm run build          # Full compile
@@ -696,7 +696,7 @@ export function DocsPage({ bootstrap }) {
                   snippetId="route"
                   title="Page route"
                   path="app/routes/about.json"
-                  summary="Set the route id, slug, title, template, and whether wp-light should create the shell page."
+                  summary="Set the route id, slug, title, template, and whether wp-lite should create the shell page."
                   code={ROUTE_SNIPPET}
                   copied={copied}
                   onCopy={copyToClipboard}
@@ -921,8 +921,8 @@ export function DocsPage({ bootstrap }) {
               <div className="docs-two-column">
                 <DocsSnippet
                   snippetId="commands"
-                  title="wp-light CLI commands"
-                  path="packages/compiler/wp-light.mjs"
+                  title="wp-lite CLI commands"
+                  path="packages/compiler/wp-lite.mjs"
                   summary="The core pipeline: init, build, apply, dev, pull, and eject."
                   code={COMMANDS_SNIPPET}
                   copied={copied}

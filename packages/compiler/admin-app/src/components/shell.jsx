@@ -297,7 +297,7 @@ function AssistantRailHeader({ onHide }) {
     tone = 'warn';
     statusTitle = statusError
       ? `Disconnected: ${statusError}`
-      : 'Disconnected — is the ACP bridge still running? Check the wp-light dev terminal.';
+      : 'Disconnected — is the ACP bridge still running? Check the wp-lite dev terminal.';
   }
   else if (status === AcpStatus.Error) {
     tone = 'err'; statusTitle = statusError ? `Error: ${statusError}` : 'Error';

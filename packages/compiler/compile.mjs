@@ -578,8 +578,8 @@ function sitePortBase(siteId) {
 }
 
 function defaultBlueprint(site) {
-  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
-  const themeSlug = site.theme?.slug ?? 'wp-light-theme';
+  const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
+  const themeSlug = site.theme?.slug ?? 'wp-lite-theme';
   return {
     landingPage: '/',
     steps: [
@@ -627,8 +627,8 @@ async function resolveBlueprint(root, site) {
 }
 
 function defaultWpEnv(site) {
-  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
-  const themeSlug = site.theme?.slug ?? 'wp-light-theme';
+  const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
+  const themeSlug = site.theme?.slug ?? 'wp-lite-theme';
   const basePort = sitePortBase(site.id);
   return {
     port: basePort,
@@ -711,7 +711,7 @@ async function emitThemeArtifacts(root, generatedRoot, site, siteSchema) {
 
 async function emitContentArtifacts(generatedRoot, site, siteSchema) {
   // Content lives entirely inside site-schema.json (seeded at activation by PHP).
-  const pluginSlug = site.plugin?.slug ?? 'wp-light-app';
+  const pluginSlug = site.plugin?.slug ?? 'wp-lite-app';
   const compiledDir = path.join(generatedRoot, 'wp-content', 'plugins', pluginSlug, 'compiled');
   await ensureDir(compiledDir);
   await writeFile(path.join(compiledDir, 'site-schema.json'), JSON.stringify(siteSchema, null, 2));
@@ -731,7 +731,7 @@ async function runFullBuild(root, site, paths, hashes) {
 
     // Preserve prior admin-app build if present (not part of schema artifacts).
     const priorBuildDir = path.join(paths.pluginRoot, 'build');
-    const tmpPluginBuildDir = path.join(tmpRoot, 'wp-content', 'plugins', site.plugin?.slug ?? 'wp-light-app', 'build');
+    const tmpPluginBuildDir = path.join(tmpRoot, 'wp-content', 'plugins', site.plugin?.slug ?? 'wp-lite-app', 'build');
     try {
       await cp(priorBuildDir, tmpPluginBuildDir, { recursive: true });
     } catch {}
@@ -849,7 +849,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   build()
     .then((result) => {
       process.stdout.write(
-        `Built wp-light artifacts.\nPlugin: ${result.pluginRoot}\nTheme: ${result.themeRoot}\n`
+        `Built wp-lite artifacts.\nPlugin: ${result.pluginRoot}\nTheme: ${result.themeRoot}\n`
       );
     })
     .catch((error) => {

@@ -2,8 +2,8 @@
 import { toTitleCase } from '../strings.mjs';
 
 export function pluginMainFile(site = {}) {
-  const pluginName = toTitleCase(site.plugin?.slug ?? 'wp-light-app');
-  const siteTitle = site.title ?? 'WP Light';
+  const pluginName = toTitleCase(site.plugin?.slug ?? 'wp-lite-app');
+  const siteTitle = site.title ?? 'WP Lite';
   return `<?php
 /**
  * Plugin Name: ${pluginName}

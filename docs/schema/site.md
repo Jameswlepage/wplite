@@ -58,7 +58,7 @@ It controls:
 - `content.format`
   Current repo examples use `"markdown"`.
 - `content.pull`
-  When `true`, `wp-light pull` writes supported WordPress content back into files.
+  When `true`, `wp-lite pull` writes supported WordPress content back into files.
 - `content.push`
   When `true`, source content seeds into WordPress during build/apply/seed.
 - `content.databaseFirst`
