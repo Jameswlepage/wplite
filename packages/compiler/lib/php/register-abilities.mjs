@@ -22,10 +22,17 @@ function portfolio_light_mcp_ability_ids() {
 \t\t'wplite/list-models',
 \t\t'wplite/list-items',
 \t\t'wplite/get-item',
+\t\t'wplite/create-item',
+\t\t'wplite/update-item',
+\t\t'wplite/delete-item',
 \t\t'wplite/list-pages',
 \t\t'wplite/get-page',
+\t\t'wplite/create-page',
+\t\t'wplite/update-page',
+\t\t'wplite/delete-page',
 \t\t'wplite/list-singletons',
 \t\t'wplite/get-singleton',
+\t\t'wplite/update-singleton',
 \t];
 }
 
@@ -373,6 +380,264 @@ add_action( 'wp_abilities_api_init', function() {
 \t\t\t'readonly'     => true,
 \t\t\t'show_in_rest' => true,
 \t\t],
+\t] );
+
+\t// ── Write abilities ─────────────────────────────────────────────────
+\t// All writes hit WordPress directly. Source-of-truth sync back to
+\t// flat files is the job of \`wp-lite pull\`.
+
+\t$page_to_payload = function( $input, $existing_id = 0 ) {
+\t\t$payload = [];
+\t\tif ( array_key_exists( 'title', $input ) )      $payload['post_title']   = wp_strip_all_tags( (string) $input['title'] );
+\t\tif ( array_key_exists( 'slug', $input ) )       $payload['post_name']    = sanitize_title( (string) $input['slug'] );
+\t\tif ( array_key_exists( 'status', $input ) )     $payload['post_status']  = sanitize_key( (string) $input['status'] );
+\t\tif ( array_key_exists( 'content', $input ) )    $payload['post_content'] = (string) $input['content'];
+\t\tif ( array_key_exists( 'parent', $input ) )     $payload['post_parent']  = (int) $input['parent'];
+\t\tif ( array_key_exists( 'menuOrder', $input ) )  $payload['menu_order']   = (int) $input['menuOrder'];
+\t\tif ( $existing_id > 0 )                          $payload['ID']           = $existing_id;
+\t\treturn $payload;
+\t};
+
+\twp_register_ability( 'wplite/create-item', [
+\t\t'label'               => __( 'Create item', 'wplite' ),
+\t\t'description'         => __( 'Creates a new item in a content model. Accepts title, optional slug/status/content, and model-defined fields.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'model' ],
+\t\t\t'properties' => [
+\t\t\t\t'model'   => [ 'type' => 'string', 'description' => 'Content model id.' ],
+\t\t\t\t'title'   => [ 'type' => 'string' ],
+\t\t\t\t'slug'    => [ 'type' => 'string' ],
+\t\t\t\t'status'  => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private', 'pending' ] ],
+\t\t\t\t'content' => [ 'type' => 'string', 'description' => 'Gutenberg block markup for the body.' ],
+\t\t\t\t'fields'  => [ 'type' => 'object', 'description' => 'Custom model fields keyed by field id.', 'additionalProperties' => true ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) {
+\t\t\t$model = portfolio_light_get_model( (string) ( $input['model'] ?? '' ) );
+\t\t\tif ( ! $model ) return new WP_Error( 'wplite_unknown_model', 'Unknown model.' );
+\t\t\t$payload = array_merge(
+\t\t\t\t[
+\t\t\t\t\t'title'      => (string) ( $input['title'] ?? '' ),
+\t\t\t\t\t'slug'       => (string) ( $input['slug'] ?? '' ),
+\t\t\t\t\t'postStatus' => (string) ( $input['status'] ?? 'draft' ),
+\t\t\t\t\t'content'    => (string) ( $input['content'] ?? '' ),
+\t\t\t\t],
+\t\t\t\tis_array( $input['fields'] ?? null ) ? $input['fields'] : []
+\t\t\t);
+\t\t\t$post = portfolio_light_upsert_record( $model, $payload );
+\t\t\tif ( is_wp_error( $post ) ) return $post;
+\t\t\treturn portfolio_light_prepare_record( $post, $model );
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/update-item', [
+\t\t'label'               => __( 'Update item', 'wplite' ),
+\t\t'description'         => __( 'Updates an existing item. Only provided fields change; omitted fields are left alone.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'model', 'id' ],
+\t\t\t'properties' => [
+\t\t\t\t'model'   => [ 'type' => 'string' ],
+\t\t\t\t'id'      => [ 'type' => 'integer', 'minimum' => 1 ],
+\t\t\t\t'title'   => [ 'type' => 'string' ],
+\t\t\t\t'slug'    => [ 'type' => 'string' ],
+\t\t\t\t'status'  => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private', 'pending' ] ],
+\t\t\t\t'content' => [ 'type' => 'string' ],
+\t\t\t\t'fields'  => [ 'type' => 'object', 'additionalProperties' => true ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) {
+\t\t\t$model = portfolio_light_get_model( (string) ( $input['model'] ?? '' ) );
+\t\t\tif ( ! $model ) return new WP_Error( 'wplite_unknown_model', 'Unknown model.' );
+\t\t\t$id = (int) ( $input['id'] ?? 0 );
+\t\t\tif ( $id <= 0 ) return new WP_Error( 'wplite_invalid_id', 'id is required.' );
+\t\t\t$existing = get_post( $id );
+\t\t\tif ( ! $existing || $existing->post_type !== $model['postType'] ) {
+\t\t\t\treturn new WP_Error( 'wplite_item_not_found', 'Item not found for model.' );
+\t\t\t}
+\t\t\t$payload = [];
+\t\t\tif ( array_key_exists( 'title', $input ) )   $payload['title']      = (string) $input['title'];
+\t\t\tif ( array_key_exists( 'slug', $input ) )    $payload['slug']       = (string) $input['slug'];
+\t\t\tif ( array_key_exists( 'status', $input ) )  $payload['postStatus'] = (string) $input['status'];
+\t\t\tif ( array_key_exists( 'content', $input ) ) $payload['content']    = (string) $input['content'];
+\t\t\tif ( is_array( $input['fields'] ?? null ) ) {
+\t\t\t\t$payload = array_merge( $payload, $input['fields'] );
+\t\t\t}
+\t\t\t$post = portfolio_light_upsert_record( $model, $payload, $id );
+\t\t\tif ( is_wp_error( $post ) ) return $post;
+\t\t\treturn portfolio_light_prepare_record( $post, $model );
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/delete-item', [
+\t\t'label'               => __( 'Delete item', 'wplite' ),
+\t\t'description'         => __( 'Deletes an item. By default trashes; pass force=true to bypass trash.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'model', 'id' ],
+\t\t\t'properties' => [
+\t\t\t\t'model' => [ 'type' => 'string' ],
+\t\t\t\t'id'    => [ 'type' => 'integer', 'minimum' => 1 ],
+\t\t\t\t'force' => [ 'type' => 'boolean', 'default' => false ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) {
+\t\t\t$model = portfolio_light_get_model( (string) ( $input['model'] ?? '' ) );
+\t\t\tif ( ! $model ) return new WP_Error( 'wplite_unknown_model', 'Unknown model.' );
+\t\t\t$id = (int) ( $input['id'] ?? 0 );
+\t\t\t$existing = get_post( $id );
+\t\t\tif ( ! $existing || $existing->post_type !== $model['postType'] ) {
+\t\t\t\treturn new WP_Error( 'wplite_item_not_found', 'Item not found for model.' );
+\t\t\t}
+\t\t\t$force = ! empty( $input['force'] );
+\t\t\t$result = wp_delete_post( $id, $force );
+\t\t\treturn [ 'ok' => (bool) $result, 'id' => $id, 'trashed' => ! $force ];
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/create-page', [
+\t\t'label'               => __( 'Create page', 'wplite' ),
+\t\t'description'         => __( 'Creates a new WordPress page. Use Gutenberg block markup for content.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'title' ],
+\t\t\t'properties' => [
+\t\t\t\t'title'     => [ 'type' => 'string' ],
+\t\t\t\t'slug'      => [ 'type' => 'string' ],
+\t\t\t\t'status'    => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private', 'pending' ], 'default' => 'draft' ],
+\t\t\t\t'content'   => [ 'type' => 'string', 'description' => 'Gutenberg block markup.' ],
+\t\t\t\t'template'  => [ 'type' => 'string' ],
+\t\t\t\t'parent'    => [ 'type' => 'integer', 'minimum' => 0 ],
+\t\t\t\t'menuOrder' => [ 'type' => 'integer' ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) use ( $page_to_payload ) {
+\t\t\t$payload = $page_to_payload( $input );
+\t\t\t$payload['post_type']   = 'page';
+\t\t\t$payload['post_status'] = $payload['post_status'] ?? 'draft';
+\t\t\t$id = wp_insert_post( $payload, true );
+\t\t\tif ( is_wp_error( $id ) ) return $id;
+\t\t\tif ( ! empty( $input['template'] ) ) {
+\t\t\t\tupdate_post_meta( $id, '_wp_page_template', sanitize_text_field( (string) $input['template'] ) );
+\t\t\t}
+\t\t\treturn portfolio_light_prepare_page_record( get_post( $id ) );
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/update-page', [
+\t\t'label'               => __( 'Update page', 'wplite' ),
+\t\t'description'         => __( 'Updates an existing page. Only provided fields change; omitted fields are left alone.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'id' ],
+\t\t\t'properties' => [
+\t\t\t\t'id'        => [ 'type' => 'integer', 'minimum' => 1 ],
+\t\t\t\t'title'     => [ 'type' => 'string' ],
+\t\t\t\t'slug'      => [ 'type' => 'string' ],
+\t\t\t\t'status'    => [ 'type' => 'string', 'enum' => [ 'publish', 'draft', 'private', 'pending' ] ],
+\t\t\t\t'content'   => [ 'type' => 'string' ],
+\t\t\t\t'template'  => [ 'type' => 'string' ],
+\t\t\t\t'parent'    => [ 'type' => 'integer', 'minimum' => 0 ],
+\t\t\t\t'menuOrder' => [ 'type' => 'integer' ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) use ( $page_to_payload ) {
+\t\t\t$id = (int) ( $input['id'] ?? 0 );
+\t\t\t$existing = get_post( $id );
+\t\t\tif ( ! $existing || $existing->post_type !== 'page' ) {
+\t\t\t\treturn new WP_Error( 'wplite_page_not_found', 'Page not found.' );
+\t\t\t}
+\t\t\t$payload = $page_to_payload( $input, $id );
+\t\t\tif ( count( $payload ) > 1 ) { // more than just ID
+\t\t\t\t$result = wp_update_post( $payload, true );
+\t\t\t\tif ( is_wp_error( $result ) ) return $result;
+\t\t\t}
+\t\t\tif ( array_key_exists( 'template', $input ) ) {
+\t\t\t\tupdate_post_meta( $id, '_wp_page_template', sanitize_text_field( (string) $input['template'] ) );
+\t\t\t}
+\t\t\treturn portfolio_light_prepare_page_record( get_post( $id ) );
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/delete-page', [
+\t\t'label'               => __( 'Delete page', 'wplite' ),
+\t\t'description'         => __( 'Deletes a page. By default trashes; pass force=true to bypass trash.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'id' ],
+\t\t\t'properties' => [
+\t\t\t\t'id'    => [ 'type' => 'integer', 'minimum' => 1 ],
+\t\t\t\t'force' => [ 'type' => 'boolean', 'default' => false ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) {
+\t\t\t$id = (int) ( $input['id'] ?? 0 );
+\t\t\t$existing = get_post( $id );
+\t\t\tif ( ! $existing || $existing->post_type !== 'page' ) {
+\t\t\t\treturn new WP_Error( 'wplite_page_not_found', 'Page not found.' );
+\t\t\t}
+\t\t\t$force = ! empty( $input['force'] );
+\t\t\t$result = wp_delete_post( $id, $force );
+\t\t\treturn [ 'ok' => (bool) $result, 'id' => $id, 'trashed' => ! $force ];
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
+\t] );
+
+\twp_register_ability( 'wplite/update-singleton', [
+\t\t'label'               => __( 'Update singleton', 'wplite' ),
+\t\t'description'         => __( 'Writes new values into a singleton. Merges with existing data — only keys you pass get overwritten.', 'wplite' ),
+\t\t'category'            => 'wplite',
+\t\t'input_schema'        => [
+\t\t\t'type' => 'object',
+\t\t\t'required' => [ 'id', 'data' ],
+\t\t\t'properties' => [
+\t\t\t\t'id'   => [ 'type' => 'string' ],
+\t\t\t\t'data' => [ 'type' => 'object', 'additionalProperties' => true ],
+\t\t\t],
+\t\t],
+\t\t'output_schema'       => [ 'type' => 'object' ],
+\t\t'permission_callback' => $can_edit,
+\t\t'execute_callback'    => function( $input ) {
+\t\t\t$id = (string) ( $input['id'] ?? '' );
+\t\t\t$schema = portfolio_light_get_singleton_schema( $id );
+\t\t\tif ( ! $schema ) return new WP_Error( 'wplite_unknown_singleton', 'Unknown singleton.' );
+\t\t\t$data = is_array( $input['data'] ?? null ) ? $input['data'] : [];
+\t\t\t$current = get_option( 'portfolio_singleton_' . $id, [] );
+\t\t\tif ( ! is_array( $current ) ) $current = [];
+\t\t\t$merged = $current;
+\t\t\tforeach ( $schema['fields'] ?? [] as $field_id => $field ) {
+\t\t\t\tif ( array_key_exists( $field_id, $data ) ) {
+\t\t\t\t\t$merged[ $field_id ] = portfolio_light_cast_field_value( $field, $data[ $field_id ] );
+\t\t\t\t}
+\t\t\t}
+\t\t\tupdate_option( 'portfolio_singleton_' . $id, $merged );
+\t\t\treturn (object) portfolio_light_singleton_with_inheritance( $id );
+\t\t},
+\t\t'meta' => [ 'show_in_rest' => true ],
 \t] );
 } );
 
