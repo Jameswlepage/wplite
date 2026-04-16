@@ -151,6 +151,17 @@ function statusClass(status) {
   return 'is-draft';
 }
 
+function getNotifIcon({ status, message = '' }) {
+  const msg = message.toLowerCase();
+  if (status === 'error' || msg.includes('fail') || msg.includes('error')) return 'Error';
+  if (status === 'warning' || msg.includes('warn')) return 'WarningFilled';
+  if (msg.includes('upload') || msg.includes('import')) return 'CloudUpload';
+  if (msg.includes('save') || msg.includes('saved') || msg.includes('publish')) return 'CheckmarkFilled';
+  if (status === 'success') return 'CheckmarkFilled';
+  if (msg.includes('generat') || msg.includes('ai') || msg.includes('worker')) return 'Activity';
+  return 'Information';
+}
+
 export function NotificationsPopover({ open, anchorRef, notifications, onClose, onMarkAllRead, onClearAll }) {
   const style = useAnchorPosition(anchorRef, { width: 360, offsetY: 12, align: 'right', open });
 
@@ -198,10 +209,7 @@ export function NotificationsPopover({ open, anchorRef, notifications, onClose, 
                   className={`workspace-notification workspace-notification--${notification.status || 'info'}${notification.read ? '' : ' is-unread'}`}
                 >
                   <div className="workspace-notification__icon">
-                    <CarbonIcon
-                      name={notification.status === 'error' ? 'WarningAlt' : notification.status === 'success' ? 'CheckmarkFilled' : 'Activity'}
-                      size={16}
-                    />
+                    <CarbonIcon name={getNotifIcon(notification)} size={16} />
                   </div>
                   <div className="workspace-notification__body">
                     <strong>{notification.message}</strong>
@@ -1052,13 +1060,13 @@ function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
   );
 
   return (
-    <div className="workspace-settings-pane">
+    <form className="workspace-settings-pane" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
       <div className="workspace-settings-pane__header">
         <div>
           <h3>General</h3>
           <p>Identity, homepage, and discussion defaults.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} onClick={handleSave}>Save Settings</Button>
+        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
       </div>
       <div className="workspace-settings-pane__grid">
         <div className="workspace-settings-pane__main">
@@ -1174,7 +1182,7 @@ function EmbeddedSiteSettings({ bootstrap, setBootstrap, pushNotice }) {
           </Card>
         </div>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -1233,13 +1241,13 @@ function EmbeddedSingletonSettings({ bootstrap, singletonData, setSingletonData,
   }
 
   return (
-    <div className="workspace-settings-pane">
+    <form className="workspace-settings-pane" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
       <div className="workspace-settings-pane__header">
         <div>
           <h3>{singleton.label}</h3>
           <p>Compiler-owned settings surface backed by WordPress options.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} onClick={handleSave}>Save Settings</Button>
+        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
       </div>
       <Card className="surface-card">
         <CardBody>
@@ -1251,7 +1259,7 @@ function EmbeddedSingletonSettings({ bootstrap, singletonData, setSingletonData,
           />
         </CardBody>
       </Card>
-    </div>
+    </form>
   );
 }
 
@@ -1340,13 +1348,13 @@ function EmbeddedAccountSettings({ bootstrap, setBootstrap, pushNotice }) {
   }
 
   return (
-    <div className="workspace-settings-pane">
+    <form className="workspace-settings-pane" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
       <div className="workspace-settings-pane__header">
         <div>
           <h3>Account</h3>
           <p>Your WordPress profile, editor preferences, and security controls.</p>
         </div>
-        <Button variant="primary" isBusy={isSaving} onClick={handleSave}>Save Settings</Button>
+        <Button variant="primary" isBusy={isSaving} type="submit">Save Settings</Button>
       </div>
       <div className="workspace-settings-pane__grid">
         <div className="workspace-settings-pane__main">
@@ -1513,7 +1521,7 @@ function EmbeddedAccountSettings({ bootstrap, setBootstrap, pushNotice }) {
           </Card>
         </div>
       </div>
-    </div>
+    </form>
   );
 }
 

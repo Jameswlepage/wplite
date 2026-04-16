@@ -303,21 +303,38 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
   const { pageId } = useParams();
   const isNew = pageId === 'new';
   const [pages, setPages] = useState([]);
-  const [draft, setDraft] = useState(() => ({
-    title: '',
-    slug: '',
-    routeId: '',
-    postStatus: 'draft',
-    commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
-    content: '',
-    date: '',
-    featuredMedia: 0,
-    parent: 0,
-    template: '',
-    menuOrder: 0,
-    link: '',
-    modified: '',
-  }));
+  const [draft, setDraft] = useState(() => {
+    const base = {
+      title: '',
+      slug: '',
+      routeId: '',
+      postStatus: 'draft',
+      commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
+      content: '',
+      date: '',
+      featuredMedia: 0,
+      parent: 0,
+      template: '',
+      menuOrder: 0,
+      link: '',
+      modified: '',
+    };
+    // Seed title/slug/status from bootstrap.pages so the topbar shows the
+    // real name immediately — no "Untitled Page" flash while the REST load runs.
+    if (!isNew) {
+      const seed = (bootstrap?.pages ?? []).find((p) => String(p.id) === String(pageId));
+      if (seed) {
+        return {
+          ...base,
+          id: seed.id,
+          title: seed.title || '',
+          slug: seed.slug || '',
+          postStatus: seed.postStatus || base.postStatus,
+        };
+      }
+    }
+    return base;
+  });
   const [blocks, setBlocks] = useState([]);
   const [templateRecord, setTemplateRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -483,6 +500,10 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
         });
       }
       if (savedTemplate) {
+        // Update template record metadata from server response but do NOT
+        // call setBlocks — the editor already has the correct composed state.
+        // Re-setting blocks would assign new clientIds and cause a full
+        // BlockCanvas iframe reload with no visual benefit.
         const composed = composeTemplateEditorBlocks(
           blocksFromContent(savedTemplate?.content?.raw ?? ''),
           blocksFromContent(normalized.content)
@@ -493,10 +514,8 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
           title: savedTemplate.title?.raw ?? savedTemplate.title?.rendered ?? templateRecord?.title ?? 'Template',
           slotFound: composed.slotFound,
         });
-        setBlocks(composed.blocks);
-      } else {
-        setBlocks(blocksFromContent(normalized.content));
       }
+      // Non-template: editor state is already current — no setBlocks needed.
       setPages((current) => {
         const next = [...current];
         const index = next.findIndex((item) => String(item.id) === String(normalized.id));

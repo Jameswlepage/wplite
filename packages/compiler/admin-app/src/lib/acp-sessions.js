@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'wplite:acp-sessions:v1';
+const ACTIVE_SESSION_KEY = 'wplite:acp-active-session:v1';
 const MAX_SESSIONS = 50;
 const MAX_MESSAGES_PER_SESSION = 500;
 
@@ -92,4 +93,26 @@ export function deleteSession(id) {
 
 export function clearAllSessions() {
   writeAll([]);
+}
+
+export function getPersistedActiveSessionId() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(ACTIVE_SESSION_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+export function persistActiveSessionId(id) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (id) {
+      window.localStorage.setItem(ACTIVE_SESSION_KEY, id);
+    } else {
+      window.localStorage.removeItem(ACTIVE_SESSION_KEY);
+    }
+  } catch {
+    // storage full / disabled — swallow.
+  }
 }

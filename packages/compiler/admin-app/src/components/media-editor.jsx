@@ -1,6 +1,7 @@
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Button,
+  Popover,
   RangeControl,
   TextControl,
   TextareaControl,
@@ -350,6 +351,65 @@ function SliderRow({ label, value, min, max, step = 1, onChange, onReset, format
         withInputField={false}
         __nextHasNoMarginBottom
       />
+    </div>
+  );
+}
+
+/* ── Generate controls popover (guidance + strength sliders) ── */
+function GenerateControls({ guidance, strength, annotations, onChangeGuidance, onChangeStrength, onClearAnnotations }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const hasAnnotations = annotations.length > 0;
+  const isNonDefault = guidance !== 7 || strength !== 65;
+
+  return (
+    <div className="media-ed-gen-controls">
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`media-ed-gen-controls__trigger${isNonDefault ? ' is-modified' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        Parameters{isNonDefault ? ' ·' : ''}
+        {isNonDefault ? <span className="media-ed-gen-controls__badge">{guidance} · {strength}%</span> : null}
+      </button>
+      {hasAnnotations ? (
+        <span className="media-ed-gen-controls__annotations">
+          {annotations.length} annotation{annotations.length === 1 ? '' : 's'}
+          <button type="button" onClick={onClearAnnotations}>Clear</button>
+        </span>
+      ) : null}
+      {open && (
+        <Popover
+          anchor={triggerRef.current}
+          placement="top-start"
+          offset={8}
+          onClose={() => setOpen(false)}
+          className="media-ed-gen-controls__popover"
+          focusOnMount
+        >
+          <div className="media-ed-gen-controls__body">
+            <SliderRow
+              label="Guidance"
+              value={guidance}
+              min={1}
+              max={20}
+              onChange={onChangeGuidance}
+              onReset={() => onChangeGuidance(7)}
+            />
+            <SliderRow
+              label="Strength"
+              value={strength}
+              min={0}
+              max={100}
+              onChange={onChangeStrength}
+              onReset={() => onChangeStrength(65)}
+              formatValue={(v) => `${v}%`}
+            />
+          </div>
+        </Popover>
+      )}
     </div>
   );
 }
@@ -741,41 +801,16 @@ export function ImageEditor({
     });
   };
 
-  const assistantControls = useMemo(() => (
-    <div className="media-ed-assistant-controls">
-      <SliderRow
-        label="Guidance"
-        value={generate.guidance}
-        min={1}
-        max={20}
-        onChange={(v) => setGenerate((g) => ({ ...g, guidance: v }))}
-        onReset={() => setGenerate((g) => ({ ...g, guidance: 7 }))}
-      />
-      <SliderRow
-        label="Strength"
-        value={generate.strength}
-        min={0}
-        max={100}
-        onChange={(v) => setGenerate((g) => ({ ...g, strength: v }))}
-        onReset={() => setGenerate((g) => ({ ...g, strength: 65 }))}
-        formatValue={(v) => `${v}%`}
-      />
-      {annotations.length > 0 ? (
-        <div className="media-ed-assistant-annotations">
-          <span>
-            {annotations.length} annotation{annotations.length === 1 ? '' : 's'} on image
-          </span>
-          <Button
-            variant="tertiary"
-            onClick={() => setAnnotations([])}
-            __next40pxDefaultSize
-          >
-            Clear
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  ), [annotations, generate.guidance, generate.strength]);
+  const assistantControls = (
+    <GenerateControls
+      guidance={generate.guidance}
+      strength={generate.strength}
+      annotations={annotations}
+      onChangeGuidance={(v) => setGenerate((g) => ({ ...g, guidance: v }))}
+      onChangeStrength={(v) => setGenerate((g) => ({ ...g, strength: v }))}
+      onClearAnnotations={() => setAnnotations([])}
+    />
+  );
 
   const assistantSurface = useMemo(() => ({
     placeholder: 'Generate or edit this image',

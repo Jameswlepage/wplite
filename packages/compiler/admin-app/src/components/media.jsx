@@ -48,7 +48,8 @@ function getMimeBucket(mimeType) {
 }
 
 function getThumb(item) {
-  return item.media_details?.sizes?.thumbnail?.source_url
+  return item.media_details?.sizes?.medium_large?.source_url
+    || item.media_details?.sizes?.large?.source_url
     || item.media_details?.sizes?.medium?.source_url
     || item.source_url;
 }

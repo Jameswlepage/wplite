@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Button,
   Modal,
@@ -33,6 +34,7 @@ function getMediaLabel(item) {
 export function ImageControl({ data, field, onChange }) {
   const value = field.getValue({ item: data });
   const attachmentId = Number(value) > 0 ? Number(value) : 0;
+  const navigate = useNavigate();
   const [previewItem, setPreviewItem] = useState(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [libraryItems, setLibraryItems] = useState([]);
@@ -203,7 +205,7 @@ export function ImageControl({ data, field, onChange }) {
                   {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
                 </span>
               )}
-              <Button variant="primary" isBusy={uploading} onClick={() => fileRef.current?.click()}>
+              <Button variant="secondary" isBusy={uploading} onClick={() => fileRef.current?.click()}>
                 Upload
               </Button>
             </div>
@@ -282,8 +284,15 @@ export function ImageControl({ data, field, onChange }) {
                       </dl>
                     </div>
                     <div className="media-inspector__footer">
-                      <Button variant="tertiary" size="small" href={selectedItem.source_url} target="_blank">
-                        Open original
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => {
+                          setLibraryOpen(false);
+                          navigate(`/media/${selectedItem.id}`);
+                        }}
+                      >
+                        Edit image
                       </Button>
                       <Button variant="primary" onClick={handleChooseSelected}>
                         Use this image
