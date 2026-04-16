@@ -14,6 +14,14 @@ const devOrigin = `http://${devHost}:${devPort}`;
 export default defineConfig({
   root: __dirname,
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@wplite/block-editor-inserter': path.resolve(
+        __dirname,
+        '../../../node_modules/@wordpress/block-editor/build-module/components/inserter'
+      ),
+    },
+  },
   server: {
     host: devHost,
     port: devPort,

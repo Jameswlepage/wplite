@@ -64,6 +64,44 @@ function normalizeHintNumber(value) {
   return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 0;
 }
 
+function hasFragmentNavigation(href) {
+  const trimmed = String(href ?? '').trim();
+  return trimmed.includes('#');
+}
+
+function hasExplicitEntityHint(input = {}) {
+  if (!input || typeof input !== 'object') {
+    return false;
+  }
+
+  const routeId = normalizeHintString(input.routeId ?? input.wpliteRouteId);
+  if (routeId) {
+    return true;
+  }
+
+  const targetKind = normalizeHintString(input.targetKind ?? input.wpliteTargetKind);
+  const modelId = normalizeHintString(input.modelId ?? input.wpliteModelId);
+  if (targetKind === 'archive' && modelId) {
+    return true;
+  }
+
+  const entityKind = normalizeHintString(input.kind);
+  const entityType = normalizeHintString(input.type);
+  const postId = normalizeHintNumber(
+    input.postId
+    ?? input.recordId
+    ?? input.wplitePostId
+    ?? ((entityKind === 'post-type' || !entityKind) ? input.id : '')
+  );
+  const postType = normalizeHintString(
+    input.postType
+    ?? input.wplitePostType
+    ?? ((entityKind === 'post-type' || !entityKind) ? entityType : '')
+  );
+
+  return Number.isFinite(postId) && postId > 0 && Boolean(postType || modelId);
+}
+
 /**
  * Build an internal-link resolver that maps user-facing URLs to admin-app
  * editor routes.
@@ -306,9 +344,16 @@ export function createInternalLinkResolver({ bootstrap, recordsByModel }) {
       if (hintedResolution) {
         return hintedResolution;
       }
+
+      if (hasFragmentNavigation(input.href) && !hasExplicitEntityHint(input)) {
+        return null;
+      }
     }
 
     const href = typeof input === 'string' ? input : input?.href;
+    if (hasFragmentNavigation(href)) {
+      return null;
+    }
     const url = normalizeInternalUrl(href);
     if (!url) return null;
 

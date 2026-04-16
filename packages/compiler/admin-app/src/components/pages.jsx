@@ -310,6 +310,8 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     postStatus: 'draft',
     commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
     content: '',
+    date: '',
+    featuredMedia: 0,
     parent: 0,
     template: '',
     menuOrder: 0,
@@ -344,6 +346,8 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
             postStatus: 'draft',
             commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
             content: '',
+            date: '',
+            featuredMedia: 0,
             parent: 0,
             template: '',
             menuOrder: 0,
@@ -439,6 +443,8 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
           status: nextDraft.postStatus,
           comment_status: nextDraft.commentStatus === 'open' ? 'open' : 'closed',
           content: serialize(pageContentBlocks),
+          date_gmt: nextDraft.date || null,
+          featured_media: Number(nextDraft.featuredMedia || 0),
           parent: Number(nextDraft.parent || 0),
           template: nextDraft.template || '',
           menu_order: Number(nextDraft.menuOrder || 0),
@@ -696,6 +702,18 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     setBlocks(nextBlocks);
   }
 
+  const recordContext = !isNew ? {
+    postId: draft.id,
+    postType: 'page',
+    title: draft.title,
+    date: draft.date,
+    link: draft.link,
+    featuredMedia: draft.featuredMedia,
+    setField: (field, value) => {
+      setDraft((current) => ({ ...current, [field]: value }));
+    },
+  } : null;
+
   return (
     <NativeBlockEditorFrame
       label="Pages"
@@ -718,6 +736,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
       viewUrl={draft.link}
       documentLabel="Page"
       canvasLayout={Boolean(templateRecord || routeManifest) ? 'template' : 'content'}
+      recordContext={recordContext}
       resolveInternalLink={resolveInternalLink}
       onOpenInternalLink={(path) => navigate(path)}
       wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}

@@ -21,6 +21,33 @@ export function toTitleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function parseJsonResponseText(text) {
+  if (!text) {
+    return {};
+  }
+
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    return JSON.parse(trimmed);
+  }
+
+  const candidates = [text.indexOf('{'), text.indexOf('[')]
+    .filter((index) => index >= 0)
+    .sort((left, right) => left - right);
+
+  for (const index of candidates) {
+    const candidate = text.slice(index).trimStart();
+    if (!candidate) continue;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // Keep trying later JSON-looking segments.
+    }
+  }
+
+  return JSON.parse(trimmed);
+}
+
 export async function requestJson(baseUrl, endpoint, options = {}) {
   const url = new URL(endpoint.replace(/^\//, ''), baseUrl);
   const headers = {
@@ -41,7 +68,7 @@ export async function requestJson(baseUrl, endpoint, options = {}) {
     signal: options.signal,
   });
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  const payload = parseJsonResponseText(text);
   if (!response.ok) {
     throw new Error(payload.message || `Request failed with status ${response.status}`);
   }
@@ -253,6 +280,8 @@ export function createEmptyRecord(model, { commentsEnabled = false, includeComme
     slug: '',
     excerpt: '',
     content: '',
+    date: '',
+    featuredMedia: 0,
     postStatus: model.id === 'inquiry' ? 'publish' : 'draft',
   };
 
@@ -534,7 +563,9 @@ export function normalizePageRecord(page) {
     parent: page.parent ?? 0,
     template: page.template ?? '',
     menuOrder: page.menu_order ?? 0,
+    featuredMedia: page.featured_media ?? 0,
     link: page.link ?? '',
+    date: page.date_gmt ?? page.date ?? '',
     modified: page.modified ?? '',
   };
 }

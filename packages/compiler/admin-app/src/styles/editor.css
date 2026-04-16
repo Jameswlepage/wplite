@@ -234,11 +234,90 @@
   display: flex;
   flex-direction: column;
   border-right: 2px solid #1e1e1e;
-  background: #2d2d2d;
+  background: var(--wplite-bg, #242424);
   color: #ffffff;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.native-editor__inserter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-tablist {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.native-editor__inserter-tab {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__inserter-tab:hover,
+.native-editor__inserter-tab:focus-visible {
+  color: #ffffff;
+  outline: none;
+}
+
+.native-editor__inserter-tab.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.native-editor__inserter-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.native-editor__inserter-close:hover,
+.native-editor__inserter-close:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  outline: none;
+}
+
+.native-editor__inserter-search {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-search-placeholder {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .native-editor__inserter-panel-body {
@@ -247,6 +326,22 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background: var(--wplite-bg, #242424);
+}
+
+.native-editor__inserter-results {
+  min-height: 0;
+  padding: 10px 10px 24px;
+}
+
+.native-editor__inserter-empty-state {
+  padding: 18px 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .native-editor__inserter-panel-body .block-editor-inserter__menu,
@@ -411,6 +506,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* Gutenberg's Iframe scale-container flips to position: absolute + width:
@@ -648,6 +744,123 @@
   min-height: 100%;
   border: 0;
   background: #ffffff;
+}
+
+.wplite-editor-record-date-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wplite-editor-record-image-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.wplite-editor-record-image {
+  position: relative;
+}
+
+.wplite-editor-record-image__preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.wplite-editor-record-image__toolbar {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(36, 36, 36, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.native-editor__linked-target-actions {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  background: var(--wplite-bg, #242424);
+  color: #f0f0f0;
+  box-shadow: none;
+  max-width: min(420px, calc(100% - 20px));
+}
+
+.native-editor__linked-target-copy {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.native-editor__linked-target-eyebrow {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #a9a9a9;
+}
+
+.native-editor__linked-target-title {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  color: #f5f5f5;
+}
+
+.native-editor__linked-target-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.native-editor__linked-target-button.components-button {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #ffffff;
+  border-color: #4a4a4a;
+  background: #2c2c2c;
+  box-shadow: none;
+}
+
+.native-editor__linked-target-button.components-button:hover:not(:disabled),
+.native-editor__linked-target-button.components-button:focus:not(:disabled) {
+  color: #ffffff;
+  border-color: #5a5a5a;
+  background: #343434;
+}
+
+.native-editor__linked-target-popover .components-popover__content {
+  width: min(360px, calc(100vw - 24px));
+}
+
+.native-editor__linked-target-popover-body {
+  padding: 12px;
 }
 
 .native-editor__canvas--template .block-editor-block-list__layout,

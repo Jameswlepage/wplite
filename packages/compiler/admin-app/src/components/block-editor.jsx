@@ -1,24 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BlockBreadcrumb,
-  BlockCanvas,
+  BlockContextProvider,
+  BlockList,
   BlockEditorKeyboardShortcuts,
   BlockEditorProvider,
   BlockInspector,
-  BlockToolbar,
   BlockTools,
   LinkControl,
-  __experimentalLibrary as InserterLibrary,
+  __unstableEditorStyles as GutenbergEditorStyles,
+  __unstableIframe as GutenbergIframe,
+  __unstableUseBlockSelectionClearer as useBlockSelectionClearer,
+  useBlockCommands,
 } from '@wordpress/block-editor';
 import {
   Button,
-  DropdownMenu,
   PanelBody,
   Popover,
+  SearchControl,
   TabPanel,
 } from '@wordpress/components';
+import { useMergeRefs } from '@wordpress/compose';
 import { useDispatch, useSelect } from '@wordpress/data';
 import { store as blockEditorStore } from '@wordpress/block-editor';
+import { __ } from '@wordpress/i18n';
 import { useLocation } from 'react-router-dom';
 import { CarbonIcon } from '../lib/icons.jsx';
 import { apiFetch } from '../lib/helpers.js';
@@ -27,8 +32,15 @@ import {
   buildCanvasStyles,
   registerServerBlockTypes,
 } from '../lib/blocks.jsx';
+import { EditorRecordProvider } from '../lib/editor-record-context.jsx';
 import { useRegisterEditorChrome } from './workspace-context.jsx';
 import { useAssistant } from './assistant-provider.jsx';
+import BlockTypesTab from '@wplite/block-editor-inserter/block-types-tab.mjs';
+import BlockPatternsTab from '@wplite/block-editor-inserter/block-patterns-tab/index.mjs';
+import { PatternCategoryPreviews } from '@wplite/block-editor-inserter/block-patterns-tab/pattern-category-previews.mjs';
+import { MediaTab, MediaCategoryPanel } from '@wplite/block-editor-inserter/media-tab/index.mjs';
+import InserterSearchResults from '@wplite/block-editor-inserter/search-results.mjs';
+import useInsertionPoint from '@wplite/block-editor-inserter/hooks/use-insertion-point.mjs';
 
 /**
  * Mounted inside BlockEditorProvider so it can read the block-editor
@@ -62,6 +74,75 @@ function AssistantSelectionBridge() {
 // session. WP's editor settings don't change within a session, and caching
 // also avoids re-registering server block types on every navigation.
 let cachedEditorBundlePromise = null;
+const EDITOR_SCROLL_STORAGE_KEY = 'wplite.editorScroll.v1';
+const editorScrollCache = new Map();
+
+function getEditorScrollCacheKey(locationKey = '', pathname = '') {
+  const normalizedLocationKey = String(locationKey || '').trim();
+  const normalizedPathname = String(pathname || '').trim();
+  return normalizedPathname || normalizedLocationKey || 'root';
+}
+
+function hydrateEditorScrollCache() {
+  if (editorScrollCache.size > 0) {
+    return editorScrollCache;
+  }
+
+  try {
+    const raw = window.sessionStorage?.getItem(EDITOR_SCROLL_STORAGE_KEY);
+    if (!raw) {
+      return editorScrollCache;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return editorScrollCache;
+    }
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        value
+        && typeof value === 'object'
+        && Number.isFinite(Number(value.x))
+        && Number.isFinite(Number(value.y))
+      ) {
+        editorScrollCache.set(key, {
+          x: Number(value.x),
+          y: Number(value.y),
+        });
+      }
+    }
+  } catch {
+    // Ignore malformed persisted scroll state.
+  }
+
+  return editorScrollCache;
+}
+
+function writeEditorScrollPosition(cacheKey, position) {
+  if (!cacheKey || !position) {
+    return;
+  }
+
+  const cache = hydrateEditorScrollCache();
+  cache.set(cacheKey, {
+    x: Number.isFinite(Number(position.x)) ? Number(position.x) : 0,
+    y: Number.isFinite(Number(position.y)) ? Number(position.y) : 0,
+  });
+
+  try {
+    window.sessionStorage?.setItem(
+      EDITOR_SCROLL_STORAGE_KEY,
+      JSON.stringify(Object.fromEntries(cache.entries()))
+    );
+  } catch {
+    // Ignore storage failures in private browsing / low quota environments.
+  }
+}
+
+function readEditorScrollPosition(cacheKey) {
+  return hydrateEditorScrollCache().get(cacheKey) ?? { x: 0, y: 0 };
+}
 
 function loadEditorBundle() {
   if (!cachedEditorBundlePromise) {
@@ -309,15 +390,16 @@ function extractBlockTargetHints(block) {
   return Object.keys(hints).length > 0 ? hints : null;
 }
 
-function getNavigationBindingForResolution(resolution) {
-  if (!resolution?.id || resolution?.kind !== 'page') {
+function getNavigationUrlBinding({ kind, type, id }) {
+  const numericId = Number(id);
+  if (kind !== 'post-type' || !type || !Number.isFinite(numericId) || numericId <= 0) {
     return null;
   }
 
   return {
-    kind: 'post-type',
-    type: 'page',
-    id: Number(resolution.id),
+    kind,
+    type,
+    id: numericId,
     metadata: {
       bindings: {
         url: {
@@ -329,6 +411,36 @@ function getNavigationBindingForResolution(resolution) {
       },
     },
   };
+}
+
+function getNavigationBindingForResolution(resolution) {
+  if (!resolution) {
+    return null;
+  }
+
+  if (resolution.kind === 'page') {
+    return getNavigationUrlBinding({
+      kind: 'post-type',
+      type: 'page',
+      id: resolution.id,
+    });
+  }
+
+  return null;
+}
+
+function omitNavigationUrlBinding(metadata = {}) {
+  const nextMetadata = { ...(metadata ?? {}) };
+  const nextBindings = { ...(nextMetadata.bindings ?? {}) };
+  delete nextBindings.url;
+
+  if (Object.keys(nextBindings).length > 0) {
+    nextMetadata.bindings = nextBindings;
+  } else {
+    delete nextMetadata.bindings;
+  }
+
+  return nextMetadata;
 }
 
 function normalizeNavigationBlock(block, resolveInternalLink) {
@@ -526,6 +638,471 @@ function NativeLinkViewerActions({
   );
 }
 
+function NativeInserterPanel({
+  onSelect = () => {},
+  onClose = () => {},
+}) {
+  const [selectedTab, setSelectedTab] = useState('blocks');
+  const [filterValue, setFilterValue] = useState('');
+  const [selectedPatternCategory, setSelectedPatternCategory] = useState(null);
+  const [patternFilter, setPatternFilter] = useState('all');
+  const [selectedMediaCategory, setSelectedMediaCategory] = useState(null);
+  const blockTypesTabRef = useRef(null);
+
+  const [destinationRootClientId, onInsertBlocks, onToggleInsertionPoint] = useInsertionPoint({
+    shouldFocusBlock: true,
+  });
+
+  const handleInsert = useCallback((blocks, meta, shouldForceFocusBlock, rootClientId) => {
+    onInsertBlocks(blocks, meta, shouldForceFocusBlock, rootClientId);
+    onSelect(blocks);
+  }, [onInsertBlocks, onSelect]);
+
+  const handleInsertPattern = useCallback((blocks, patternName, ...args) => {
+    onToggleInsertionPoint(false);
+    onInsertBlocks(blocks, { patternName }, ...args);
+    onSelect(blocks);
+  }, [onInsertBlocks, onSelect, onToggleInsertionPoint]);
+
+  const handleHoverItem = useCallback((item) => {
+    onToggleInsertionPoint(item);
+  }, [onToggleInsertionPoint]);
+
+  const handleSelectTab = useCallback((nextTab) => {
+    setSelectedTab(nextTab);
+    setFilterValue('');
+    if (nextTab !== 'patterns') {
+      setSelectedPatternCategory(null);
+    }
+    if (nextTab !== 'media') {
+      setSelectedMediaCategory(null);
+    }
+  }, []);
+
+  const handlePatternCategory = useCallback((patternCategory, nextFilter = 'all') => {
+    setSelectedPatternCategory(patternCategory);
+    setPatternFilter(nextFilter);
+  }, []);
+
+  const showSearch = selectedTab !== 'media';
+  const showSearchResults = showSearch && filterValue.trim().length > 0;
+
+  return (
+    <aside className="native-editor__inserter-panel" aria-label="Block inserter">
+      <div className="native-editor__inserter-header">
+        <div className="native-editor__inserter-tablist" role="tablist" aria-label="Insert content">
+          {[
+            ['blocks', 'Blocks'],
+            ['patterns', 'Patterns'],
+            ['media', 'Media'],
+          ].map(([tabId, label]) => (
+            <button
+              key={tabId}
+              type="button"
+              role="tab"
+              aria-selected={selectedTab === tabId}
+              className={`native-editor__inserter-tab${selectedTab === tabId ? ' is-active' : ''}`}
+              onClick={() => handleSelectTab(tabId)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="native-editor__inserter-close"
+          aria-label="Close inserter"
+          onClick={onClose}
+        >
+          <CloseIcon />
+        </button>
+      </div>
+      <div className="native-editor__inserter-search">
+        {showSearch ? (
+          <SearchControl
+            value={filterValue}
+            onChange={setFilterValue}
+            label={__('Search')}
+            placeholder={__('Search')}
+            className="native-editor__inserter-search-control"
+          />
+        ) : (
+          <div className="native-editor__inserter-search-placeholder">
+            Browse media sources and insert directly into the canvas.
+          </div>
+        )}
+      </div>
+      <div className="native-editor__inserter-panel-body">
+        {showSearchResults ? (
+          <div className="native-editor__inserter-results">
+            <InserterSearchResults
+              filterValue={filterValue}
+              onSelect={onSelect}
+              onHover={handleHoverItem}
+              rootClientId={destinationRootClientId}
+              shouldFocusBlock={true}
+              prioritizePatterns={selectedTab === 'patterns'}
+            />
+          </div>
+        ) : null}
+
+        {!showSearchResults && selectedTab === 'blocks' ? (
+          <div className="native-editor__inserter-results native-editor__inserter-results--blocks">
+            <BlockTypesTab
+              ref={blockTypesTabRef}
+              rootClientId={destinationRootClientId}
+              onInsert={handleInsert}
+              onHover={handleHoverItem}
+              showMostUsedBlocks={true}
+            />
+          </div>
+        ) : null}
+
+        {!showSearchResults && selectedTab === 'patterns' ? (
+          <div className="native-editor__inserter-results native-editor__inserter-results--patterns">
+            <BlockPatternsTab
+              rootClientId={destinationRootClientId}
+              onInsert={handleInsertPattern}
+              onSelectCategory={handlePatternCategory}
+              selectedCategory={selectedPatternCategory}
+            >
+              {selectedPatternCategory ? (
+                <PatternCategoryPreviews
+                  rootClientId={destinationRootClientId}
+                  onInsert={handleInsertPattern}
+                  category={selectedPatternCategory}
+                  patternFilter={patternFilter}
+                  showTitlesAsTooltip
+                />
+              ) : (
+                <div className="native-editor__inserter-empty-state">
+                  <p>Choose a pattern category to browse and insert ready-made layouts.</p>
+                </div>
+              )}
+            </BlockPatternsTab>
+          </div>
+        ) : null}
+
+        {!showSearchResults && selectedTab === 'media' ? (
+          <div className="native-editor__inserter-results native-editor__inserter-results--media">
+            <MediaTab
+              rootClientId={destinationRootClientId}
+              selectedCategory={selectedMediaCategory}
+              onSelectCategory={setSelectedMediaCategory}
+              onInsert={handleInsert}
+            >
+              {selectedMediaCategory ? (
+                <MediaCategoryPanel
+                  rootClientId={destinationRootClientId}
+                  onInsert={handleInsert}
+                  category={selectedMediaCategory}
+                />
+              ) : (
+                <div className="native-editor__inserter-empty-state">
+                  <p>Select a media source to insert images, video, or audio.</p>
+                </div>
+              )}
+            </MediaTab>
+          </div>
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
+function getCanonicalHref(anchor) {
+  if (!anchor) return '';
+  const raw = anchor.getAttribute('href');
+  if (!raw) return '';
+  const trimmed = String(raw).trim();
+  if (!trimmed || trimmed.startsWith('#')) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
+  try {
+    return new URL(trimmed, window.location.origin).toString();
+  } catch {
+    return trimmed;
+  }
+}
+
+function resolveInteractiveTargetFromNode(node, {
+  getBlockFromNode,
+  resolveInternalLink,
+}) {
+  if (!node || typeof node.closest !== 'function') {
+    return null;
+  }
+
+  const anchor = node.closest('a[href]');
+  const block = getBlockFromNode(node);
+  const blockHints = extractBlockTargetHints(block) ?? {};
+  const queryRecord = extractQueryRecordHints(node);
+  const href = anchor ? getCanonicalHref(anchor) : '';
+  const linkSource = anchor && block
+    ? resolveEditableLinkSource(block, href)
+    : null;
+  const resolverInput = {
+    ...blockHints,
+    ...(queryRecord ? {
+      postId: queryRecord.postId,
+      postType: queryRecord.postType,
+    } : {}),
+    ...(href && !href.startsWith('#') ? { href } : {}),
+  };
+  const resolution = resolveInternalLink?.(resolverInput) ?? null;
+
+  if (!anchor && !queryRecord && Object.keys(blockHints).length === 0) {
+    return null;
+  }
+
+  if (!resolution && !resolverInput.href && !queryRecord) {
+    return null;
+  }
+
+  const targetNode = queryRecord?.node || anchor || node.closest('[data-block]') || node;
+
+  return {
+    ...resolverInput,
+    href: resolverInput.href || resolution?.href || '',
+    text:
+      anchor?.textContent?.trim()
+      || block?.attributes?.label
+      || block?.attributes?.text
+      || block?.attributes?.title
+      || '',
+    resolution,
+    node: targetNode,
+    anchor: anchor || null,
+    clientId: getBlockClientIdFromNode(targetNode),
+    blockName: block?.name || '',
+    isInlineTextLink: linkSource?.type === 'html',
+    isQueryRecordLink: Boolean(queryRecord),
+    isNavigationLink: block?.name === 'core/navigation-link' || block?.name === 'core/navigation-submenu',
+    isBlockAttributeLink: linkSource?.type === 'attribute',
+  };
+}
+
+function RouterBlockEditorCanvas({
+  canvasLayout,
+  canvasStyles,
+  getBlockFromNode,
+  locationKey,
+  registerCanvasScrollReader,
+  recordContextValue,
+  pathname,
+  resolveInternalLinkRef,
+  routeTarget,
+  setSelectedLinkedTarget,
+  selectBlock,
+  undoRef,
+  redoRef,
+}) {
+  useBlockCommands();
+
+  const selectionClearerRef = useBlockSelectionClearer();
+  const contentNodeRef = useRef(null);
+  const [frameBody, setFrameBody] = useState(null);
+
+  const setContentRef = useCallback((node) => {
+    contentNodeRef.current = node;
+    setFrameBody(node);
+  }, []);
+
+  const contentRef = useMergeRefs([selectionClearerRef, setContentRef]);
+
+  useEffect(() => {
+    if (!frameBody?.ownerDocument?.defaultView) {
+      return undefined;
+    }
+
+    const frameDoc = frameBody.ownerDocument;
+    const frameWin = frameDoc.defaultView;
+    const scrollingElement = frameDoc.scrollingElement || frameDoc.documentElement;
+    const cacheKey = getEditorScrollCacheKey(locationKey, pathname);
+
+    function persistScrollPosition() {
+      writeEditorScrollPosition(cacheKey, {
+        x: scrollingElement?.scrollLeft ?? frameWin.scrollX,
+        y: scrollingElement?.scrollTop ?? frameWin.scrollY,
+      });
+    }
+
+    const restorePosition = readEditorScrollPosition(cacheKey);
+    let restoreFrameA = 0;
+    let restoreFrameB = 0;
+
+    restoreFrameA = frameWin.requestAnimationFrame(() => {
+      restoreFrameB = frameWin.requestAnimationFrame(() => {
+        frameWin.scrollTo(restorePosition.x, restorePosition.y);
+      });
+    });
+
+    scrollingElement?.addEventListener('scroll', persistScrollPosition, { passive: true });
+
+    return () => {
+      frameWin.cancelAnimationFrame?.(restoreFrameA);
+      frameWin.cancelAnimationFrame?.(restoreFrameB);
+      scrollingElement?.removeEventListener('scroll', persistScrollPosition);
+    };
+  }, [frameBody, locationKey, pathname]);
+
+  useEffect(() => {
+    if (!frameBody?.ownerDocument?.defaultView) {
+      registerCanvasScrollReader?.(null);
+      return undefined;
+    }
+
+    const frameDoc = frameBody.ownerDocument;
+    const frameWin = frameDoc.defaultView;
+    registerCanvasScrollReader?.(() => ({
+      x: frameWin.scrollX,
+      y: frameWin.scrollY,
+    }));
+
+    return () => {
+      registerCanvasScrollReader?.(null);
+    };
+  }, [frameBody, registerCanvasScrollReader]);
+
+  useEffect(() => {
+    if (!frameBody?.ownerDocument?.defaultView?.frameElement) {
+      return undefined;
+    }
+
+    const frameDoc = frameBody.ownerDocument;
+
+    function selectContainingBlock(node) {
+      const clientId = getBlockClientIdFromNode(node);
+      if (clientId) {
+        selectBlock(clientId);
+      }
+    }
+
+    function resolveTarget(node) {
+      return resolveInteractiveTargetFromNode(node, {
+        getBlockFromNode,
+        resolveInternalLink: resolveInternalLinkRef.current,
+      });
+    }
+
+    let pointerDownState = { preserveRichTextInteraction: false };
+
+    function handlePointerDown(event) {
+      const editableRoot = event.target.closest?.('[contenteditable="true"]');
+      const activeElement = frameDoc.activeElement;
+      pointerDownState = {
+        preserveRichTextInteraction: Boolean(
+          editableRoot
+          && activeElement
+          && (editableRoot === activeElement || editableRoot.contains(activeElement))
+        ),
+      };
+    }
+
+    function handleLinkActivation(event) {
+      const isPrimaryButton = event.button === 0 || event.button === undefined;
+      const isMiddleButton = event.type === 'auxclick' && event.button === 1;
+      if (!isPrimaryButton && !isMiddleButton) {
+        return;
+      }
+
+      const targetInfo = resolveTarget(event.target);
+      const anchor = event.target.closest?.('a[href]');
+      const isEditingRichText = pointerDownState.preserveRichTextInteraction;
+
+      if (isEditingRichText && isPrimaryButton && !isMiddleButton && !event.metaKey && !event.ctrlKey && event.detail < 2) {
+        return;
+      }
+
+      if (anchor || targetInfo?.isQueryRecordLink || targetInfo?.resolution?.adminPath) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+      }
+
+      if (!targetInfo) {
+        setSelectedLinkedTarget(null);
+        if (anchor) {
+          selectContainingBlock(anchor);
+        }
+        return;
+      }
+
+      setSelectedLinkedTarget(targetInfo);
+
+      if (isMiddleButton || event.metaKey || event.ctrlKey) {
+        routeTarget(targetInfo, { newTab: true });
+        return;
+      }
+
+      if (event.altKey || event.shiftKey) {
+        if (targetInfo.node) {
+          selectContainingBlock(targetInfo.node);
+        }
+        return;
+      }
+
+      if (event.detail >= 2) {
+        routeTarget(targetInfo);
+        return;
+      }
+
+      if (targetInfo.node) {
+        selectContainingBlock(targetInfo.node);
+      }
+    }
+
+    function handleHistoryKeydown(event) {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod) return;
+      const key = event.key?.toLowerCase?.();
+      if (key === 'z' && !event.shiftKey) {
+        if (undoRef.current?.()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+        if (redoRef.current?.()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }
+    }
+
+    frameDoc.addEventListener('mousedown', handlePointerDown, true);
+    frameDoc.addEventListener('click', handleLinkActivation, true);
+    frameDoc.addEventListener('auxclick', handleLinkActivation, true);
+    frameDoc.addEventListener('keydown', handleHistoryKeydown, true);
+
+    return () => {
+      frameDoc.removeEventListener('mousedown', handlePointerDown, true);
+      frameDoc.removeEventListener('click', handleLinkActivation, true);
+      frameDoc.removeEventListener('auxclick', handleLinkActivation, true);
+      frameDoc.removeEventListener('keydown', handleHistoryKeydown, true);
+    };
+  }, [frameBody, getBlockFromNode, resolveInternalLinkRef, routeTarget, selectBlock, setSelectedLinkedTarget, undoRef, redoRef]);
+
+  return (
+    <GutenbergIframe
+      contentRef={contentRef}
+      style={{ height: '100%', width: '100%' }}
+      className={`native-editor__canvas-frame native-editor__canvas-frame--${canvasLayout === 'template' ? 'template' : 'content'}`}
+    >
+      <GutenbergEditorStyles styles={canvasStyles} />
+      {recordContextValue ? (
+        <BlockContextProvider value={recordContextValue}>
+          <BlockList
+            className={`native-editor__canvas-block-list native-editor__canvas-block-list--${canvasLayout === 'template' ? 'template' : 'content'}`}
+          />
+        </BlockContextProvider>
+      ) : (
+        <BlockList
+          className={`native-editor__canvas-block-list native-editor__canvas-block-list--${canvasLayout === 'template' ? 'template' : 'content'}`}
+        />
+      )}
+    </GutenbergIframe>
+  );
+}
+
 /* ── Native Block Editor Frame ── */
 export function NativeBlockEditorFrame({
   eyebrow = 'Editor',
@@ -551,13 +1128,13 @@ export function NativeBlockEditorFrame({
   wpAdminUrl,
   wpAdminTemplateUrl,
   canvasLayout = 'content',
+  recordContext = null,
   resolveInternalLink = null,
   onOpenInternalLink = null,
 }) {
   const [editorBundle, setEditorBundle] = useState(null);
   const [bundleError, setBundleError] = useState(null);
-  const canvasRef = useRef(null);
-  const { selectBlock } = useDispatch(blockEditorStore);
+  const { selectBlock, updateBlockAttributes } = useDispatch(blockEditorStore);
   const routerLocation = useLocation();
   const currentAdminPathRef = useRef(routerLocation.pathname);
   useEffect(() => { currentAdminPathRef.current = routerLocation.pathname; }, [routerLocation.pathname]);
@@ -613,10 +1190,12 @@ export function NativeBlockEditorFrame({
   const [inspectorTab, setInspectorTab] = useState(selectedBlockId ? 'block' : 'document');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inserterOpen, setInserterOpen] = useState(false);
-  const [linkPeek, setLinkPeek] = useState(null);
-  const linkPeekRef = useRef(null);
+  const [selectedLinkedTarget, setSelectedLinkedTarget] = useState(null);
+  const [isLinkSwitcherOpen, setIsLinkSwitcherOpen] = useState(false);
+  const canvasScrollReaderRef = useRef(null);
+  const linkSwitcherButtonRef = useRef(null);
 
-  // Refs to avoid re-binding the iframe click listener on every keystroke.
+  // Refs to keep editor callbacks stable while the canvas remains mounted.
   const blocksRef = useRef(blocks);
   useEffect(() => { blocksRef.current = blocks; }, [blocks]);
 
@@ -725,6 +1304,14 @@ export function NativeBlockEditorFrame({
       ?? null;
     const currentPath = currentAdminPathRef.current || '';
     const openHandler = onOpenInternalLinkRef.current || onOpenInternalLink;
+    const currentScrollPosition = canvasScrollReaderRef.current?.();
+
+    if (currentPath && currentScrollPosition) {
+      writeEditorScrollPosition(
+        getEditorScrollCacheKey(currentPath, currentPath),
+        currentScrollPosition
+      );
+    }
 
     if (newTab) {
       if (href && !href.startsWith('#')) {
@@ -762,6 +1349,144 @@ export function NativeBlockEditorFrame({
     routeTarget(target);
   }, [routeTarget]);
 
+  const selectedBlockLinkTarget = useMemo(() => {
+    if (!selectedBlock) {
+      return null;
+    }
+
+    const primaryLink = extractPrimaryLink(selectedBlock);
+    const blockHints = extractBlockTargetHints(selectedBlock) ?? {};
+    const resolution = resolveInternalLink?.({
+      ...blockHints,
+      ...(primaryLink?.href ? { href: primaryLink.href } : {}),
+    }) ?? null;
+
+    if (!resolution?.adminPath && !primaryLink?.href) {
+      return null;
+    }
+
+    return {
+      ...blockHints,
+      href: primaryLink?.href || resolution?.href || '',
+      text:
+        primaryLink?.text
+        || selectedBlock?.attributes?.label
+        || selectedBlock?.attributes?.text
+        || selectedBlock?.attributes?.title
+        || '',
+      resolution,
+      clientId: selectedBlock.clientId,
+      blockName: selectedBlock.name,
+      isBlockAttributeLink: Boolean(primaryLink?.href),
+    };
+  }, [resolveInternalLink, selectedBlock]);
+
+  const activeLinkedTarget = useMemo(() => {
+    if (
+      selectedLinkedTarget?.clientId
+      && selectedBlockId
+      && selectedLinkedTarget.clientId === selectedBlockId
+    ) {
+      return selectedLinkedTarget;
+    }
+
+    return selectedBlockLinkTarget;
+  }, [selectedBlockId, selectedBlockLinkTarget, selectedLinkedTarget]);
+
+  const navigationLinkControlValue = useMemo(() => {
+    if (selectedBlock?.name !== 'core/navigation-link') {
+      return null;
+    }
+
+    return {
+      url: getLinkHref(activeLinkedTarget) || selectedBlock?.attributes?.url || '',
+      title:
+        selectedBlock?.attributes?.label
+        || selectedBlock?.attributes?.title
+        || activeLinkedTarget?.text
+        || '',
+      kind: selectedBlock?.attributes?.kind || 'custom',
+      type: selectedBlock?.attributes?.type || 'custom',
+      id: Number.isFinite(Number(selectedBlock?.attributes?.id))
+        ? Number(selectedBlock.attributes.id)
+        : undefined,
+    };
+  }, [activeLinkedTarget, selectedBlock]);
+
+  const canSwitchNavigationLink = useMemo(
+    () => selectedBlock?.name === 'core/navigation-link' && Boolean(navigationLinkControlValue?.url || selectedBlock?.attributes?.url || selectedBlock?.attributes?.label),
+    [navigationLinkControlValue, selectedBlock]
+  );
+
+  useEffect(() => {
+    if (!selectedBlockId) {
+      setSelectedLinkedTarget(null);
+      setIsLinkSwitcherOpen(false);
+      return;
+    }
+
+    if (
+      selectedLinkedTarget?.clientId
+      && selectedLinkedTarget.clientId !== selectedBlockId
+    ) {
+      setSelectedLinkedTarget(null);
+      setIsLinkSwitcherOpen(false);
+    }
+  }, [selectedBlockId, selectedLinkedTarget]);
+
+  const handleNavigationLinkChange = useCallback((nextValue = {}) => {
+    if (selectedBlock?.name !== 'core/navigation-link') {
+      return;
+    }
+
+    const nextUrl = String(nextValue?.url ?? '').trim();
+    const nextKind = String(nextValue?.kind ?? '').trim() || 'custom';
+    const nextType = String(nextValue?.type ?? '').trim() || (nextKind === 'custom' ? 'custom' : '');
+    const nextId = Number.parseInt(String(nextValue?.id ?? ''), 10);
+    const isEntityLink = nextKind === 'post-type' && nextType && Number.isFinite(nextId) && nextId > 0;
+    const binding = isEntityLink
+      ? getNavigationUrlBinding({ kind: nextKind, type: nextType, id: nextId })
+      : null;
+    const resolvedTarget = resolveInternalLinkRef.current?.({
+      href: nextUrl,
+      kind: nextKind,
+      type: nextType,
+      id: isEntityLink ? nextId : undefined,
+    }) ?? null;
+
+    const nextMetadata = binding
+      ? {
+        ...(omitNavigationUrlBinding(selectedBlock.attributes?.metadata) ?? {}),
+        ...(binding.metadata ?? {}),
+      }
+      : omitNavigationUrlBinding(selectedBlock.attributes?.metadata);
+
+    const nextAttributes = {
+      url: nextUrl || undefined,
+      kind: isEntityLink ? nextKind : 'custom',
+      type: isEntityLink ? nextType : 'custom',
+      id: isEntityLink ? nextId : undefined,
+      metadata: nextMetadata,
+      wpliteTargetKind: resolvedTarget?.kind === 'archive' ? 'archive' : undefined,
+      wpliteModelId: resolvedTarget?.kind === 'archive' ? resolvedTarget.modelId : undefined,
+      wpliteRouteId: undefined,
+      wplitePostId: undefined,
+      wplitePostType: undefined,
+    };
+
+    const currentLabel = String(selectedBlock?.attributes?.label ?? '').trim();
+    if (!currentLabel) {
+      const suggestedLabel = String(nextValue?.title ?? nextValue?.label ?? '').trim();
+      if (suggestedLabel) {
+        nextAttributes.label = suggestedLabel;
+      }
+    }
+
+    updateBlockAttributes(selectedBlock.clientId, nextAttributes);
+    setSelectedLinkedTarget(null);
+    setIsLinkSwitcherOpen(false);
+  }, [selectedBlock, updateBlockAttributes]);
+
   const toggleInserter = useCallback(() => setInserterOpen((v) => !v), []);
   const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
 
@@ -791,334 +1516,6 @@ export function NativeBlockEditorFrame({
     }
   }, [selectedBlockId]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return undefined;
-
-    let frameCleanup = () => {};
-    let observer = null;
-
-    function bindToFrame(iframe) {
-      frameCleanup();
-      let bindFrameRetry = 0;
-
-      function bindFrameListeners() {
-        const frameDoc = iframe.contentDocument;
-        if (!frameDoc || !frameDoc.body) {
-          if (!bindFrameRetry) {
-            bindFrameRetry = window.requestAnimationFrame(() => {
-              bindFrameRetry = 0;
-              bindFrameListeners();
-            });
-          }
-          return;
-        }
-
-        // Canonical href: always prefer the raw `href` attribute and resolve
-        // it against the parent admin origin — NEVER the iframe's own
-        // resolved `anchor.href`, which inside a srcdoc iframe comes back as
-        // `about:srcdoc/...` and trips Chrome's ERR_FILE_NOT_FOUND (code 6).
-        function getCanonicalHref(anchor) {
-          if (!anchor) return '';
-          const raw = anchor.getAttribute('href');
-          if (!raw) return '';
-          const trimmed = String(raw).trim();
-          if (!trimmed || trimmed.startsWith('#')) return trimmed;
-          // Leave mailto:, tel:, javascript:, data:, http(s), and any other
-          // absolute scheme intact.
-          if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed;
-          // Relative URL → resolve against the admin origin so window.open
-          // and the internal-link resolver both see a usable absolute URL.
-          try {
-            return new URL(trimmed, window.location.origin).toString();
-          } catch {
-            return trimmed;
-          }
-        }
-
-        function resolveInteractiveTarget(target) {
-          if (!target || typeof target.closest !== 'function') return null;
-
-          const anchor = target.closest('a[href]');
-          const block = getBlockFromNode(target);
-          const blockHints = extractBlockTargetHints(block) ?? {};
-          const queryRecord = anchor ? extractQueryRecordHints(target) : null;
-          const linkSource = anchor && block
-            ? resolveEditableLinkSource(block, getCanonicalHref(anchor))
-            : null;
-          const href = anchor ? getCanonicalHref(anchor) : '';
-          const resolverInput = {
-            ...blockHints,
-            ...(queryRecord ? {
-              postId: queryRecord.postId,
-              postType: queryRecord.postType,
-            } : {}),
-            ...(href && !href.startsWith('#') ? { href } : {}),
-          };
-          const resolution = resolveInternalLinkRef.current?.(resolverInput) ?? null;
-
-          if (!anchor && Object.keys(blockHints).length === 0) {
-            return null;
-          }
-
-          if (!resolution && !resolverInput.href && !queryRecord) {
-            return null;
-          }
-
-          return {
-            ...resolverInput,
-            href: resolverInput.href || resolution?.href || '',
-            text:
-              anchor?.textContent?.trim()
-              || block?.attributes?.label
-              || block?.attributes?.text
-              || block?.attributes?.title
-              || '',
-            resolution,
-            node: anchor || queryRecord?.node || target.closest('[data-block]') || target,
-            anchor: anchor || null,
-            clientId: getBlockClientIdFromNode(target),
-            blockName: block?.name || '',
-            isInlineTextLink: linkSource?.type === 'html',
-            isQueryRecordLink: Boolean(queryRecord && anchor),
-            isNavigationLink: block?.name === 'core/navigation-link' || block?.name === 'core/navigation-submenu',
-            isBlockAttributeLink: linkSource?.type === 'attribute',
-          };
-        }
-
-        function selectContainingBlock(node) {
-          const clientId = getBlockClientIdFromNode(node);
-          if (clientId) selectBlock(clientId);
-        }
-
-        function shouldRouteOnSingleClick(targetInfo) {
-          if (!targetInfo?.resolution?.adminPath) {
-            return false;
-          }
-
-          if (targetInfo.isInlineTextLink) {
-            return false;
-          }
-
-          return (
-            targetInfo.isQueryRecordLink
-            || targetInfo.isNavigationLink
-            || targetInfo.isBlockAttributeLink
-          );
-        }
-
-        function handleLinkActivation(event) {
-          const isPrimaryButton = event.button === 0 || event.button === undefined;
-          const isMiddleButton = event.type === 'auxclick' && event.button === 1;
-          if (!isPrimaryButton && !isMiddleButton) return;
-
-          const targetInfo = resolveInteractiveTarget(event.target);
-          const anchor = event.target.closest?.('a[href]');
-          if (anchor || targetInfo) {
-            // The iframe must never navigate away from the editor, and
-            // frontend/theme runtime click handlers inside the frame must not
-            // receive the event. Selection/follow behavior is handled here.
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation?.();
-          }
-
-          if (!targetInfo) {
-            if (anchor) {
-              selectContainingBlock(anchor);
-            }
-            return;
-          }
-
-          if (isMiddleButton || event.metaKey || event.ctrlKey) {
-            routeTarget(targetInfo, { newTab: true });
-            return;
-          }
-
-          if (event.altKey || event.shiftKey) {
-            if (targetInfo.node) {
-              selectContainingBlock(targetInfo.node);
-            }
-            return;
-          }
-
-          if (event.detail >= 2 || shouldRouteOnSingleClick(targetInfo)) {
-            routeTarget(targetInfo);
-            return;
-          }
-
-          if (targetInfo.node) {
-            selectContainingBlock(targetInfo.node);
-          }
-        }
-
-        // ── Hover peek ─────────────────────────────────────────────────
-        // Show a floating action card anchored to hovered links/query items
-        // so authors can jump straight to the linked object editor.
-        let peekTimer = null;
-        function positionPeek(targetInfo) {
-          const iframeRect = iframe.getBoundingClientRect();
-          const anchorRect = targetInfo.node.getBoundingClientRect();
-          setLinkPeek({
-            href: targetInfo.href || targetInfo.resolution?.href || '',
-            text: targetInfo.text || '',
-            resolution: targetInfo.resolution,
-            top: iframeRect.top + anchorRect.top - 6,
-            left: iframeRect.left + anchorRect.right + 8,
-          });
-        }
-
-        function handleMouseOver(event) {
-          const targetInfo = resolveInteractiveTarget(event.target);
-          if (!targetInfo?.href && !targetInfo?.resolution?.adminPath) return;
-          if (peekTimer) clearTimeout(peekTimer);
-          positionPeek(targetInfo);
-        }
-
-        function handleHistoryKeydown(event) {
-          const mod = event.metaKey || event.ctrlKey;
-          if (!mod) return;
-          const key = event.key?.toLowerCase?.();
-          if (key === 'z' && !event.shiftKey) {
-            if (undoRef.current?.()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          } else if ((key === 'z' && event.shiftKey) || key === 'y') {
-            if (redoRef.current?.()) {
-              event.preventDefault();
-              event.stopPropagation();
-            }
-          }
-        }
-
-        function handleMouseOut(event) {
-          const fromTarget = resolveInteractiveTarget(event.target);
-          if (!fromTarget?.node) return;
-
-          const toTarget = resolveInteractiveTarget(event.relatedTarget);
-          if (toTarget?.node === fromTarget.node) {
-            return;
-          }
-
-          if (peekTimer) clearTimeout(peekTimer);
-          peekTimer = setTimeout(() => setLinkPeek(null), 140);
-        }
-
-        frameDoc.addEventListener('click', handleLinkActivation, true);
-        frameDoc.addEventListener('auxclick', handleLinkActivation, true);
-        frameDoc.addEventListener('mouseover', handleMouseOver, true);
-        frameDoc.addEventListener('mouseout', handleMouseOut, true);
-        frameDoc.addEventListener('keydown', handleHistoryKeydown, true);
-
-        frameCleanup = () => {
-          if (bindFrameRetry) {
-            window.cancelAnimationFrame(bindFrameRetry);
-            bindFrameRetry = 0;
-          }
-          frameDoc.removeEventListener('click', handleLinkActivation, true);
-          frameDoc.removeEventListener('auxclick', handleLinkActivation, true);
-          frameDoc.removeEventListener('mouseover', handleMouseOver, true);
-          frameDoc.removeEventListener('mouseout', handleMouseOut, true);
-          frameDoc.removeEventListener('keydown', handleHistoryKeydown, true);
-          if (peekTimer) clearTimeout(peekTimer);
-        };
-      }
-
-      // Always listen for 'load' — Gutenberg's Iframe may call
-      // document.open()/write()/close() which wipes listeners attached to
-      // the prior document. Re-binding on each load is required.
-      const handleLoad = () => bindFrameListeners();
-      iframe.addEventListener('load', handleLoad);
-
-      // If already loaded, bind immediately — the 'load' listener above
-      // also re-binds on any future navigation/reload.
-      if (iframe.contentDocument?.readyState === 'complete') {
-        bindFrameListeners();
-      }
-
-      const existing = frameCleanup;
-      frameCleanup = () => {
-        existing();
-        iframe.removeEventListener('load', handleLoad);
-      };
-    }
-
-    function connect() {
-      const iframe = canvas.querySelector('iframe');
-      if (!iframe) return false;
-      bindToFrame(iframe);
-      return true;
-    }
-
-    if (!connect()) {
-      observer = new MutationObserver(() => {
-        if (connect()) {
-          observer.disconnect();
-          observer = null;
-        }
-      });
-      observer.observe(canvas, { childList: true, subtree: true });
-    }
-
-    return () => {
-      frameCleanup();
-      observer?.disconnect();
-    };
-    // Stable deps — refs carry the latest resolver/callback/blocks.
-  }, [getBlockFromNode, routeTarget, selectBlock]);
-
-  const selectedLink = useMemo(() => {
-    const primaryLink = extractPrimaryLink(selectedBlock);
-    const blockHints = extractBlockTargetHints(selectedBlock);
-    if (!primaryLink && !blockHints) {
-      return null;
-    }
-
-    const resolutionInput = {
-      ...(blockHints ?? {}),
-      ...(primaryLink?.href ? { href: primaryLink.href } : {}),
-    };
-    const resolution = resolveInternalLink?.(resolutionInput) ?? null;
-    const editableSource = primaryLink?.href && selectedBlock
-      ? resolveEditableLinkSource(selectedBlock, primaryLink.href)
-      : null;
-
-    return {
-      ...resolutionInput,
-      href: primaryLink?.href || resolution?.href || '',
-      text:
-        primaryLink?.text
-        || selectedBlock?.attributes?.label
-        || selectedBlock?.attributes?.text
-        || selectedBlock?.attributes?.title
-        || '',
-      clientId: selectedBlockId,
-      isInlineTextLink: editableSource?.type === 'html',
-      resolution,
-    };
-  }, [resolveInternalLink, selectedBlock, selectedBlockId]);
-
-  function openLinkTarget(target = selectedLink) {
-    if (!target) return;
-    const href = getLinkHref(target);
-    if (!routeTarget(target) && href && !href.startsWith('#')) {
-      window.open(href, '_blank', 'noopener,noreferrer');
-    }
-  }
-
-  function viewLinkTarget(target = selectedLink) {
-    const href = getLinkHref(target);
-    if (!href || href.startsWith('#')) return;
-    window.open(href, '_blank', 'noopener,noreferrer');
-  }
-
-  async function copyLinkTarget(target = selectedLink) {
-    const href = getLinkHref(target);
-    if (!href) return;
-    await navigator.clipboard.writeText(href);
-  }
-
   const canvasStyles = useMemo(
     () => buildCanvasStyles(editorBundle),
     [editorBundle]
@@ -1130,6 +1527,16 @@ export function NativeBlockEditorFrame({
     }),
     [editorBundle, handleNavigateToEntityRecord]
   );
+  const recordContextValue = useMemo(() => {
+    const postType = String(recordContext?.postType ?? '').trim();
+    const postId = Number.parseInt(String(recordContext?.postId ?? ''), 10);
+
+    if (!postType || !Number.isFinite(postId) || postId <= 0) {
+      return null;
+    }
+
+    return { postType, postId };
+  }, [recordContext]);
 
   if (bundleError) {
     return (
@@ -1148,63 +1555,114 @@ export function NativeBlockEditorFrame({
   }
 
   return (
-    <BlockEditorProvider
-      value={blocks}
-      onInput={handleInput}
-      onChange={handleChange}
-      settings={editorSettings}
-    >
-      <AssistantSelectionBridge />
-      <NativeLinkViewerActions
-        currentPath={routerLocation.pathname}
-        resolveInternalLink={resolveInternalLink}
-        routeTarget={routeTarget}
-      />
-      <div className="native-editor">
+    <EditorRecordProvider value={recordContext}>
+      <BlockEditorProvider
+        value={blocks}
+        onInput={handleInput}
+        onChange={handleChange}
+        settings={editorSettings}
+      >
+        <AssistantSelectionBridge />
+        <NativeLinkViewerActions
+          currentPath={routerLocation.pathname}
+          resolveInternalLink={resolveInternalLink}
+          routeTarget={routeTarget}
+        />
+        <div className="native-editor">
         <BlockEditorKeyboardShortcuts />
         <BlockTools className="native-editor__block-tools">
           <div
             className={`native-editor__layout${sidebarOpen ? '' : ' native-editor__layout--no-sidebar'}${inserterOpen ? ' native-editor__layout--with-inserter' : ''}`}
           >
             {inserterOpen ? (
-              <aside className="native-editor__inserter-panel">
-                <div className="native-editor__inserter-panel-body">
-                  <InserterLibrary
-                    showInserterHelpPanel={false}
-                    onSelect={() => setInserterOpen(false)}
-                  />
-                </div>
-              </aside>
+              <NativeInserterPanel
+                onSelect={() => setInserterOpen(false)}
+                onClose={() => setInserterOpen(false)}
+              />
             ) : null}
             <section className="native-editor__main">
               <div className="native-editor__canvas-shell">
-                <div
-                  ref={canvasRef}
-                  className={`native-editor__canvas native-editor__canvas--${canvasLayout === 'template' ? 'template' : 'content'}`}
-                >
-                  <BlockCanvas height="100%" styles={canvasStyles} />
+                <div className={`native-editor__canvas native-editor__canvas--${canvasLayout === 'template' ? 'template' : 'content'}`}>
+                  <RouterBlockEditorCanvas
+                    canvasLayout={canvasLayout}
+                    canvasStyles={canvasStyles}
+                    getBlockFromNode={getBlockFromNode}
+                    locationKey={routerLocation.key}
+                    registerCanvasScrollReader={(reader) => {
+                      canvasScrollReaderRef.current = reader;
+                    }}
+                    recordContextValue={recordContextValue}
+                    pathname={routerLocation.pathname}
+                    resolveInternalLinkRef={resolveInternalLinkRef}
+                    routeTarget={routeTarget}
+                    setSelectedLinkedTarget={setSelectedLinkedTarget}
+                    selectBlock={selectBlock}
+                    undoRef={undoRef}
+                    redoRef={redoRef}
+                  />
                 </div>
+                {activeLinkedTarget?.resolution?.adminPath || getLinkHref(activeLinkedTarget) ? (
+                  <div className="native-editor__linked-target-actions" role="status" aria-live="polite">
+                    <div className="native-editor__linked-target-copy">
+                      <span className="native-editor__linked-target-eyebrow">Linked</span>
+                      <strong className="native-editor__linked-target-title">
+                        {getLinkDisplayLabel(activeLinkedTarget)}
+                      </strong>
+                    </div>
+                    <div className="native-editor__linked-target-buttons">
+                      {canSwitchNavigationLink ? (
+                        <>
+                          <Button
+                            ref={linkSwitcherButtonRef}
+                            className="native-editor__linked-target-button"
+                            variant="secondary"
+                            onClick={() => setIsLinkSwitcherOpen((open) => !open)}
+                          >
+                            Switch link
+                          </Button>
+                          {isLinkSwitcherOpen ? (
+                            <Popover
+                              anchor={linkSwitcherButtonRef.current}
+                              className="native-editor__linked-target-popover"
+                              placement="top-start"
+                              offset={10}
+                              onClose={() => setIsLinkSwitcherOpen(false)}
+                            >
+                              <div className="native-editor__linked-target-popover-body">
+                                <LinkControl
+                                  value={navigationLinkControlValue}
+                                  onChange={handleNavigationLinkChange}
+                                  forceIsEditingLink={true}
+                                />
+                              </div>
+                            </Popover>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {activeLinkedTarget?.resolution?.adminPath && activeLinkedTarget.resolution.adminPath !== routerLocation.pathname ? (
+                        <Button
+                          className="native-editor__linked-target-button"
+                          variant="secondary"
+                          onClick={() => routeTarget(activeLinkedTarget)}
+                        >
+                          {getEditorActionLabel(activeLinkedTarget.resolution, routerLocation.pathname)}
+                        </Button>
+                      ) : null}
+                      {getLinkHref(activeLinkedTarget) && !getLinkHref(activeLinkedTarget).startsWith('#') ? (
+                        <Button
+                          className="native-editor__linked-target-button"
+                          variant="secondary"
+                          onClick={() => routeTarget(activeLinkedTarget, { newTab: true })}
+                        >
+                          View on site
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <footer className="native-editor__footer">
                 <BlockBreadcrumb rootLabelText={documentLabel} />
-                {selectedLink ? (
-                  <div className="native-editor__footer-actions">
-                    <span className="native-editor__footer-link-meta">
-                      {getLinkDisplayLabel(selectedLink)}
-                    </span>
-                    <button type="button" className="native-editor__footer-action" onClick={() => openLinkTarget(selectedLink)}>
-                      {getEditorActionLabel(selectedLink.resolution, routerLocation.pathname)}
-                    </button>
-                    {selectedLink.resolution?.adminPath ? (
-                      <button type="button" className="native-editor__footer-action" onClick={() => viewLinkTarget(selectedLink)}>
-                        View
-                      </button>
-                    ) : null}
-                    <button type="button" className="native-editor__footer-action" onClick={() => copyLinkTarget(selectedLink)}>
-                      Copy
-                    </button>
-                  </div>
-                ) : null}
               </footer>
             </section>
 
@@ -1265,56 +1723,9 @@ export function NativeBlockEditorFrame({
             ) : null}
           </div>
         </BlockTools>
-      </div>
-      {linkPeek ? (
-        <div
-          ref={linkPeekRef}
-          className="native-editor__link-peek"
-          style={{ top: `${linkPeek.top}px`, left: `${linkPeek.left}px` }}
-          onMouseEnter={() => { /* keep open */ }}
-          onMouseLeave={() => setLinkPeek(null)}
-        >
-          <div className="native-editor__link-peek-card">
-            <div className="native-editor__link-peek-meta">
-              <span className="native-editor__link-peek-eyebrow">
-                {linkPeek.resolution?.modelLabel || 'Link'}
-              </span>
-              <strong className="native-editor__link-peek-title">
-                {getLinkDisplayLabel(linkPeek)}
-              </strong>
-            </div>
-            <div className="native-editor__link-peek-actions">
-              <button
-                type="button"
-                className="native-editor__link-peek-btn native-editor__link-peek-btn--primary"
-                onClick={() => {
-                  openLinkTarget(linkPeek);
-                  setLinkPeek(null);
-                }}
-                title={getEditorActionTitle(linkPeek, routerLocation.pathname)}
-              >
-                <CarbonIcon name={linkPeek.resolution?.adminPath ? 'ArrowRight' : 'Launch'} size={14} />
-                <span>{getEditorActionLabel(linkPeek.resolution, routerLocation.pathname)}</span>
-              </button>
-              {linkPeek.resolution?.adminPath ? (
-                <button
-                  type="button"
-                  className="native-editor__link-peek-btn"
-                  onClick={() => {
-                    viewLinkTarget(linkPeek);
-                    setLinkPeek(null);
-                  }}
-                  title={`Open ${linkPeek.href} in new tab`}
-                >
-                  <CarbonIcon name="Launch" size={14} />
-                  <span>View</span>
-                </button>
-              ) : null}
-            </div>
-          </div>
         </div>
-      ) : null}
-      <Popover.Slot />
-    </BlockEditorProvider>
+        <Popover.Slot />
+      </BlockEditorProvider>
+    </EditorRecordProvider>
   );
 }
