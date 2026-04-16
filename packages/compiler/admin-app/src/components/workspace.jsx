@@ -1672,6 +1672,133 @@ export function IntegrationsPage({ pushNotice }) {
   );
 }
 
+/* ── Connectors Page ── */
+export function ConnectorsPage({ bootstrap }) {
+  const mcp = bootstrap?.mcp ?? null;
+  const [copied, setCopied] = useState(null);
+
+  function copy(text, id) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(id);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  const endpoint = mcp?.endpoint ?? '';
+  const abilities = mcp?.abilities ?? [];
+  const available = !!mcp?.available;
+
+  const clientConfig = endpoint
+    ? JSON.stringify(
+        {
+          mcpServers: {
+            wplite: {
+              command: 'npx',
+              args: ['-y', '@automattic/mcp-wordpress-remote@latest'],
+              env: {
+                WP_API_URL: endpoint,
+                WP_API_USERNAME: 'your-username',
+                WP_API_PASSWORD: 'your-application-password',
+              },
+            },
+          },
+        },
+        null,
+        2
+      )
+    : '';
+
+  return (
+    <div className="screen">
+      <header className="screen-header">
+        <div>
+          <p className="eyebrow">Settings</p>
+          <h1>Connectors</h1>
+          <p className="screen-header__lede">
+            Expose this site to AI agents via the Model Context Protocol. wplite ships a built-in MCP server that surfaces your content models, pages, and singletons as MCP tools.
+          </p>
+        </div>
+      </header>
+
+      {!available && (
+        <Card className="surface-card">
+          <CardHeader><h2>MCP adapter not loaded</h2></CardHeader>
+          <CardBody>
+            <p className="field-hint">
+              The <code>WordPress/mcp-adapter</code> plugin doesn't appear to be active. Run a fresh build and restart wp-env so the adapter installs from the pinned release, then reload this page.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      <Card className="surface-card">
+        <CardHeader><h2>Server endpoint</h2></CardHeader>
+        <CardBody>
+          <p className="field-hint">
+            Point any MCP client at this URL. Authentication uses the same Application Password you configure for the REST API.
+          </p>
+          <div className="api-auth-row">
+            <div className="api-password-display">
+              <code className="api-password-value">{endpoint || 'Pending build…'}</code>
+              {endpoint && (
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  icon={<Copy size={16} />}
+                  label="Copy endpoint"
+                  onClick={() => copy(endpoint, 'endpoint')}
+                >
+                  {copied === 'endpoint' ? 'Copied' : 'Copy'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card className="surface-card">
+        <CardHeader><h2>Exposed abilities</h2></CardHeader>
+        <CardBody>
+          {abilities.length === 0 ? (
+            <p className="field-hint">No abilities registered yet.</p>
+          ) : (
+            <ul className="connectors-ability-list">
+              {abilities.map((id) => (
+                <li key={id}><code>{id}</code></li>
+              ))}
+            </ul>
+          )}
+        </CardBody>
+      </Card>
+
+      {clientConfig && (
+        <Card className="surface-card">
+          <CardHeader><h2>Claude Desktop configuration</h2></CardHeader>
+          <CardBody>
+            <p className="field-hint">
+              Add this to your Claude Desktop <code>mcpServers</code> config. The <code>@automattic/mcp-wordpress-remote</code> proxy translates the Application Password auth into MCP.
+            </p>
+            <div className="api-snippet-group">
+              <div className="api-snippet-header">
+                <h3>JSON</h3>
+                <Button
+                  variant="tertiary"
+                  size="compact"
+                  icon={<Copy size={16} />}
+                  onClick={() => copy(clientConfig, 'config')}
+                >
+                  {copied === 'config' ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              <pre className="api-code-block"><code>{clientConfig}</code></pre>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export function PlaceholderPage({ eyebrow = 'Workspace', title, lede, summary }) {
   return (
     <div className="screen">

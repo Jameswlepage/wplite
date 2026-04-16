@@ -20,7 +20,7 @@ import { MediaEditorPage } from './media.jsx';
 import { UsersPage, UserEditorPage } from './users.jsx';
 import { CollectionListPage, CollectionEditorPage } from './collections.jsx';
 import { SiteSettingsPage, SingletonEditorPage } from './settings.jsx';
-import { DomainsPage, IntegrationsPage, ApiPage, LogsPage, PlaceholderPage } from './workspace.jsx';
+import { DomainsPage, IntegrationsPage, ApiPage, ConnectorsPage, LogsPage, PlaceholderPage } from './workspace.jsx';
 import { DocsPage } from '../docs.jsx';
 import {
   CommentsPopover,
@@ -497,6 +497,7 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
       { id: 'site', path: '/settings/site' },
       ...(bootstrap.singletons ?? []).map((singleton) => ({ id: singleton.id, path: `/settings/${singleton.id}` })),
       { id: 'api', path: '/settings/api' },
+      { id: 'connectors', path: '/settings/connectors' },
       { id: 'logs', path: '/settings/logs' },
     ];
   }, [bootstrap.singletons]);
@@ -873,6 +874,7 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
                 <Route path="/settings/:singletonId" element={<SingletonEditorPage key={`singleton-settings:${location.pathname}`} bootstrap={bootstrap} singletonData={singletonData} setSingletonData={setSingletonData} pushNotice={pushNotice} />} />
                 <Route path="/settings/logs" element={<LogsPage />} />
                 <Route path="/settings/api" element={<ApiPage bootstrap={bootstrap} />} />
+                <Route path="/settings/connectors" element={<ConnectorsPage bootstrap={bootstrap} />} />
                 <Route path="*" element={<NotFoundScreen />} />
               </Routes>
             </div>

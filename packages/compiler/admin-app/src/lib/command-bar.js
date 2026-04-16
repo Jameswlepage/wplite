@@ -234,6 +234,17 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
       hiddenWhenEmpty: true,
     }),
     createCommandItem({
+      id: 'command:connectors',
+      title: 'Connectors',
+      subtitle: 'Model Context Protocol server for AI agents',
+      path: '/settings/connectors',
+      iconName: 'Plug',
+      keywords: ['mcp', 'agents', 'ai', 'claude', 'connectors'],
+      priority: 510,
+      emptyPriority: 0,
+      hiddenWhenEmpty: true,
+    }),
+    createCommandItem({
       id: 'command:logs',
       title: 'Logs',
       subtitle: 'Review runtime and sync diagnostics',

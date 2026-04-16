@@ -20,6 +20,7 @@ require_once __DIR__ . '/inc/register-user-avatar.php';
 require_once __DIR__ . '/inc/register-singletons.php';
 require_once __DIR__ . '/inc/register-head.php';
 require_once __DIR__ . '/inc/register-rest.php';
+require_once __DIR__ . '/inc/register-abilities.php';
 require_once __DIR__ . '/inc/register-admin-app.php';
 require_once __DIR__ . '/inc/register-login-style.php';
 require_once __DIR__ . '/inc/register-frontend-launcher.php';

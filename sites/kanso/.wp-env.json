@@ -2,7 +2,8 @@
   "port": 8984,
   "testsPort": 8985,
   "plugins": [
-    "./generated/wp-content/plugins/kanso-app"
+    "./generated/wp-content/plugins/kanso-app",
+    "https://github.com/WordPress/mcp-adapter/releases/download/v0.5.0/mcp-adapter.zip"
   ],
   "themes": [
     "./generated/wp-content/themes/kanso-theme"

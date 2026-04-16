@@ -171,6 +171,7 @@ add_action( 'rest_api_init', function() {
 \t\t\t\t\t\t'singletonData' => $singleton_data,
 \t\t\t\t\t\t'themeJson'     => portfolio_light_get_theme_json(),
 \t\t\t\t\t\t'themeCss'      => portfolio_light_get_theme_css(),
+\t\t\t\t\t\t'mcp'           => portfolio_light_get_mcp_info(),
 \t\t\t\t\t],
 \t\t\t\t\t200
 \t\t\t\t);

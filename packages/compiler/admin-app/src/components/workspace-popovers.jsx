@@ -28,7 +28,7 @@ import {
 } from '../lib/helpers.js';
 import { CarbonIcon } from '../lib/icons.jsx';
 import { ImageControl, RepeaterControl } from './controls.jsx';
-import { ApiPage, LogsPage } from './workspace.jsx';
+import { ApiPage, ConnectorsPage, LogsPage } from './workspace.jsx';
 
 const ACCOUNT_COLOR_OPTIONS = [
   { value: 'modern', label: 'Modern Blue' },
@@ -1550,6 +1550,7 @@ export function SettingsPopover({
     { id: 'account', label: 'Account', icon: 'User' },
     ...(bootstrap.singletons ?? []).map((singleton) => ({ id: singleton.id, label: singleton.label, icon: 'Settings' })),
     { id: 'api', label: 'API', icon: 'Api' },
+    { id: 'connectors', label: 'Connectors', icon: 'Plug' },
     { id: 'logs', label: 'Logs', icon: 'Activity' },
   ]), [bootstrap.singletons]);
 
@@ -1588,6 +1589,10 @@ export function SettingsPopover({
             ) : activeSection.id === 'api' ? (
               <EmbeddedSettingsScreen>
                 <ApiPage bootstrap={bootstrap} />
+              </EmbeddedSettingsScreen>
+            ) : activeSection.id === 'connectors' ? (
+              <EmbeddedSettingsScreen>
+                <ConnectorsPage bootstrap={bootstrap} />
               </EmbeddedSettingsScreen>
             ) : activeSection.id === 'logs' ? (
               <EmbeddedSettingsScreen>
