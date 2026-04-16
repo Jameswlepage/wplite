@@ -846,7 +846,11 @@ async function build(root) {
 
       if (changes.app || changes.admin || changes.blocks) {
         await emitSchemaArtifacts(root, paths.generatedRoot, site, siteSchema, adminSchemas);
-      } else if (changes.content) {
+      } else if (changes.content || changes.theme) {
+        // Theme edits reshape siteSchema.editorTemplates (templates, parts, and
+        // patterns are expanded into routeManifest[*].editor.previewMarkup at
+        // compile time). Flushing site-schema.json on theme changes is what
+        // keeps the page editor's template preview in sync with source edits.
         await emitContentArtifacts(paths.generatedRoot, site, siteSchema);
       }
 
