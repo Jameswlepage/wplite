@@ -1115,3 +1115,16 @@
   gap: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
+
+.media-ed-gen-controls__panel .media-ed-slider__label {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.media-ed-gen-controls__panel .media-ed-slider__value {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.media-ed-gen-controls__panel .media-ed-slider__value:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
