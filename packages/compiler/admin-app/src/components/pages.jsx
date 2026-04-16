@@ -21,6 +21,10 @@ import {
 } from '../lib/helpers.js';
 import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
+import {
+  loadCachedPageRecord,
+  loadCachedTemplateRecord,
+} from '../lib/editor-prefetch.js';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
 import { useRegisterWorkspaceSurface, useRegisterAssistantSurface } from './workspace-context.jsx';
@@ -302,7 +306,10 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
   const navigate = useNavigate();
   const { pageId } = useParams();
   const isNew = pageId === 'new';
-  const [pages, setPages] = useState([]);
+  const pages = useMemo(
+    () => (Array.isArray(bootstrap?.pages) ? bootstrap.pages : []),
+    [bootstrap?.pages]
+  );
   const [draft, setDraft] = useState(() => {
     const base = {
       title: '',
@@ -347,14 +354,6 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     async function load() {
       setLoading(true);
       try {
-        const pageItems = await wpApiFetch(
-          'wp/v2/pages?per_page=100&orderby=modified&order=desc&context=edit&status=any'
-        );
-        if (cancelled) return;
-
-        const normalizedPages = pageItems.map(normalizePageRecord);
-        setPages(normalizedPages);
-
         if (isNew) {
           const nextDraft = {
             title: '',
@@ -377,53 +376,79 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
           return;
         }
 
-        const page = await wpApiFetch(`wp/v2/pages/${pageId}?context=edit`);
+        const page = await loadCachedPageRecord(pageId);
         if (cancelled) return;
         const normalized = normalizePageRecord(page);
         const routeManifest = getRouteManifestForPage(bootstrap, normalized);
         const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
         const previewMarkup = resolvePreviewMarkup(normalized, bootstrap, templateSlug, routeManifest);
+        const pageBlocks = blocksFromContent(normalized.content);
 
         setDraft(normalized);
 
         if (templateSlug) {
-          const pageBlocks = blocksFromContent(normalized.content);
-          let template = null;
+          const routeTemplateRecord = {
+            id: String(routeManifest?.editor?.templateEntityId ?? ''),
+            slug: String(templateSlug),
+            title:
+              routeManifest?.title
+              ?? normalized.title
+              ?? templateSlug,
+            slotFound: false,
+            source: previewMarkup ? 'route-manifest' : 'template-rest',
+          };
 
-          try {
-            template = await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(templateSlug)}`);
-          } catch (error) {
-            if (!previewMarkup) {
-              throw error;
-            }
+          let template = null;
+          let templateMarkup = String(previewMarkup || '');
+          if (!templateMarkup) {
+            template = await loadCachedTemplateRecord(templateSlug);
+            if (cancelled) return;
+            templateMarkup = String(template?.content?.raw || '');
           }
 
-          if (cancelled) return;
-
-          // Prefer the compiler's expanded previewMarkup (template-parts and
-          // wp:pattern references already inlined) over the raw REST template
-          // markup. The browser-side block parser can't resolve those
-          // references, so using the unexpanded markup renders a blank canvas.
-          const templateMarkup = String(previewMarkup || template?.content?.raw || '');
           const templateBlocks = blocksFromContent(templateMarkup);
           const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
 
           setTemplateRecord({
-            id: String(template?.id ?? routeManifest?.editor?.templateEntityId ?? ''),
-            slug: String(template?.slug ?? templateSlug),
+            ...routeTemplateRecord,
+            id: String(template?.id ?? routeTemplateRecord.id),
+            slug: String(template?.slug ?? routeTemplateRecord.slug),
             title:
               template?.title?.raw
               ?? template?.title?.rendered
-              ?? routeManifest?.title
-              ?? normalized.title
-              ?? templateSlug,
+              ?? routeTemplateRecord.title,
             slotFound: composed.slotFound,
-            source: template?.content?.raw ? 'template-rest' : 'route-manifest',
+            source: template?.content?.raw ? 'template-rest' : routeTemplateRecord.source,
           });
           setBlocks(composed.blocks);
+
+          if (previewMarkup) {
+            void loadCachedTemplateRecord(templateSlug)
+              .then((resolvedTemplate) => {
+                if (cancelled || !resolvedTemplate?.content?.raw) {
+                  return;
+                }
+                setTemplateRecord((current) => {
+                  if (!current || current.slug !== templateSlug) {
+                    return current;
+                  }
+                  return {
+                    ...current,
+                    id: String(resolvedTemplate.id ?? current.id),
+                    slug: String(resolvedTemplate.slug ?? current.slug),
+                    title:
+                      resolvedTemplate.title?.raw
+                      ?? resolvedTemplate.title?.rendered
+                      ?? current.title,
+                    source: 'template-rest',
+                  };
+                });
+              })
+              .catch(() => {});
+          }
         } else {
           setTemplateRecord(null);
-          setBlocks(blocksFromContent(normalized.content));
+          setBlocks(pageBlocks);
         }
       } catch (error) {
         if (!cancelled) {

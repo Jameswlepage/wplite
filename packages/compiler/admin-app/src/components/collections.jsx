@@ -26,6 +26,7 @@ import {
 import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
 import { wpApiFetch } from '../lib/helpers.js';
+import { loadCachedTemplateRecord } from '../lib/editor-prefetch.js';
 import { ImageControl, RepeaterControl } from './controls.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
 import { useRegisterWorkspaceSurface } from './workspace-context.jsx';
@@ -178,7 +179,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
 
     async function tryFetch(slug) {
       try {
-        return await wpApiFetch(`portfolio/v1/template/${encodeURIComponent(slug)}`);
+        return await loadCachedTemplateRecord(slug);
       } catch {
         return null;
       }

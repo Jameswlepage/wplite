@@ -18,6 +18,7 @@ import {
 } from '../lib/helpers.js';
 import { buildAppUrl, normalizeAppPath } from '../lib/config.js';
 import { CarbonIcon } from '../lib/icons.jsx';
+import { prefetchEditorRouteData } from '../lib/editor-prefetch.js';
 import { useAssistant } from './assistant-provider.jsx';
 
 function isEditableTarget(target) {
@@ -367,6 +368,29 @@ export function CommandBar({
 
     setRecentIds(loadRecentCommandIds());
   }, [isOpen, location.key]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const activeItem = flatItems[activeIndex];
+    if (!activeItem?.path) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        void prefetchEditorRouteData(activeItem.path, { bootstrap, recordsByModel });
+      }
+    }, 80);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeIndex, bootstrap, flatItems, isOpen, recordsByModel]);
 
   function executeItem(item) {
     if (!item) {

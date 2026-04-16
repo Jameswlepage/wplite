@@ -29,12 +29,12 @@ import { store as blockEditorStore } from '@wordpress/block-editor';
 import { __ } from '@wordpress/i18n';
 import { useLocation } from 'react-router-dom';
 import { ArrowUpRight, CarbonIcon, Launch, Link } from '../lib/icons.jsx';
-import { apiFetch, wpApiFetch } from '../lib/helpers.js';
+import { wpApiFetch } from '../lib/helpers.js';
 import {
   buildBlockEditorSettings,
   buildCanvasStyles,
-  registerServerBlockTypes,
 } from '../lib/blocks.jsx';
+import { getCachedEditorBundle, loadEditorBundle } from '../lib/editor-bundle.js';
 import { EditorRecordProvider } from '../lib/editor-record-context.jsx';
 import { useRegisterEditorChrome } from './workspace-context.jsx';
 import { useAssistant } from './assistant-provider.jsx';
@@ -191,7 +191,6 @@ function AssistantSelectionBridge() {
 // Shared across editor mounts so we only pay the REST round-trip once per
 // session. WP's editor settings don't change within a session, and caching
 // also avoids re-registering server block types on every navigation.
-let cachedEditorBundlePromise = null;
 const EDITOR_SCROLL_STORAGE_KEY = 'wplite.editorScroll.v1';
 const editorScrollCache = new Map();
 
@@ -260,21 +259,6 @@ function writeEditorScrollPosition(cacheKey, position) {
 
 function readEditorScrollPosition(cacheKey) {
   return hydrateEditorScrollCache().get(cacheKey) ?? { x: 0, y: 0 };
-}
-
-function loadEditorBundle() {
-  if (!cachedEditorBundlePromise) {
-    cachedEditorBundlePromise = apiFetch('editor-bundle')
-      .then((bundle) => {
-        registerServerBlockTypes(bundle?.blockTypes ?? []);
-        return bundle;
-      })
-      .catch((error) => {
-        cachedEditorBundlePromise = null;
-        throw error;
-      });
-  }
-  return cachedEditorBundlePromise;
 }
 
 /* ── Icon wrappers for WP Button/DropdownMenu icon props ── */
@@ -1409,7 +1393,7 @@ export function NativeBlockEditorFrame({
   onOpenInternalLink = null,
   showEmptyPatternPicker = false,
 }) {
-  const [editorBundle, setEditorBundle] = useState(null);
+  const [editorBundle, setEditorBundle] = useState(() => getCachedEditorBundle());
   const [bundleError, setBundleError] = useState(null);
   const { selectBlock, updateBlockAttributes } = useDispatch(blockEditorStore);
   const routerLocation = useLocation();
