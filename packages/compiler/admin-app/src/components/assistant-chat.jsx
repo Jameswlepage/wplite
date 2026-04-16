@@ -762,17 +762,26 @@ export function AssistantChat() {
                 disabled={!isAvailable || isStreaming}
               />
               {surfacePresets.length > 0 ? (
-                <div className="workspace-chat__hero-presets" aria-label="Presets">
-                  {surfacePresets.map((p) => (
-                    <button
-                      key={p.id || p.label}
-                      type="button"
-                      className="workspace-chat__hero-preset"
-                      onClick={() => runPreset(p)}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+                <div className="workspace-chat__hero-actions" aria-label="Actions">
+                  {surfacePresets.map((p) => {
+                    const Icon = p.icon;
+                    return (
+                      <button
+                        key={p.id || p.label}
+                        type="button"
+                        className="workspace-chat__action"
+                        onClick={() => runPreset(p)}
+                        title={p.description || p.label}
+                      >
+                        {Icon ? (
+                          <span className="workspace-chat__action-icon" aria-hidden="true">
+                            <Icon size={14} />
+                          </span>
+                        ) : null}
+                        <span className="workspace-chat__action-label">{p.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -921,20 +930,29 @@ export function AssistantChat() {
           </div>
         ) : null}
         {!isEmptyThread && surfacePresets.length > 0 ? (
-          <div className="workspace-chat__presets" aria-label="Presets">
-            {surfacePresets.map((p) => (
-              <button
-                key={p.id || p.label}
-                type="button"
-                className="workspace-chat__preset"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  runPreset(p);
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
+          <div className="workspace-chat__actions" aria-label="Actions">
+            {surfacePresets.map((p) => {
+              const Icon = p.icon;
+              return (
+                <button
+                  key={p.id || p.label}
+                  type="button"
+                  className="workspace-chat__action"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    runPreset(p);
+                  }}
+                  title={p.description || p.label}
+                >
+                  {Icon ? (
+                    <span className="workspace-chat__action-icon" aria-hidden="true">
+                      <Icon size={14} />
+                    </span>
+                  ) : null}
+                  <span className="workspace-chat__action-label">{p.label}</span>
+                </button>
+              );
+            })}
           </div>
         ) : null}
         <textarea

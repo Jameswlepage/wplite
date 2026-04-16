@@ -2247,29 +2247,61 @@
   color: #ffb3b3;
 }
 
-.workspace-chat__presets {
+/* ── Assistant chat: actions (formerly "presets") ──────────────── */
+/* Actions are deterministic one-click operations. They visually read as   */
+/* buttons — icon + label, filled, chunkier — to contrast with the         */
+/* borderless suggestion stack (which is about AI prompts).                */
+
+.workspace-chat__actions {
   flex: 1 0 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
-.workspace-chat__preset {
+.workspace-chat__hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.workspace-chat__action {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(75, 99, 255, 0.32);
-  background: rgba(75, 99, 255, 0.12);
+  gap: 6px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(75, 99, 255, 0.38);
+  background: rgba(75, 99, 255, 0.16);
   color: var(--wplite-text);
   font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+  box-shadow: 0 1px 0 rgba(75, 99, 255, 0.12);
 }
 
-.workspace-chat__preset:hover {
-  background: rgba(75, 99, 255, 0.2);
-  border-color: rgba(75, 99, 255, 0.5);
+.workspace-chat__action:hover {
+  background: rgba(75, 99, 255, 0.26);
+  border-color: rgba(75, 99, 255, 0.55);
+}
+
+.workspace-chat__action:active {
+  transform: scale(0.97);
+}
+
+.workspace-chat__action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(142, 162, 255, 0.95);
+}
+
+.workspace-chat__action-label {
+  white-space: nowrap;
 }
 
 /* ── Assistant chat: stacked suggestions list ──────────────────── */
@@ -2645,33 +2677,6 @@
   width: 100%;
 }
 
-.workspace-chat__hero-presets {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.workspace-chat__hero-preset {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 12px;
-  background: transparent;
-  border: 1px solid var(--wplite-border);
-  border-radius: var(--wplite-radius-pill);
-  color: var(--wplite-text-muted);
-  font-size: 12px;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
-
-.workspace-chat__hero-preset:hover {
-  background: var(--wplite-bg-elev-2);
-  border-color: var(--wplite-border-strong);
-  color: var(--wplite-text);
-}
 
 /* ── Assistant chat: attachments + drag/drop target ─────────── */
 
