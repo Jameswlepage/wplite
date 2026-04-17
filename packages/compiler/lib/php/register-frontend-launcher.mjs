@@ -59,30 +59,23 @@ function portfolio_light_frontend_launcher_items() {
 \t\t'empty_priority' => 1120,
 \t];
 
-\treturn $items;
-}
-
-/**
- * The "current user" item is rendered outside the expandable cluster as a
- * persistent avatar button — command-bar registrations and other consumers
- * still want it in the catalog, but the frontend launcher treats it as its
- * own dock slot (with a simple "User Account" tooltip).
- */
-function portfolio_light_frontend_launcher_account_item() {
-\t$current_user = wp_get_current_user();
-\tif ( ! $current_user || 0 === $current_user->ID ) {
-\t\treturn null;
-\t}
-\treturn [
+\t$items[] = [
 \t\t'key'            => 'account',
 \t\t'label'          => __( 'User Account', 'portfolio-light' ),
 \t\t'subtitle'       => __( 'Edit your profile, avatar, and preferences', 'portfolio-light' ),
 \t\t'url'            => home_url( '/app/users/' . $current_user->ID ),
 \t\t'icon'           => '${launcherIconSvg('account')}',
-\t\t'avatar_url'     => get_avatar_url( $current_user->ID, [ 'size' => 96 ] ),
+\t\t'avatar_url'     => get_avatar_url(
+\t\t\t$current_user->ID,
+\t\t\t[
+\t\t\t\t'size' => 96,
+\t\t\t]
+\t\t),
 \t\t'priority'       => 980,
 \t\t'empty_priority' => 1020,
 \t];
+
+\treturn $items;
 }
 
 add_action(
@@ -134,9 +127,8 @@ add_action(
 \t\t\treturn;
 \t\t}
 
-\t\t$items   = portfolio_light_frontend_launcher_items();
-\t\t$account = portfolio_light_frontend_launcher_account_item();
-\t\tif ( empty( $items ) && empty( $account ) ) {
+\t\t$items = portfolio_light_frontend_launcher_items();
+\t\tif ( empty( $items ) ) {
 \t\t\treturn;
 \t\t}
 \t\t?>
@@ -152,33 +144,6 @@ add_action(
 \t\t>
 \t\t\t<div class="wplite-frontend-launcher__results" data-wplite-launcher-results aria-live="polite" hidden></div>
 \t\t\t<div class="wplite-frontend-launcher__dock">
-\t\t\t\t<?php if ( $account ) : ?>
-\t\t\t\t\t<a
-\t\t\t\t\t\tclass="wplite-frontend-launcher__account"
-\t\t\t\t\t\thref="<?php echo esc_url( $account['url'] ); ?>"
-\t\t\t\t\t\tdata-tooltip="<?php echo esc_attr( $account['label'] ); ?>"
-\t\t\t\t\t\tdata-wplite-launcher-account
-\t\t\t\t\t\tdata-wplite-launcher-key="account"
-\t\t\t\t\t\tdata-wplite-launcher-title="<?php echo esc_attr( $account['label'] ); ?>"
-\t\t\t\t\t\tdata-wplite-launcher-subtitle="<?php echo esc_attr( $account['subtitle'] ); ?>"
-\t\t\t\t\t\tdata-wplite-launcher-priority="<?php echo esc_attr( (string) $account['priority'] ); ?>"
-\t\t\t\t\t\tdata-wplite-launcher-empty-priority="<?php echo esc_attr( (string) $account['empty_priority'] ); ?>"
-\t\t\t\t\t\tdata-wplite-launcher-avatar-url="<?php echo esc_url( $account['avatar_url'] ); ?>"
-\t\t\t\t\t\taria-label="<?php echo esc_attr( $account['label'] ); ?>"
-\t\t\t\t\t>
-\t\t\t\t\t\t<?php if ( ! empty( $account['avatar_url'] ) ) : ?>
-\t\t\t\t\t\t\t<img
-\t\t\t\t\t\t\t\tclass="wplite-frontend-launcher__account-avatar"
-\t\t\t\t\t\t\t\tsrc="<?php echo esc_url( $account['avatar_url'] ); ?>"
-\t\t\t\t\t\t\t\talt=""
-\t\t\t\t\t\t\t\tloading="lazy"
-\t\t\t\t\t\t\t\tdecoding="async"
-\t\t\t\t\t\t\t/>
-\t\t\t\t\t\t<?php else : ?>
-\t\t\t\t\t\t\t<span class="wplite-frontend-launcher__account-icon" aria-hidden="true"><?php echo $account['icon']; ?></span>
-\t\t\t\t\t\t<?php endif; ?>
-\t\t\t\t\t</a>
-\t\t\t\t<?php endif; ?>
 \t\t\t\t<button
 \t\t\t\t\ttype="button"
 \t\t\t\t\tclass="wplite-frontend-launcher__toggle"
@@ -406,8 +371,7 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher__toggle::after,
-.wplite-frontend-launcher__item::after,
-.wplite-frontend-launcher__account::after {
+.wplite-frontend-launcher__item::after {
   content: attr(data-tooltip);
   position: absolute;
   left: 50%;
@@ -430,8 +394,7 @@ export function frontendLauncherCss() {
 }
 
 .wplite-frontend-launcher[data-corner^="top"] .wplite-frontend-launcher__toggle::after,
-.wplite-frontend-launcher[data-corner^="top"] .wplite-frontend-launcher__item::after,
-.wplite-frontend-launcher[data-corner^="top"] .wplite-frontend-launcher__account::after {
+.wplite-frontend-launcher[data-corner^="top"] .wplite-frontend-launcher__item::after {
   top: calc(100% + 12px);
   bottom: auto;
   transform: translate(-50%, -6px);
@@ -440,62 +403,9 @@ export function frontendLauncherCss() {
 .wplite-frontend-launcher__toggle:hover::after,
 .wplite-frontend-launcher__toggle:focus-visible::after,
 .wplite-frontend-launcher__item:hover::after,
-.wplite-frontend-launcher__item:focus-visible::after,
-.wplite-frontend-launcher__account:hover::after,
-.wplite-frontend-launcher__account:focus-visible::after {
+.wplite-frontend-launcher__item:focus-visible::after {
   opacity: 1;
   transform: translate(-50%, 0);
-}
-
-.wplite-frontend-launcher__account {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--wplite-launcher-icon);
-  text-decoration: none;
-  overflow: hidden;
-  transition: box-shadow 160ms ease, transform 160ms ease;
-}
-
-.wplite-frontend-launcher__account:hover,
-.wplite-frontend-launcher__account:focus-visible {
-  box-shadow: 0 0 0 2px var(--wplite-launcher-search-bg-active);
-  transform: translateY(-1px);
-}
-
-.wplite-frontend-launcher__account:focus-visible {
-  outline: 2px solid var(--wplite-launcher-focus);
-  outline-offset: 2px;
-}
-
-.wplite-frontend-launcher__account-avatar {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 999px;
-}
-
-.wplite-frontend-launcher__account-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-}
-
-.wplite-frontend-launcher__account-icon svg {
-  width: 100%;
-  height: 100%;
 }
 
 .wplite-frontend-launcher__menu {
@@ -636,6 +546,40 @@ export function frontendLauncherCss() {
   font-weight: 400;
   line-height: 1;
   white-space: nowrap;
+}
+
+/**
+ * The user-account (avatar) item sits at the right of the expandable cluster.
+ * Render it as a bare avatar circle — smaller than the 32px icon items, with
+ * no label wrapper — so it reads as a secondary identity affordance rather
+ * than another tool. Tooltip is still carried by the item's data-tooltip via
+ * the shared ::after renderer.
+ */
+.wplite-frontend-launcher__item.is-avatar {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  align-self: center;
+}
+
+.wplite-frontend-launcher__item.is-avatar .wplite-frontend-launcher__item-label {
+  display: none;
+}
+
+.wplite-frontend-launcher__item.is-avatar .wplite-frontend-launcher__item-avatar {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 0;
+}
+
+.wplite-frontend-launcher__item.is-avatar:hover,
+.wplite-frontend-launcher__item.is-avatar:focus-visible {
+  background: transparent;
+  box-shadow: 0 0 0 2px var(--wplite-launcher-surface-hover);
 }
 
 .wplite-frontend-launcher__search {
