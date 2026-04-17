@@ -3,6 +3,98 @@ export function phpRegisterAdminAppFile() {
   return `<?php
 defined( 'ABSPATH' ) || exit;
 
+function portfolio_light_classic_admin_cookie_name() {
+\treturn 'portfolio_light_classic_admin';
+}
+
+function portfolio_light_default_app_url() {
+\treturn home_url( '/app' );
+}
+
+function portfolio_light_normalize_classic_admin_return_url( $raw_url = '' ) {
+\t$fallback = portfolio_light_default_app_url();
+\t$value    = is_string( $raw_url ) ? trim( wp_unslash( $raw_url ) ) : '';
+
+\tif ( '' === $value ) {
+\t\treturn $fallback;
+\t}
+
+\t$validated = wp_validate_redirect( $value, '' );
+\tif ( '' === $validated ) {
+\t\treturn $fallback;
+\t}
+
+\t$app_base_path = wp_parse_url( portfolio_light_default_app_url(), PHP_URL_PATH );
+\t$target_path   = wp_parse_url( $validated, PHP_URL_PATH );
+\t$app_base_path = untrailingslashit( $app_base_path ? $app_base_path : '/app' );
+\t$target_path   = untrailingslashit( $target_path ? $target_path : '/' );
+
+\tif ( $target_path !== $app_base_path && 0 !== strpos( $target_path, $app_base_path . '/' ) ) {
+\t\treturn $fallback;
+\t}
+
+\treturn $validated;
+}
+
+function portfolio_light_get_classic_admin_return_url() {
+\tif ( isset( $_GET['wplite-return'] ) ) {
+\t\treturn portfolio_light_normalize_classic_admin_return_url( $_GET['wplite-return'] );
+\t}
+
+\t$cookie_name = portfolio_light_classic_admin_cookie_name();
+\tif ( isset( $_COOKIE[ $cookie_name ] ) ) {
+\t\treturn portfolio_light_normalize_classic_admin_return_url( rawurldecode( wp_unslash( $_COOKIE[ $cookie_name ] ) ) );
+\t}
+
+\treturn portfolio_light_default_app_url();
+}
+
+function portfolio_light_set_classic_admin_cookie( $return_url ) {
+\t$cookie_name = portfolio_light_classic_admin_cookie_name();
+\t$cookie_path = defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/';
+\t$cookie_value = rawurlencode( portfolio_light_normalize_classic_admin_return_url( $return_url ) );
+
+\t$_COOKIE[ $cookie_name ] = $cookie_value;
+\tsetcookie(
+\t\t$cookie_name,
+\t\t$cookie_value,
+\t\t0,
+\t\t$cookie_path,
+\t\tCOOKIE_DOMAIN,
+\t\tis_ssl(),
+\t\ttrue
+\t);
+}
+
+function portfolio_light_clear_classic_admin_cookie() {
+\t$cookie_name = portfolio_light_classic_admin_cookie_name();
+\t$cookie_path = defined( 'COOKIEPATH' ) && COOKIEPATH ? COOKIEPATH : '/';
+
+\tunset( $_COOKIE[ $cookie_name ] );
+\tsetcookie(
+\t\t$cookie_name,
+\t\t'',
+\t\ttime() - HOUR_IN_SECONDS,
+\t\t$cookie_path,
+\t\tCOOKIE_DOMAIN,
+\t\tis_ssl(),
+\t\ttrue
+\t);
+}
+
+function portfolio_light_is_classic_admin_request() {
+\tif ( wp_doing_ajax() ) {
+\t\treturn true;
+\t}
+
+\tif ( isset( $_GET['classic-admin'] ) ) {
+\t\treturn '0' !== (string) wp_unslash( $_GET['classic-admin'] );
+\t}
+
+\t$cookie_name = portfolio_light_classic_admin_cookie_name();
+\treturn isset( $_COOKIE[ $cookie_name ] ) && '' !== (string) wp_unslash( $_COOKIE[ $cookie_name ] );
+}
+
 add_action( 'init', function() {
 \tadd_rewrite_rule( '^app/?$', 'index.php?portfolio_app=1', 'top' );
 \tadd_rewrite_rule( '^app/(.*)?$', 'index.php?portfolio_app=1', 'top' );
@@ -30,7 +122,15 @@ add_filter(
 add_action(
 \t'admin_init',
 \tfunction() {
-\t\tif ( wp_doing_ajax() || isset( $_GET['classic-admin'] ) ) {
+\t\tif ( isset( $_GET['classic-admin'] ) ) {
+\t\t\tif ( '0' === (string) wp_unslash( $_GET['classic-admin'] ) ) {
+\t\t\t\tportfolio_light_clear_classic_admin_cookie();
+\t\t\t} else {
+\t\t\t\tportfolio_light_set_classic_admin_cookie( portfolio_light_get_classic_admin_return_url() );
+\t\t\t}
+\t\t}
+
+\t\tif ( portfolio_light_is_classic_admin_request() ) {
 \t\t\treturn;
 \t\t}
 
@@ -39,6 +139,31 @@ add_action(
 \t\t\texit;
 \t\t}
 \t}
+);
+
+add_action(
+\t'admin_bar_menu',
+\tfunction( $admin_bar ) {
+\t\tif ( ! is_admin() || ! current_user_can( 'edit_posts' ) ) {
+\t\t\treturn;
+\t\t}
+
+\t\tif ( ! portfolio_light_is_classic_admin_request() ) {
+\t\t\treturn;
+\t\t}
+
+\t\t$admin_bar->add_node(
+\t\t\t[
+\t\t\t\t'id'    => 'portfolio-light-open-app',
+\t\t\t\t'title' => 'Open in WP Lite',
+\t\t\t\t'href'  => portfolio_light_get_classic_admin_return_url(),
+\t\t\t\t'meta'  => [
+\t\t\t\t\t'class' => 'portfolio-light-open-app',
+\t\t\t\t],
+\t\t\t]
+\t\t);
+\t},
+\t90
 );
 
 add_action(

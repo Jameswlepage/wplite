@@ -825,8 +825,20 @@ export function buildBlockEditorSettings(bundle, callbacks = {}) {
     'wav': 'audio/wav',
   };
 
+  // Theme patterns are compiled with "Inserter: no" so they stay out of the
+  // standard WP post-editor inserter (they are used as template layout blocks,
+  // not free-form content). In the wplite admin we do want them available in
+  // our custom inserter, so we strip the flag here.
+  const rawPatterns = serverSettings.__experimentalBlockPatterns;
+  // eslint-disable-next-line no-console
+  console.log('[wplite] rawPatterns from PHP:', rawPatterns);
+  const __experimentalBlockPatterns = Array.isArray(rawPatterns)
+    ? rawPatterns.map((p) => (p.inserter === false ? { ...p, inserter: true } : p))
+    : rawPatterns;
+
   return {
     ...serverSettings,
+    __experimentalBlockPatterns,
     allowedMimeTypes,
     hasFixedToolbar: true,
     focusMode: false,
@@ -846,7 +858,6 @@ export function buildBlockEditorSettings(bundle, callbacks = {}) {
  */
 const IFRAME_ADMIN_CSS = `
 :root {
-  --wplite-editor-frame-bg: #242424;
   --wp-admin-theme-color: #3858e9;
   --wp-admin-theme-color--rgb: 56, 88, 233;
   --wp-admin-theme-color-darker-10: rgb(33.0384615385, 68.7307692308, 230.4615384615);
@@ -859,16 +870,6 @@ const IFRAME_ADMIN_CSS = `
   --wp-components-color-accent-inverted: #fff;
   --wp-components-color-background: #fff;
   --wp-components-color-foreground: #1e1e1e;
-}
-
-html,
-body,
-body.block-editor-iframe__body {
-  background: var(--wplite-editor-frame-bg) !important;
-}
-
-.editor-styles-wrapper {
-  background: transparent;
 }
 `;
 

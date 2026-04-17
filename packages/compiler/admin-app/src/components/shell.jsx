@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Button, CheckboxControl, Modal, Tooltip } from '@wordpress/components';
 import { CarbonIcon } from '../lib/icons.jsx';
-import { normalizeAppPath } from '../lib/config.js';
+import { buildClassicAdminUrl, normalizeAppPath } from '../lib/config.js';
 import {
   collectionPathForModel,
   editorRouteForModel,
@@ -652,7 +652,8 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
       id: 'classic-admin',
       label: 'Classic WP Admin',
       onSelect: () => {
-        window.open(`${window.location.origin}/wp-admin/?classic-admin=1`, '_blank', 'noopener,noreferrer');
+        const returnPath = `${location.pathname}${location.search}${location.hash}`;
+        window.open(buildClassicAdminUrl('/wp-admin/', { appPath: returnPath }), '_blank', 'noopener,noreferrer');
         setOpenPopover(null);
       },
     },

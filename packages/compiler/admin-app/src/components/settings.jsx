@@ -9,6 +9,7 @@ import {
   TextControl,
 } from '@wordpress/components';
 import { DataForm } from '@wordpress/dataviews';
+import { buildClassicAdminUrl } from '../lib/config.js';
 import {
   apiFetch,
   buildFieldDefinitions,
@@ -152,7 +153,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
     moreActions: [
       {
         title: 'Open Classic Admin',
-        onClick: () => window.open(`${window.location.origin}/wp-admin/?classic-admin=1`, '_blank', 'noopener,noreferrer'),
+        onClick: () => window.open(buildClassicAdminUrl('/wp-admin/', { appPath: '/settings/site' }), '_blank', 'noopener,noreferrer'),
       },
     ],
   }), [draft, handleSave, isSaving]));
@@ -339,7 +340,7 @@ export function SiteSettingsPage({ bootstrap, setBootstrap, pushNotice }) {
                   <dd>{window.location.origin}/app</dd>
                   <dt>WordPress</dt>
                   <dd>
-                    <a href={`${window.location.origin}/wp-admin/?classic-admin=1`} target="_blank" rel="noreferrer">
+                    <a href={buildClassicAdminUrl('/wp-admin/', { appPath: '/settings/site' })} target="_blank" rel="noreferrer">
                       Classic Admin
                     </a>
                   </dd>

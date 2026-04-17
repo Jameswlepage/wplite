@@ -1,4 +1,13 @@
-import React, { Fragment, startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import React, {
+  Fragment,
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
@@ -11,6 +20,7 @@ import {
 } from '@wordpress/components';
 import { serialize } from '@wordpress/blocks';
 import { DataForm, DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
+import { buildPostEditorUrl } from '../lib/config.js';
 import {
   apiFetch,
   buildFieldDefinitions,
@@ -25,6 +35,7 @@ import {
 } from '../lib/helpers.js';
 import { createInternalLinkResolver } from '../lib/internal-links.js';
 import { blocksFromContent } from '../lib/blocks.jsx';
+import { DEV_HMR_PARTIAL_REFRESH_EVENT } from '../lib/dev-hmr.js';
 import { wpApiFetch } from '../lib/helpers.js';
 import { loadCachedTemplateRecord } from '../lib/editor-prefetch.js';
 import { ImageControl, RepeaterControl } from './controls.jsx';
@@ -35,6 +46,43 @@ import {
   composeTemplateEditorBlocks_ as composeTemplateEditorBlocks,
   splitTemplateEditorBlocks_ as splitTemplateEditorBlocks,
 } from './pages.jsx';
+
+function buildCollectionEditorSnapshot({ draft, blocks, editorManaged, templateRecord }) {
+  const snapshot = { ...(draft ?? {}) };
+  delete snapshot.link;
+  delete snapshot.modified;
+
+  if (editorManaged) {
+    const split = templateRecord
+      ? splitTemplateEditorBlocks(blocks)
+      : { templateBlocks: [], pageContentBlocks: blocks ?? [] };
+    snapshot.content = serialize(split.pageContentBlocks);
+    snapshot.__templateContent = templateRecord ? serialize(split.templateBlocks) : '';
+  }
+
+  return JSON.stringify(snapshot);
+}
+
+async function loadCollectionTemplateRecord(modelId) {
+  const candidates = [`single-${modelId}`, 'single'];
+  for (const slug of candidates) {
+    try {
+      const template = await loadCachedTemplateRecord(slug);
+      if (template?.content?.raw) {
+        return {
+          id: String(template.id ?? ''),
+          slug: String(template.slug ?? slug),
+          title: template.title?.raw ?? template.title?.rendered ?? slug,
+          content: template.content.raw,
+          source: 'template-rest',
+        };
+      }
+    } catch {
+      // Continue to the fallback candidate.
+    }
+  }
+  return null;
+}
 
 /* ── Collection List Page ── */
 export function CollectionListPage({ bootstrap, recordsByModel }) {
@@ -156,52 +204,51 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     : null;
   const editorManaged = Boolean(model?.supports?.includes('editor'));
   const commentsSupported = Boolean(model?.supports?.includes('comments'));
-  const [draft, setDraft] = useState(() => existing ?? (model ? createEmptyRecord(model, {
+  const makeEmptyDraft = useCallback(() => (model ? createEmptyRecord(model, {
     commentsEnabled: bootstrap.site?.commentsEnabled === true,
     includeCommentStatus: commentsSupported,
-  }) : {}));
+  }) : {}), [bootstrap.site?.commentsEnabled, commentsSupported, model]);
+  const [draft, setDraft] = useState(() => existing ?? makeEmptyDraft());
   const [blocks, setBlocks] = useState(() => blocksFromContent(existing?.content ?? ''));
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [templateRecord, setTemplateRecord] = useState(null);
-  const [templateLoaded, setTemplateLoaded] = useState(false);
+  const [canvasRevision, setCanvasRevision] = useState(0);
+  const refreshInFlightRef = useRef(false);
+  const baselineSnapshotRef = useRef(
+    buildCollectionEditorSnapshot({
+      draft: existing ?? makeEmptyDraft(),
+      blocks: blocksFromContent(existing?.content ?? ''),
+      editorManaged,
+      templateRecord: null,
+    })
+  );
+  const currentSnapshot = useMemo(
+    () => buildCollectionEditorSnapshot({ draft, blocks, editorManaged, templateRecord }),
+    [blocks, draft, editorManaged, templateRecord]
+  );
+  const currentAppPath = useMemo(
+    () => (model ? (itemId === 'new' ? editorRouteForModel(model) : editorRouteForModel(model, draft.id || itemId)) : '/'),
+    [draft.id, itemId, model]
+  );
+  const wpAdminUrl = useMemo(
+    () => (existing?.id ? buildPostEditorUrl(existing.id, { appPath: currentAppPath }) : undefined),
+    [currentAppPath, existing?.id]
+  );
 
   // Try to resolve a template for this single entry type.
   useEffect(() => {
     let cancelled = false;
     setTemplateRecord(null);
-    setTemplateLoaded(false);
 
     if (!model || !editorManaged) {
-      setTemplateLoaded(true);
       return () => { cancelled = true; };
     }
 
-    async function tryFetch(slug) {
-      try {
-        return await loadCachedTemplateRecord(slug);
-      } catch {
-        return null;
-      }
-    }
-
     (async () => {
-      const candidates = [`single-${model.id}`, 'single'];
-      for (const slug of candidates) {
-        const template = await tryFetch(slug);
-        if (cancelled) return;
-        if (template?.content?.raw) {
-          setTemplateRecord({
-            id: String(template.id ?? ''),
-            slug: String(template.slug ?? slug),
-            title: template.title?.raw ?? template.title?.rendered ?? slug,
-            content: template.content.raw,
-            source: 'template-rest',
-          });
-          break;
-        }
-      }
-      if (!cancelled) setTemplateLoaded(true);
+      const template = await loadCollectionTemplateRecord(model.id);
+      if (cancelled) return;
+      setTemplateRecord(template);
     })();
 
     return () => { cancelled = true; };
@@ -215,19 +262,138 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
       const templateBlocks = blocksFromContent(templateRecord.content);
       const composed = composeTemplateEditorBlocks(templateBlocks, contentBlocks);
       setBlocks(composed.blocks);
+      baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+        draft: existing ?? makeEmptyDraft(),
+        blocks: composed.blocks,
+        editorManaged,
+        templateRecord,
+      });
     } else {
       setBlocks(contentBlocks);
+      baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+        draft: existing ?? makeEmptyDraft(),
+        blocks: contentBlocks,
+        editorManaged,
+        templateRecord: null,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editorManaged, existing?.id, existing?.content, templateRecord?.id, templateRecord?.slug]);
+  }, [editorManaged, existing?.id, existing?.content, makeEmptyDraft, templateRecord?.content, templateRecord?.id, templateRecord?.slug]);
 
   useEffect(() => {
     if (!model) return;
-    setDraft(existing ?? createEmptyRecord(model, {
-      commentsEnabled: bootstrap.site?.commentsEnabled === true,
-      includeCommentStatus: commentsSupported,
-    }));
-  }, [bootstrap.site?.commentsEnabled, commentsSupported, existing, model]);
+    const nextDraft = existing ?? makeEmptyDraft();
+    setDraft(nextDraft);
+    if (!editorManaged) {
+      baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+        draft: nextDraft,
+        blocks,
+        editorManaged,
+        templateRecord: null,
+      });
+    }
+  }, [blocks, editorManaged, existing, makeEmptyDraft, model]);
+
+  const refreshFromSource = useCallback(async ({
+    refreshTemplate = false,
+    bumpCanvas = false,
+  } = {}) => {
+    if (!model || !itemId || itemId === 'new' || refreshInFlightRef.current) {
+      return false;
+    }
+
+    refreshInFlightRef.current = true;
+
+    try {
+      const [recordPayload, nextTemplateRecord] = await Promise.all([
+        apiFetch(`collection/${model.id}/${itemId}`),
+        refreshTemplate && editorManaged
+          ? loadCollectionTemplateRecord(model.id)
+          : Promise.resolve(templateRecord),
+      ]);
+      const nextItem = recordPayload?.item ?? null;
+      if (!nextItem) {
+        return false;
+      }
+
+      setRecordsByModel((current) => {
+        const items = current[model.id] ?? [];
+        const nextItems = [...items];
+        const idx = nextItems.findIndex((item) => String(item.id) === String(nextItem.id));
+        if (idx >= 0) nextItems[idx] = nextItem;
+        else nextItems.unshift(nextItem);
+        return { ...current, [model.id]: nextItems };
+      });
+      setDraft(nextItem);
+
+      if (editorManaged) {
+        if (refreshTemplate) {
+          setTemplateRecord(nextTemplateRecord ?? null);
+          if (bumpCanvas) {
+            setCanvasRevision((current) => current + 1);
+          }
+        }
+      } else {
+        baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+          draft: nextItem,
+          blocks,
+          editorManaged: false,
+          templateRecord: null,
+        });
+      }
+
+      return true;
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, [blocks, editorManaged, itemId, model, setRecordsByModel, templateRecord]);
+
+  useEffect(() => {
+    if (!model || itemId === 'new') {
+      return undefined;
+    }
+
+    function handlePartialRefresh(event) {
+      const detail = event?.detail ?? {};
+      const targets = detail?.targets ?? {};
+      const posts = Array.isArray(targets.posts) ? targets.posts : [];
+      const templates = Array.isArray(targets.templates) ? targets.templates : [];
+      const matchesRecord = posts.some(
+        (target) =>
+          String(target?.postType ?? '') === String(model.postType ?? '')
+          && String(target?.id ?? '') === String(draft.id ?? itemId)
+      );
+      const matchesTemplate = editorManaged && templates.some((target) => (
+        String(target?.slug ?? '') === `single-${model.id}` || String(target?.slug ?? '') === 'single'
+      ));
+
+      if (!matchesRecord && !matchesTemplate) {
+        return;
+      }
+
+      const reloadFromSource = () => {
+        void refreshFromSource({
+          refreshTemplate: Boolean(matchesTemplate),
+          bumpCanvas: Boolean(matchesTemplate),
+        });
+      };
+
+      if (currentSnapshot !== baselineSnapshotRef.current) {
+        pushNotice({
+          status: 'warning',
+          sticky: true,
+          message: `Source changed for ${draft.title || (model.singularLabel || model.label)}. Reload from source will discard your unsaved edits.`,
+          actions: [{ label: 'Reload from source', onClick: reloadFromSource }],
+        });
+        return;
+      }
+
+      reloadFromSource();
+    }
+
+    window.addEventListener(DEV_HMR_PARTIAL_REFRESH_EVENT, handlePartialRefresh);
+    return () => window.removeEventListener(DEV_HMR_PARTIAL_REFRESH_EVENT, handlePartialRefresh);
+  }, [currentSnapshot, draft.id, draft.title, editorManaged, itemId, model, pushNotice, refreshFromSource]);
 
   const fields = useMemo(() => {
     if (!schema || !model) return [];
@@ -286,9 +452,28 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
           const templateBlocks = blocksFromContent(templateRecord.content);
           const composed = composeTemplateEditorBlocks(templateBlocks, nextContentBlocks);
           setBlocks(composed.blocks);
+          baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+            draft: payload.item,
+            blocks: composed.blocks,
+            editorManaged,
+            templateRecord,
+          });
         } else {
           setBlocks(nextContentBlocks);
+          baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+            draft: payload.item,
+            blocks: nextContentBlocks,
+            editorManaged,
+            templateRecord: null,
+          });
         }
+      } else {
+        baselineSnapshotRef.current = buildCollectionEditorSnapshot({
+          draft: payload.item,
+          blocks,
+          editorManaged: false,
+          templateRecord: null,
+        });
       }
       pushNotice({ status: 'success', message: `${model.singularLabel || model.label} saved.` });
       if (isNew) {
@@ -366,9 +551,9 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         title: 'View on site',
         onClick: () => window.open(existing.link, '_blank', 'noopener,noreferrer'),
       } : null,
-      existing?.id ? {
-        title: 'Open in wp-admin',
-        onClick: () => window.open(`/wp-admin/post.php?post=${existing.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      wpAdminUrl ? {
+        title: 'Open in WordPress editor',
+        onClick: () => window.open(wpAdminUrl, '_blank', 'noopener,noreferrer'),
       } : null,
       existing ? {
         title: `Delete ${documentLabel}`,
@@ -392,6 +577,7 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
     model?.label,
     model?.singularLabel,
     schema,
+    wpAdminUrl,
   ]);
 
   useRegisterWorkspaceSurface(workspaceSurface);
@@ -476,10 +662,11 @@ export function CollectionEditorPage({ bootstrap, recordsByModel, setRecordsByMo
         viewUrl={draft.link || existing?.link}
         documentLabel={documentLabel}
         canvasLayout={Boolean(templateRecord) ? 'template' : 'content'}
+        canvasRevision={canvasRevision}
         recordContext={recordContext}
         resolveInternalLink={resolveInternalLink}
         onOpenInternalLink={(path) => navigate(path)}
-        wpAdminUrl={existing?.id ? `/wp-admin/post.php?post=${existing.id}&action=edit` : undefined}
+        wpAdminUrl={wpAdminUrl}
         documentSidebar={
           <>
             <PanelBody title="Summary" initialOpen={true}>

@@ -1189,7 +1189,7 @@ export function frontendLauncherJs() {
       id: 'command:classic-admin',
       title: 'Classic WP Admin',
       subtitle: 'Open the legacy admin in a new tab',
-      href: window.location.origin.replace(/\\/$/, '') + '/wp-admin/?classic-admin=1',
+      href: window.location.origin.replace(/\\/$/, '') + '/wp-admin/?classic-admin=1&wplite-return=' + encodeURIComponent(window.location.origin.replace(/\\/$/, '') + '/app/'),
       iconKey: 'admin',
       openInNewTab: true,
       priority: 760,

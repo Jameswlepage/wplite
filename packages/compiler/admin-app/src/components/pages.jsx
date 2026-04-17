@@ -1,16 +1,33 @@
-import React, { Fragment, startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import React, {
+  Fragment,
+  startTransition,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
   Card,
   CardBody,
-  PanelBody,
-  SelectControl,
-  TextControl,
 } from '@wordpress/components';
+import {
+  NativeSection,
+  NativeField,
+  NativeFieldGrid,
+  NativeInput,
+  NativeSelect,
+  NativeMetaList,
+  NativeHelpBlock,
+} from './native-controls.jsx';
 import { createBlock, serialize } from '@wordpress/blocks';
 import { DataViews, filterSortAndPaginate } from '@wordpress/dataviews';
+import { buildPostEditorUrl, buildSiteEditorUrl } from '../lib/config.js';
 import {
+  apiFetch,
   analyzeTemplateMarkup,
   formatDate,
   formatDateTime,
@@ -25,6 +42,7 @@ import {
   loadCachedPageRecord,
   loadCachedTemplateRecord,
 } from '../lib/editor-prefetch.js';
+import { DEV_HMR_PARTIAL_REFRESH_EVENT } from '../lib/dev-hmr.js';
 import { SkeletonTableRows, EditorSkeleton } from './skeletons.jsx';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
 import { useRegisterWorkspaceSurface, useRegisterAssistantSurface } from './workspace-context.jsx';
@@ -159,6 +177,130 @@ function resolvePreviewMarkup(page, bootstrap, templateSlug, routeManifest) {
   if (postTypeShell) return String(postTypeShell);
 
   return '';
+}
+
+function createEmptyPageDraft(bootstrap, { pageId, isNew } = {}) {
+  const base = {
+    title: '',
+    slug: '',
+    routeId: '',
+    postStatus: 'draft',
+    commentStatus: bootstrap?.site?.commentsEnabled ? 'open' : 'closed',
+    content: '',
+    date: '',
+    featuredMedia: 0,
+    parent: 0,
+    template: '',
+    menuOrder: 0,
+    link: '',
+    modified: '',
+  };
+
+  if (!isNew) {
+    const seed = (bootstrap?.pages ?? []).find((page) => String(page.id) === String(pageId));
+    if (seed) {
+      return {
+        ...base,
+        id: seed.id,
+        title: seed.title || '',
+        slug: seed.slug || '',
+        postStatus: seed.postStatus || base.postStatus,
+      };
+    }
+  }
+
+  return base;
+}
+
+function buildPageEditorSnapshot({ draft, blocks, templateRecord }) {
+  const split = templateRecord
+    ? splitTemplateEditorBlocks(blocks)
+    : { templateBlocks: [], pageContentBlocks: blocks ?? [] };
+  const pageContent = templateRecord
+    ? (templateRecord.slotFound ? serialize(split.pageContentBlocks) : String(draft?.content || ''))
+    : serialize(split.pageContentBlocks);
+  const templateContent = templateRecord ? serialize(split.templateBlocks) : '';
+
+  return JSON.stringify({
+    id: draft?.id ?? null,
+    title: draft?.title ?? '',
+    slug: draft?.slug ?? '',
+    routeId: draft?.routeId ?? '',
+    postStatus: draft?.postStatus ?? 'draft',
+    commentStatus: draft?.commentStatus ?? 'closed',
+    date: draft?.date ?? '',
+    featuredMedia: Number(draft?.featuredMedia || 0),
+    parent: Number(draft?.parent || 0),
+    template: draft?.template ?? '',
+    menuOrder: Number(draft?.menuOrder || 0),
+    pageContent,
+    templateContent,
+  });
+}
+
+async function loadPageEditorState({ bootstrap, pageId, isNew, includePageList = true }) {
+  const nextPages = includePageList
+    ? (await wpApiFetch(
+      'wp/v2/pages?per_page=100&orderby=modified&order=desc&context=edit&status=any'
+    )).map(normalizePageRecord)
+    : null;
+
+  if (isNew) {
+    return {
+      pages: nextPages,
+      draft: createEmptyPageDraft(bootstrap, { pageId, isNew }),
+      blocks: [],
+      templateRecord: null,
+    };
+  }
+
+  const page = await loadCachedPageRecord(pageId);
+  const normalized = normalizePageRecord(page);
+  const routeManifest = getRouteManifestForPage(bootstrap, normalized);
+  const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
+  const previewMarkup = resolvePreviewMarkup(normalized, bootstrap, templateSlug, routeManifest);
+
+  if (templateSlug) {
+    const pageBlocks = blocksFromContent(normalized.content);
+    let template = null;
+
+    try {
+      template = await loadCachedTemplateRecord(templateSlug);
+    } catch (error) {
+      if (!previewMarkup) {
+        throw error;
+      }
+    }
+
+    const templateMarkup = String(previewMarkup || template?.content?.raw || '');
+    const templateBlocks = blocksFromContent(templateMarkup);
+    const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
+
+    return {
+      pages: nextPages,
+      draft: normalized,
+      blocks: composed.blocks,
+      templateRecord: {
+        id: String(template?.id ?? routeManifest?.editor?.templateEntityId ?? ''),
+        slug: String(template?.slug ?? templateSlug),
+        title:
+          template?.title?.raw
+          ?? template?.title?.rendered
+          ?? routeManifest?.title
+          ?? normalized.title
+          ?? templateSlug,
+        slotFound: composed.slotFound,
+        source: template?.content?.raw ? 'template-rest' : 'route-manifest',
+      },
+    };
+  }
+
+  return {
+    pages: nextPages,
+    draft: normalized,
+    blocks: blocksFromContent(normalized.content),
+    templateRecord: null,
+  };
 }
 
 /* ── Pages screen using DataViews ── */
@@ -302,51 +444,96 @@ export function PagesPage({ pushNotice }) {
 }
 
 export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNotice }) {
-  const themeJson = bootstrap?.themeJson ?? null;
+  const [bootstrapSnapshot, setBootstrapSnapshot] = useState(bootstrap);
+  const activeBootstrap = bootstrapSnapshot ?? bootstrap;
+  const themeJson = activeBootstrap?.themeJson ?? null;
   const navigate = useNavigate();
   const { pageId } = useParams();
   const isNew = pageId === 'new';
-  const pages = useMemo(
-    () => (Array.isArray(bootstrap?.pages) ? bootstrap.pages : []),
-    [bootstrap?.pages]
-  );
-  const [draft, setDraft] = useState(() => {
-    const base = {
-      title: '',
-      slug: '',
-      routeId: '',
-      postStatus: 'draft',
-      commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
-      content: '',
-      date: '',
-      featuredMedia: 0,
-      parent: 0,
-      template: '',
-      menuOrder: 0,
-      link: '',
-      modified: '',
-    };
-    // Seed title/slug/status from bootstrap.pages so the topbar shows the
-    // real name immediately — no "Untitled Page" flash while the REST load runs.
-    if (!isNew) {
-      const seed = (bootstrap?.pages ?? []).find((p) => String(p.id) === String(pageId));
-      if (seed) {
-        return {
-          ...base,
-          id: seed.id,
-          title: seed.title || '',
-          slug: seed.slug || '',
-          postStatus: seed.postStatus || base.postStatus,
-        };
-      }
-    }
-    return base;
-  });
+  const [pages, setPages] = useState(() => Array.isArray(activeBootstrap?.pages) ? activeBootstrap.pages : []);
+  const [draft, setDraft] = useState(() => createEmptyPageDraft(activeBootstrap, { pageId, isNew }));
   const [blocks, setBlocks] = useState([]);
   const [templateRecord, setTemplateRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [canvasRevision, setCanvasRevision] = useState(0);
+  const refreshInFlightRef = useRef(false);
+  const baselineSnapshotRef = useRef(
+    buildPageEditorSnapshot({
+      draft: createEmptyPageDraft(activeBootstrap, { pageId, isNew }),
+      blocks: [],
+      templateRecord: null,
+    })
+  );
+  const currentSnapshot = useMemo(
+    () => buildPageEditorSnapshot({ draft, blocks, templateRecord }),
+    [blocks, draft, templateRecord]
+  );
+  const currentAppPath = useMemo(
+    () => (isNew ? '/pages/new' : `/pages/${draft.id || pageId}`),
+    [draft.id, isNew, pageId]
+  );
+  const wpAdminUrl = useMemo(
+    () => (!isNew && draft.id ? buildPostEditorUrl(draft.id, { appPath: currentAppPath }) : undefined),
+    [currentAppPath, draft.id, isNew]
+  );
+  const wpAdminTemplateUrl = useMemo(
+    () => (templateRecord?.id ? buildSiteEditorUrl({ postId: templateRecord.id, appPath: currentAppPath }) : undefined),
+    [currentAppPath, templateRecord?.id]
+  );
+
+  useEffect(() => {
+    setBootstrapSnapshot(bootstrap);
+  }, [bootstrap]);
+
+  const applyLoadedState = useCallback((nextState, { bumpCanvas = false } = {}) => {
+    if (Array.isArray(nextState?.pages)) {
+      setPages(nextState.pages);
+    }
+    setDraft(nextState?.draft ?? createEmptyPageDraft(activeBootstrap, { pageId, isNew }));
+    setBlocks(nextState?.blocks ?? []);
+    setTemplateRecord(nextState?.templateRecord ?? null);
+    baselineSnapshotRef.current = buildPageEditorSnapshot({
+      draft: nextState?.draft ?? createEmptyPageDraft(activeBootstrap, { pageId, isNew }),
+      blocks: nextState?.blocks ?? [],
+      templateRecord: nextState?.templateRecord ?? null,
+    });
+    if (bumpCanvas) {
+      setCanvasRevision((current) => current + 1);
+    }
+  }, [activeBootstrap, isNew, pageId]);
+
+  const refreshFromSource = useCallback(async ({
+    includePageList = false,
+    refreshBootstrap = false,
+    bumpCanvas = false,
+  } = {}) => {
+    if (refreshInFlightRef.current) {
+      return false;
+    }
+
+    refreshInFlightRef.current = true;
+
+    try {
+      const bootstrapSource = refreshBootstrap
+        ? await apiFetch('bootstrap')
+        : (bootstrapSnapshot ?? bootstrap);
+      if (refreshBootstrap) {
+        setBootstrapSnapshot(bootstrapSource);
+      }
+      const nextState = await loadPageEditorState({
+        bootstrap: bootstrapSource,
+        pageId,
+        isNew,
+        includePageList,
+      });
+      applyLoadedState(nextState, { bumpCanvas });
+      return true;
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, [applyLoadedState, bootstrap, bootstrapSnapshot, isNew, pageId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -354,102 +541,15 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     async function load() {
       setLoading(true);
       try {
-        if (isNew) {
-          const nextDraft = {
-            title: '',
-            slug: '',
-            routeId: '',
-            postStatus: 'draft',
-            commentStatus: bootstrap.site?.commentsEnabled ? 'open' : 'closed',
-            content: '',
-            date: '',
-            featuredMedia: 0,
-            parent: 0,
-            template: '',
-            menuOrder: 0,
-            link: '',
-            modified: '',
-          };
-          setDraft(nextDraft);
-          setBlocks([]);
-          setTemplateRecord(null);
-          return;
-        }
-
-        const page = await loadCachedPageRecord(pageId);
+        const nextState = await loadPageEditorState({
+          bootstrap,
+          pageId,
+          isNew,
+          includePageList: true,
+        });
         if (cancelled) return;
-        const normalized = normalizePageRecord(page);
-        const routeManifest = getRouteManifestForPage(bootstrap, normalized);
-        const templateSlug = resolvePageTemplateSlug(normalized, bootstrap);
-        const previewMarkup = resolvePreviewMarkup(normalized, bootstrap, templateSlug, routeManifest);
-        const pageBlocks = blocksFromContent(normalized.content);
-
-        setDraft(normalized);
-
-        if (templateSlug) {
-          const routeTemplateRecord = {
-            id: String(routeManifest?.editor?.templateEntityId ?? ''),
-            slug: String(templateSlug),
-            title:
-              routeManifest?.title
-              ?? normalized.title
-              ?? templateSlug,
-            slotFound: false,
-            source: previewMarkup ? 'route-manifest' : 'template-rest',
-          };
-
-          let template = null;
-          let templateMarkup = String(previewMarkup || '');
-          if (!templateMarkup) {
-            template = await loadCachedTemplateRecord(templateSlug);
-            if (cancelled) return;
-            templateMarkup = String(template?.content?.raw || '');
-          }
-
-          const templateBlocks = blocksFromContent(templateMarkup);
-          const composed = composeTemplateEditorBlocks(templateBlocks, pageBlocks);
-
-          setTemplateRecord({
-            ...routeTemplateRecord,
-            id: String(template?.id ?? routeTemplateRecord.id),
-            slug: String(template?.slug ?? routeTemplateRecord.slug),
-            title:
-              template?.title?.raw
-              ?? template?.title?.rendered
-              ?? routeTemplateRecord.title,
-            slotFound: composed.slotFound,
-            source: template?.content?.raw ? 'template-rest' : routeTemplateRecord.source,
-          });
-          setBlocks(composed.blocks);
-
-          if (previewMarkup) {
-            void loadCachedTemplateRecord(templateSlug)
-              .then((resolvedTemplate) => {
-                if (cancelled || !resolvedTemplate?.content?.raw) {
-                  return;
-                }
-                setTemplateRecord((current) => {
-                  if (!current || current.slug !== templateSlug) {
-                    return current;
-                  }
-                  return {
-                    ...current,
-                    id: String(resolvedTemplate.id ?? current.id),
-                    slug: String(resolvedTemplate.slug ?? current.slug),
-                    title:
-                      resolvedTemplate.title?.raw
-                      ?? resolvedTemplate.title?.rendered
-                      ?? current.title,
-                    source: 'template-rest',
-                  };
-                });
-              })
-              .catch(() => {});
-          }
-        } else {
-          setTemplateRecord(null);
-          setBlocks(pageBlocks);
-        }
+        setBootstrapSnapshot(bootstrap);
+        applyLoadedState(nextState);
       } catch (error) {
         if (!cancelled) {
           pushNotice({ status: 'error', message: `Failed to load page: ${error.message}` });
@@ -463,7 +563,55 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     return () => {
       cancelled = true;
     };
-  }, [bootstrap, isNew, pageId]);
+  }, [applyLoadedState, bootstrap, isNew, pageId, pushNotice]);
+
+  useEffect(() => {
+    if (isNew) {
+      return undefined;
+    }
+
+    function handlePartialRefresh(event) {
+      const detail = event?.detail ?? {};
+      const targets = detail?.targets ?? {};
+      const posts = Array.isArray(targets.posts) ? targets.posts : [];
+      const templates = Array.isArray(targets.templates) ? targets.templates : [];
+      const currentPageId = String(draft.id ?? pageId);
+      const currentTemplateSlug = resolvePageTemplateSlug(draft, bootstrapSnapshot ?? bootstrap);
+      const matchesPage = posts.some(
+        (target) => String(target?.postType ?? '') === 'page' && String(target?.id ?? '') === currentPageId
+      );
+      const matchesTemplate = templates.some(
+        (target) => String(target?.slug ?? '') === String(currentTemplateSlug)
+      );
+
+      if (!matchesPage && !matchesTemplate) {
+        return;
+      }
+
+      const reloadFromSource = () => {
+        void refreshFromSource({
+          includePageList: matchesPage,
+          refreshBootstrap: matchesTemplate || Boolean(detail.bootstrap),
+          bumpCanvas: matchesTemplate,
+        });
+      };
+
+      if (currentSnapshot !== baselineSnapshotRef.current) {
+        pushNotice({
+          status: 'warning',
+          sticky: true,
+          message: `Source changed for ${draft.title || 'this page'}. Reload from source will discard your unsaved edits.`,
+          actions: [{ label: 'Reload from source', onClick: reloadFromSource }],
+        });
+        return;
+      }
+
+      reloadFromSource();
+    }
+
+    window.addEventListener(DEV_HMR_PARTIAL_REFRESH_EVENT, handlePartialRefresh);
+    return () => window.removeEventListener(DEV_HMR_PARTIAL_REFRESH_EVENT, handlePartialRefresh);
+  }, [bootstrap, bootstrapSnapshot, currentSnapshot, draft, isNew, pageId, pushNotice, refreshFromSource]);
 
   async function handleSave(overrides = {}) {
     setIsSaving(true);
@@ -533,6 +681,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
           };
         });
       }
+      let nextTemplateRecord = templateRecord;
       if (savedTemplate) {
         // Update template record metadata from server response but do NOT
         // call setBlocks — the editor already has the correct composed state.
@@ -542,12 +691,13 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
           blocksFromContent(savedTemplate?.content?.raw ?? ''),
           blocksFromContent(normalized.content)
         );
-        setTemplateRecord({
+        nextTemplateRecord = {
           id: savedTemplate.id,
           slug: savedTemplate.slug,
           title: savedTemplate.title?.raw ?? savedTemplate.title?.rendered ?? templateRecord?.title ?? 'Template',
           slotFound: composed.slotFound,
-        });
+        };
+        setTemplateRecord(nextTemplateRecord);
       }
       // Non-template: editor state is already current — no setBlocks needed.
       setPages((current) => {
@@ -556,6 +706,11 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
         if (index >= 0) next[index] = normalized;
         else next.unshift(normalized);
         return next;
+      });
+      baselineSnapshotRef.current = buildPageEditorSnapshot({
+        draft: normalized,
+        blocks,
+        templateRecord: nextTemplateRecord,
       });
       pushNotice({ status: 'success', message: 'Page saved.' });
 
@@ -613,8 +768,8 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  const routeManifest = getRouteManifestForPage(bootstrap, draft);
-  const route = routeManifest?.route ?? (bootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
+  const routeManifest = getRouteManifestForPage(activeBootstrap, draft);
+  const route = routeManifest?.route ?? (activeBootstrap?.routes ?? []).find((item) => item?.id === draft.routeId);
 
   const workspaceSurface = useMemo(() => ({
     entityId: draft.id ? `page:${draft.id}` : 'page:new',
@@ -639,13 +794,13 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
         title: 'View on site',
         onClick: () => window.open(draft.link, '_blank', 'noopener,noreferrer'),
       } : null,
-      !isNew ? {
-        title: 'Open in wp-admin',
-        onClick: () => window.open(`/wp-admin/post.php?post=${draft.id}&action=edit`, '_blank', 'noopener,noreferrer'),
+      wpAdminUrl ? {
+        title: 'Open in WordPress editor',
+        onClick: () => window.open(wpAdminUrl, '_blank', 'noopener,noreferrer'),
       } : null,
-      templateRecord ? {
-        title: 'Edit template in wp-admin',
-        onClick: () => window.open(`/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit`, '_blank', 'noopener,noreferrer'),
+      wpAdminTemplateUrl ? {
+        title: 'Open template in Site Editor',
+        onClick: () => window.open(wpAdminTemplateUrl, '_blank', 'noopener,noreferrer'),
       } : null,
       !isNew ? {
         title: 'Delete Page',
@@ -665,11 +820,13 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     isSaving,
     loading,
     templateRecord,
+    wpAdminTemplateUrl,
+    wpAdminUrl,
   ]);
 
   const resolveInternalLink = useMemo(
-    () => createInternalLinkResolver({ bootstrap, recordsByModel }),
-    [bootstrap, recordsByModel]
+    () => createInternalLinkResolver({ bootstrap: activeBootstrap, recordsByModel }),
+    [activeBootstrap, recordsByModel]
   );
 
   useRegisterWorkspaceSurface(workspaceSurface);
@@ -694,7 +851,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
     const templateSlug = routeManifest?.template
       || (draft.template && !['default', ''].includes(draft.template) ? draft.template : null)
       || 'page';
-    const previewMarkup = resolvePreviewMarkup(draft, bootstrap, templateSlug, routeManifest);
+    const previewMarkup = resolvePreviewMarkup(draft, activeBootstrap, templateSlug, routeManifest);
     const renderAnalysis = previewMarkup
       ? analyzeTemplateMarkup(previewMarkup, { templateSlug })
       : { rendersPostContent: true, renderSources: [], patternSlugs: [], templatePartSlugs: [] };
@@ -730,7 +887,7 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
         notes,
       },
     };
-  }, [blocks, draft.content, draft.slug, draft.sourcePath, draft.template, draft.title, isNew, pageId, routeManifest]);
+  }, [activeBootstrap, blocks, draft.content, draft.slug, draft.sourcePath, draft.template, draft.title, isNew, pageId, routeManifest]);
   useRegisterAssistantContext(assistantContext);
 
   const assistantSurface = useMemo(() => {
@@ -813,94 +970,99 @@ export function PageEditorPage({ bootstrap, recordsByModel, setBootstrap, pushNo
       viewUrl={draft.link}
       documentLabel="Page"
       canvasLayout={Boolean(templateRecord || routeManifest) ? 'template' : 'content'}
+      canvasRevision={canvasRevision}
       recordContext={recordContext}
       resolveInternalLink={resolveInternalLink}
       onOpenInternalLink={(path) => navigate(path)}
-      wpAdminTemplateUrl={templateRecord ? `/wp-admin/site-editor.php?postType=wp_template&postId=${encodeURIComponent(templateRecord.id)}&canvas=edit` : undefined}
-      wpAdminUrl={!isNew ? `/wp-admin/post.php?post=${draft.id}&action=edit` : undefined}
+      wpAdminTemplateUrl={wpAdminTemplateUrl}
+      wpAdminUrl={wpAdminUrl}
       showEmptyPatternPicker={!templateRecord}
       documentSidebar={
         <>
-          <PanelBody title="Summary" initialOpen={true}>
-            <div className="inline-field-grid">
-              <TextControl
-                label="Slug"
-                value={draft.slug ?? ''}
-                onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
-                __next40pxDefaultSize
-              />
-              <SelectControl
-                label="Status"
-                value={draft.postStatus ?? 'draft'}
-                options={[
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'publish', label: 'Published' },
-                  { value: 'pending', label: 'Pending Review' },
-                  { value: 'private', label: 'Private' },
-                ]}
-                onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
-                __next40pxDefaultSize
-              />
-            </div>
+          <NativeSection title="Summary" initialOpen={true}>
+            <NativeFieldGrid cols={2}>
+              <NativeField label="Slug">
+                <NativeInput
+                  value={draft.slug ?? ''}
+                  onChange={(value) => setDraft((current) => ({ ...current, slug: value }))}
+                />
+              </NativeField>
+              <NativeField label="Status">
+                <NativeSelect
+                  value={draft.postStatus ?? 'draft'}
+                  options={[
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'publish', label: 'Published' },
+                    { value: 'pending', label: 'Pending Review' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  onChange={(value) => setDraft((current) => ({ ...current, postStatus: value }))}
+                />
+              </NativeField>
+            </NativeFieldGrid>
 
-            <SelectControl
+            <NativeField
               label="Comments"
-              value={draft.commentStatus ?? 'closed'}
-              options={[
-                { value: 'closed', label: 'Disabled' },
-                { value: 'open', label: 'Enabled' },
-              ]}
-              onChange={(value) => setDraft((current) => ({ ...current, commentStatus: value }))}
               help="New pages inherit the Site setting. This page can override it."
-              __next40pxDefaultSize
-            />
-          </PanelBody>
-
-          <PanelBody title="Page attributes" initialOpen={true}>
-            <div className="inline-field-grid">
-              <SelectControl
-                label="Parent"
-                value={String(draft.parent ?? 0)}
-                options={parentOptions}
-                onChange={(value) => setDraft((current) => ({ ...current, parent: Number(value || 0) }))}
-                __next40pxDefaultSize
+            >
+              <NativeSelect
+                value={draft.commentStatus ?? 'closed'}
+                options={[
+                  { value: 'closed', label: 'Disabled' },
+                  { value: 'open', label: 'Enabled' },
+                ]}
+                onChange={(value) => setDraft((current) => ({ ...current, commentStatus: value }))}
               />
-              <TextControl
-                label="Menu Order"
-                type="number"
-                value={String(draft.menuOrder ?? 0)}
-                onChange={(value) => setDraft((current) => ({ ...current, menuOrder: Number(value || 0) }))}
-                __next40pxDefaultSize
-              />
-            </div>
+            </NativeField>
+          </NativeSection>
 
-            <SelectControl
-              label="Template"
-              value={draft.template ?? ''}
-              options={templateOptions}
-              onChange={(value) => setDraft((current) => ({ ...current, template: value }))}
-              __next40pxDefaultSize
-            />
-          </PanelBody>
+          <NativeSection title="Page attributes" initialOpen={true}>
+            <NativeFieldGrid cols={2}>
+              <NativeField label="Parent">
+                <NativeSelect
+                  value={String(draft.parent ?? 0)}
+                  options={parentOptions}
+                  onChange={(value) => setDraft((current) => ({ ...current, parent: Number(value || 0) }))}
+                />
+              </NativeField>
+              <NativeField label="Menu order">
+                <NativeInput
+                  type="number"
+                  value={String(draft.menuOrder ?? 0)}
+                  onChange={(value) => setDraft((current) => ({ ...current, menuOrder: Number(value || 0) }))}
+                />
+              </NativeField>
+            </NativeFieldGrid>
+
+            <NativeField label="Template">
+              <NativeSelect
+                value={draft.template ?? ''}
+                options={templateOptions}
+                onChange={(value) => setDraft((current) => ({ ...current, template: value }))}
+              />
+            </NativeField>
+          </NativeSection>
 
           {!isNew ? (
-            <PanelBody title="Details" initialOpen={true}>
-              <div className="editor-meta">
-                <span>ID: {draft.id}</span>
-                <span>Updated: {formatDateTime(draft.modified)}</span>
-              </div>
+            <NativeSection title="Details" initialOpen={true}>
+              <NativeMetaList
+                items={[
+                  { id: 'id', label: 'ID', value: draft.id },
+                  { id: 'updated', label: 'Updated', value: formatDateTime(draft.modified) },
+                ]}
+              />
               {templateRecord ? (
-                <p className="field-hint">
+                <NativeHelpBlock tone="info">
                   This route is using the shared route manifest for <strong>{templateRecord.title}</strong>, so the editor canvas follows the same template shell the router uses on the frontend.
-                </p>
+                </NativeHelpBlock>
               ) : null}
               {route?.postsPage ? (
-                <p className="field-hint">
+                <NativeHelpBlock tone="info">
                   This route is assigned as the posts page, so WordPress renders the archive
                   template instead of the page body.
-                </p>
+                </NativeHelpBlock>
               ) : null}
-            </PanelBody>
+            </NativeSection>
           ) : null}
         </>
       }

@@ -116,47 +116,30 @@ function NativeBlockInspector({ blockSidebarFooter }) {
         </header>
       ) : null}
 
-      <div className="native-inspector__group">
-        <InspectorControls.Slot />
-      </div>
-      <InspectorGroupSection group="list" />
-      <InspectorGroupSection group="content" />
-      <InspectorGroupSection group="color" label="Color" />
-      <InspectorGroupSection group="background" label="Background" />
-      <InspectorGroupSection group="typography" label="Typography" />
-      <InspectorGroupSection group="dimensions" label="Dimensions" />
-      <InspectorGroupSection group="border" label="Border" />
-      <InspectorGroupSection group="styles" />
-      <InspectorGroupSection group="bindings" label="Bindings" />
+      {/*
+        Mirror Gutenberg's non-tabbed BlockInspector layout. Passing `label`
+        to the Slot is what causes it to wrap fills in a single PanelBody
+        with that heading — we don't need (and shouldn't add) an outer
+        section title on top of that, or we'd end up with duplicate labels.
+        `content` and `list` slots are intentionally NOT rendered: they are
+        Gutenberg's Content / List View tab targets. In flat (non-tabbed)
+        mode they surface redundant empty panels.
+      */}
+      <InspectorControls.Slot />
+      <InspectorControls.Slot group="color" label="Color" />
+      <InspectorControls.Slot group="background" label="Background" />
+      <InspectorControls.Slot group="typography" label="Typography" />
+      <InspectorControls.Slot group="dimensions" label="Dimensions" />
+      <InspectorControls.Slot group="border" label="Border" />
+      <InspectorControls.Slot group="styles" />
+      <InspectorControls.Slot group="bindings" label="Bindings" />
 
       {blockSidebarFooter ? (
-        <section className="native-inspector__section">
-          <div className="native-inspector__section-title">Actions</div>
-          <div className="native-inspector__section-body">
-            {blockSidebarFooter}
-          </div>
-        </section>
+        <footer className="native-inspector__footer">
+          {blockSidebarFooter}
+        </footer>
       ) : null}
     </div>
-  );
-}
-
-/**
- * Mount a single InspectorControls.Slot group inside a titled section.
- * The slot itself renders the fills contributed by the selected block's
- * registered controls. If no fills resolve, the section stays collapsed
- * to empty markup (no visual noise).
- */
-function InspectorGroupSection({ group, label }) {
-  return (
-    <section className={`native-inspector__section native-inspector__section--${group}`}>
-      {label ? (
-        <div className="native-inspector__section-title">{label}</div>
-      ) : null}
-      <div className="native-inspector__section-body">
-        <InspectorControls.Slot group={group} label={label} />
-      </div>
-    </section>
   );
 }
 
@@ -991,6 +974,7 @@ function resolveInteractiveTargetFromNode(node, {
 function RouterBlockEditorCanvas({
   canvasLayout,
   canvasStyles,
+  canvasRevision,
   getBlockFromNode,
   locationKey,
   registerCanvasScrollReader,
@@ -1019,7 +1003,7 @@ function RouterBlockEditorCanvas({
 
   useEffect(() => {
     setIsCanvasBooting(true);
-  }, [locationKey]);
+  }, [canvasRevision, locationKey]);
 
   useEffect(() => {
     if (!frameBody?.ownerDocument?.defaultView) {
@@ -1040,7 +1024,7 @@ function RouterBlockEditorCanvas({
       frameWin.cancelAnimationFrame?.(frameA);
       frameWin.cancelAnimationFrame?.(frameB);
     };
-  }, [frameBody, locationKey]);
+  }, [canvasRevision, frameBody, locationKey]);
 
   useEffect(() => {
     if (!frameBody?.ownerDocument?.defaultView) {
@@ -1392,6 +1376,7 @@ export function NativeBlockEditorFrame({
   resolveInternalLink = null,
   onOpenInternalLink = null,
   showEmptyPatternPicker = false,
+  canvasRevision = 0,
 }) {
   const [editorBundle, setEditorBundle] = useState(() => getCachedEditorBundle());
   const [bundleError, setBundleError] = useState(null);
@@ -1425,7 +1410,7 @@ export function NativeBlockEditorFrame({
   }
   if (wpAdminUrl) {
     moreActionsControls.push({
-      title: 'Open in wp-admin',
+      title: 'Open in WordPress editor',
       onClick: () => {
         window.open(wpAdminUrl, '_blank', 'noopener,noreferrer');
       },
@@ -1433,7 +1418,7 @@ export function NativeBlockEditorFrame({
   }
   if (wpAdminTemplateUrl) {
     moreActionsControls.push({
-      title: 'Edit template in wp-admin',
+      title: 'Open template in Site Editor',
       onClick: () => {
         window.open(wpAdminTemplateUrl, '_blank', 'noopener,noreferrer');
       },
@@ -1889,10 +1874,12 @@ export function NativeBlockEditorFrame({
               <div className="native-editor__canvas-shell">
                 <div className={`native-editor__canvas native-editor__canvas--${canvasLayout === 'template' ? 'template' : 'content'}`}>
                   <RouterBlockEditorCanvas
+                    key={`${routerLocation.key}:${canvasRevision}`}
                     canvasLayout={canvasLayout}
                     canvasStyles={canvasStyles}
+                    canvasRevision={canvasRevision}
                     getBlockFromNode={getBlockFromNode}
-                    locationKey={routerLocation.key}
+                    locationKey={`${routerLocation.key}:${canvasRevision}`}
                     registerCanvasScrollReader={(reader) => {
                       canvasScrollReaderRef.current = reader;
                     }}

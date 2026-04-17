@@ -1517,6 +1517,167 @@
   display: none !important; /* replaced by our NativeInspector card */
 }
 
+/* ── Deduplicate group headers ─────────────────────────────
+   The Slot's `label` gives us a single outer PanelBody title.
+   The ToolsPanel nested inside ships its own header repeating the
+   label — hide the redundant text, keep only the "+" options menu
+   so users can still opt-in optional controls.
+   ─────────────────────────────────────────────────────────── */
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  min-height: 20px !important;
+  padding: 0 !important;
+  margin: -2px 0 6px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header > h2,
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header > .components-heading,
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header > span:first-child {
+  display: none !important;
+}
+
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header button.components-dropdown-menu__toggle,
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header .components-dropdown-menu {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+}
+
+.native-editor__block-sidebar .components-panel__body .components-tools-panel-header button.components-dropdown-menu__toggle:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+/* ── Dark theme for inspector input primitives ── */
+.native-editor__block-sidebar .components-input-control__input,
+.native-editor__block-sidebar .components-unit-control__input,
+.native-editor__block-sidebar .components-custom-select-control__button,
+.native-editor__block-sidebar .components-select-control__input,
+.native-editor__block-sidebar .components-font-size-picker__select,
+.native-editor__block-sidebar select:not([class*="ns-"]),
+.native-editor__block-sidebar input[type="text"]:not([class*="ns-"]),
+.native-editor__block-sidebar input[type="number"]:not([class*="ns-"]),
+.native-editor__block-sidebar input[type="search"]:not([class*="ns-"]) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+}
+
+.native-editor__block-sidebar .components-input-control__input:focus,
+.native-editor__block-sidebar .components-unit-control__input:focus,
+.native-editor__block-sidebar .components-custom-select-control__button:focus,
+.native-editor__block-sidebar select:not([class*="ns-"]):focus,
+.native-editor__block-sidebar input[type="text"]:not([class*="ns-"]):focus,
+.native-editor__block-sidebar input[type="number"]:not([class*="ns-"]):focus {
+  outline: none !important;
+  border-color: rgba(75, 99, 255, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(75, 99, 255, 0.45) !important;
+}
+
+.native-editor__block-sidebar .components-input-control__backdrop {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* Unit suffix dropdown next to numeric inputs (px/em/rem/%) */
+.native-editor__block-sidebar .components-unit-control__select,
+.native-editor__block-sidebar .components-unit-control select {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.82) !important;
+  border: 0 !important;
+  height: auto !important;
+  padding: 0 4px !important;
+}
+
+/* ToggleGroupControl (alignments, text style, etc.) */
+.native-editor__block-sidebar .components-toggle-group-control {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+}
+
+.native-editor__block-sidebar .components-toggle-group-control-option,
+.native-editor__block-sidebar .components-toggle-group-control-option-base {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: transparent !important;
+}
+
+.native-editor__block-sidebar .components-toggle-group-control-option.is-pressed,
+.native-editor__block-sidebar .components-toggle-group-control-option-base.is-pressed,
+.native-editor__block-sidebar .components-toggle-group-control [aria-checked="true"] {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+/* Range / slider track and thumb */
+.native-editor__block-sidebar .components-range-control__track,
+.native-editor__block-sidebar .components-range-control__wrapper {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.native-editor__block-sidebar .components-range-control__thumb,
+.native-editor__block-sidebar .components-range-control__thumb-wrapper {
+  background: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Color picker rows (Text / Background) — the row with swatch + label */
+.native-editor__block-sidebar .block-editor-panel-color-gradient-settings__dropdown-content,
+.native-editor__block-sidebar .block-editor-tools-panel-color-gradient-settings__item,
+.native-editor__block-sidebar .components-dropdown__trigger,
+.native-editor__block-sidebar button.components-button.has-icon.is-primary {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  color: #ffffff !important;
+  min-height: 36px !important;
+  padding: 6px 10px !important;
+  box-shadow: none !important;
+}
+
+.native-editor__block-sidebar .block-editor-panel-color-gradient-settings__dropdown-content:hover,
+.native-editor__block-sidebar .block-editor-tools-panel-color-gradient-settings__item:hover,
+.native-editor__block-sidebar .components-dropdown__trigger:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.native-editor__block-sidebar .components-color-indicator {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Labels & inline text inside HStack/VStack rows keep readable contrast */
+.native-editor__block-sidebar .components-flex-item,
+.native-editor__block-sidebar .components-h-stack > *,
+.native-editor__block-sidebar .components-v-stack > *,
+.native-editor__block-sidebar .components-truncate {
+  color: #ffffff !important;
+}
+
+/* Inspector footer (our Delete / actions row) */
+.native-inspector__footer {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #ffffff;
+}
+
 .native-editor__block-sidebar-empty {
   padding: 32px 20px;
   display: flex;

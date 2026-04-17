@@ -3,9 +3,11 @@
 //
 //   - strategy: 'full'    → full page reload (same as legacy behaviour).
 //   - strategy: 'partial' → invalidate affected @wordpress/core-data
-//     entities in place. If the editor has unsaved edits on one of the
-//     affected posts, emit a `wplite-dev-hmr:stale` event so the shell
-//     can surface a non-destructive "reload from source" notice.
+//     entities in place, then emit a targeted `wplite-dev-hmr:partial-refresh`
+//     event so mounted editors can refetch just their current record/template.
+//     If the editor has unsaved edits on one of the affected posts, emit a
+//     `wplite-dev-hmr:stale` event so the shell can surface a non-destructive
+//     "reload from source" notice.
 //   - strategy: 'none'    → nothing.
 //
 // Runs silently when the backend reports `enabled: false`.
@@ -15,6 +17,7 @@ import { runtimeConfig } from './config.js';
 
 const POLL_INTERVAL_MS = 1500;
 const DEV_HMR_EVENT = 'wplite-dev-hmr:stale';
+const DEV_HMR_REFRESH_EVENT = 'wplite-dev-hmr:partial-refresh';
 
 let lastChangeId = null;
 let lastVersion = null;
@@ -50,10 +53,17 @@ function emitStale(detail) {
   window.dispatchEvent(new CustomEvent(DEV_HMR_EVENT, { detail }));
 }
 
+function emitRefresh(detail) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(DEV_HMR_REFRESH_EVENT, { detail }));
+}
+
 function applyPartial(changes) {
   const targets = changes?.targets ?? {};
   const posts = Array.isArray(targets.posts) ? targets.posts : [];
   const templates = Array.isArray(targets.templates) ? targets.templates : [];
+  const singletons = Array.isArray(targets.singletons) ? targets.singletons : [];
+  const routes = Array.isArray(targets.routes) ? targets.routes : [];
 
   const dirty = [];
   const clean = [];
@@ -74,6 +84,18 @@ function applyPartial(changes) {
     if (!template?.id) continue;
     invalidatePost('wp_template', template.id);
   }
+
+  emitRefresh({
+    bootstrap: Boolean(changes?.bootstrap),
+    targets: {
+      posts,
+      templates,
+      singletons,
+      routes,
+    },
+    dirtyPosts: dirty,
+    cleanPosts: clean,
+  });
 
   if (changes?.bootstrap && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('wplite-dev-hmr:bootstrap-refresh'));
@@ -150,3 +172,4 @@ export function initDevHmr() {
 }
 
 export const DEV_HMR_STALE_EVENT = DEV_HMR_EVENT;
+export const DEV_HMR_PARTIAL_REFRESH_EVENT = DEV_HMR_REFRESH_EVENT;

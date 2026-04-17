@@ -1,3 +1,4 @@
+import { buildClassicAdminUrl } from './config.js';
 import { collectionPathForModel, editorRouteForModel, toTitleCase } from './helpers.js';
 
 export const COMMAND_BAR_RECENTS_KEY = 'wplite-command-bar-recents';
@@ -271,7 +272,7 @@ export function buildCommandPaletteIndex({ bootstrap, recordsByModel }) {
       id: 'command:classic-admin',
       title: 'Classic WP Admin',
       subtitle: 'Open wp-admin in a new tab',
-      href: `${siteUrl.replace(/\/$/, '')}/wp-admin/?classic-admin=1`,
+      href: buildClassicAdminUrl('/wp-admin/'),
       openInNewTab: true,
       iconName: 'Launch',
       keywords: ['wordpress', 'wp-admin', 'legacy'],
