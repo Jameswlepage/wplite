@@ -38,6 +38,41 @@ function buildBlockRendererQueryArgs(context) {
 }
 
 let editorPreviewFiltersRegistered = false;
+const PARSED_BLOCK_CACHE_LIMIT = 40;
+const parsedBlockCache = new Map();
+
+function cloneParsedBlocks(blocks = []) {
+  return (blocks ?? []).map((block) =>
+    createBlock(
+      block.name,
+      { ...(block.attributes ?? {}) },
+      cloneParsedBlocks(block.innerBlocks ?? [])
+    )
+  );
+}
+
+function getCachedParsedBlocks(content) {
+  const cached = parsedBlockCache.get(content);
+  if (!cached) {
+    return null;
+  }
+
+  parsedBlockCache.delete(content);
+  parsedBlockCache.set(content, cached);
+  return cloneParsedBlocks(cached);
+}
+
+function rememberParsedBlocks(content, blocks) {
+  if (!content || !Array.isArray(blocks)) {
+    return;
+  }
+
+  parsedBlockCache.set(content, blocks);
+  while (parsedBlockCache.size > PARSED_BLOCK_CACHE_LIMIT) {
+    const oldestKey = parsedBlockCache.keys().next().value;
+    parsedBlockCache.delete(oldestKey);
+  }
+}
 
 function shouldUseEditorRecordBlock(props, record) {
   if (!record?.setField) {
@@ -537,6 +572,11 @@ export function blocksFromContent(content) {
     return [];
   }
 
+  const cached = getCachedParsedBlocks(content);
+  if (cached) {
+    return cached;
+  }
+
   let result;
   try {
     if (content.includes('<!-- wp:')) {
@@ -590,7 +630,8 @@ export function blocksFromContent(content) {
     }
   }
 
-  return result;
+  rememberParsedBlocks(content, result);
+  return cloneParsedBlocks(result);
 }
 
 /**

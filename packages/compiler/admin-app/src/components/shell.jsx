@@ -865,14 +865,14 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
                 <Route path="/integrations" element={<IntegrationsPage pushNotice={pushNotice} />} />
                 <Route path="/automations" element={<PlaceholderPage eyebrow="Workspace" title="Automations" lede="Triggers, actions, and background workflows will attach to content once the service layer lands." summary="Site-wide configuration and preferences." />} />
                 <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-                <Route path="/pages/:pageId" element={<PageEditorPage key={`page-editor:${location.pathname}`} bootstrap={bootstrap} recordsByModel={recordsByModel} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
                 <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/comments/:commentId" element={<CommentEditorPage key={`comment-editor:${location.pathname}`} bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/media/:mediaId" element={<MediaEditorPage key={`media-editor:${location.pathname}`} pushNotice={pushNotice} />} />
                 <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/users/:userId" element={<UserEditorPage key={`user-editor:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
                 <Route path="/:collectionPath" element={<CollectionListPage bootstrap={bootstrap} recordsByModel={recordsByModel} />} />
-                <Route path="/:collectionPath/:itemId" element={<CollectionEditorPage key={`collection-editor:${location.pathname}`} bootstrap={bootstrap} recordsByModel={recordsByModel} setRecordsByModel={setRecordsByModel} pushNotice={pushNotice} />} />
+                <Route path="/:collectionPath/:itemId" element={<CollectionEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setRecordsByModel={setRecordsByModel} pushNotice={pushNotice} />} />
                 <Route path="/settings/site" element={<SiteSettingsPage key={`site-settings:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
                 <Route path="/settings/:singletonId" element={<SingletonEditorPage key={`singleton-settings:${location.pathname}`} bootstrap={bootstrap} singletonData={singletonData} setSingletonData={setSingletonData} pushNotice={pushNotice} />} />
                 <Route path="/settings/logs" element={<LogsPage />} />
