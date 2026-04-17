@@ -1,7 +1,7 @@
 <?php
 /**
- * Fatal-error page for /oauth/authorize when we can't safely redirect back
- * to the client (e.g. unknown client_id or redirect_uri mismatch).
+ * Fatal-error page for /oauth/authorize. Matches the consent screen's
+ * aesthetic — dark panel, accent blue link, fixed WP mark up top.
  *
  * Variables in scope:
  *   $title   — page title
@@ -11,6 +11,9 @@
  */
 
 defined( 'ABSPATH' ) || exit;
+
+$home = home_url( '/' );
+$site = get_bloginfo( 'name' );
 ?><!doctype html>
 <html lang="<?php echo esc_attr( get_locale() ); ?>">
 <head>
@@ -18,21 +21,102 @@ defined( 'ABSPATH' ) || exit;
 	<meta name="viewport" content="width=device-width,initial-scale=1">
 	<title><?php echo esc_html( $title ); ?></title>
 	<style>
-		html,body { margin:0; padding:0; background:#f6f7f7; color:#1e1e1e; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-		@media (prefers-color-scheme: dark) { html,body { background:#1d1d1d; color:#f5f5f5; } }
-		.shell { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
-		.card { max-width:420px; padding:28px; background:#fff; border-radius:12px; border:1px solid #dcdcde; }
-		@media (prefers-color-scheme: dark) { .card { background:#2a2a2a; border-color:#3a3a3a; } }
-		h1 { margin:0 0 10px; font-size:18px; font-weight:600; }
-		p { margin:0; color:#6b6b6b; font-size:14px; }
+		:root {
+			--wplite-page-bg: #1f1f1f;
+			--wplite-panel-bg: #2a2a2a;
+			--wplite-text: #f3f3f3;
+			--wplite-text-muted: #7b7b7f;
+			--wplite-destructive: #ff6b6b;
+			--wplite-border-subtle: rgba(255, 255, 255, 0.08);
+			--wplite-radius: 2px;
+			--wplite-font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+		}
+		*, *::before, *::after { box-sizing: border-box; }
+		html, body {
+			margin: 0;
+			min-height: 100vh;
+			background: var(--wplite-page-bg);
+			color: var(--wplite-text);
+			font-family: var(--wplite-font);
+			font-size: 13px;
+			line-height: 1.5;
+			-webkit-font-smoothing: antialiased;
+		}
+		body {
+			padding: 84px 24px 120px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.wplite-mark {
+			position: fixed;
+			top: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			display: block;
+			width: 38px;
+			height: 38px;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 122.52 122.523'%3E%3Cpath fill='%23ffffff' d='M8.708 61.26c0 20.802 12.089 38.779 29.619 47.298L13.258 39.872a52.32 52.32 0 0 0-4.55 21.388zm90.061-2.713c0-6.495-2.333-10.993-4.334-14.494-2.664-4.329-5.161-7.995-5.161-12.324 0-4.831 3.664-9.328 8.825-9.328.233 0 .454.029.681.042-9.35-8.566-21.807-13.796-35.489-13.796-18.36 0-34.513 9.42-43.91 23.688 1.233.037 2.395.063 3.382.063 5.497 0 14.006-.667 14.006-.667 2.833-.167 3.167 3.994.337 4.329 0 0-2.847.335-6.015.501l19.138 56.925 11.501-34.493-8.188-22.434c-2.83-.166-5.511-.5-5.511-.5-2.832-.166-2.5-4.496.332-4.329 0 0 8.679.667 13.843.667 5.496 0 14.006-.667 14.006-.667 2.835-.167 3.168 3.994.337 4.329 0 0-2.853.335-6.015.501l18.992 56.494 5.242-17.517c2.272-7.269 4.001-12.49 4.001-16.988zM64.087 65.796l-15.768 45.819c4.708 1.384 9.687 2.141 14.851 2.141 6.125 0 11.999-1.058 17.465-2.979-.141-.225-.269-.464-.374-.724l-16.174-44.257zm45.304-29.877c.226 1.674.354 3.471.354 5.404 0 5.333-.996 11.328-3.996 18.824l-16.053 46.413c15.624-9.111 26.133-26.038 26.133-45.426.002-9.137-2.333-17.729-6.438-25.215zM61.262 0C27.484 0 0 27.482 0 61.26c0 33.783 27.484 61.263 61.262 61.263 33.778 0 61.265-27.48 61.265-61.263C122.526 27.482 95.039 0 61.262 0zm0 119.715c-32.23 0-58.453-26.223-58.453-58.455 0-32.23 26.222-58.451 58.453-58.451 32.229 0 58.45 26.221 58.45 58.451 0 32.232-26.221 58.455-58.45 58.455z'/%3E%3C/svg%3E");
+			background-position: center;
+			background-repeat: no-repeat;
+			background-size: contain;
+			text-indent: -9999px;
+			overflow: hidden;
+		}
+		.panel {
+			width: 348px;
+			max-width: 100%;
+			padding: 24px;
+			background: var(--wplite-panel-bg);
+			border-left: 3px solid var(--wplite-destructive);
+			border-radius: var(--wplite-radius);
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+		.panel h1 {
+			margin: 0;
+			color: var(--wplite-text);
+			font-size: 15px;
+			font-weight: 600;
+		}
+		.panel p {
+			margin: 0;
+			color: var(--wplite-text-muted);
+			font-size: 12px;
+			line-height: 1.55;
+		}
+		.footer {
+			position: fixed;
+			right: 24px;
+			bottom: 32px;
+			left: 24px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			color: var(--wplite-text-muted);
+			font-size: 12px;
+		}
+		.footer a { color: var(--wplite-text-muted); text-decoration: none; }
+		.footer a:hover, .footer a:focus { color: #ffffff; outline: none; }
+		.footer .sep { color: #6d6d72; }
 	</style>
 </head>
 <body>
-	<div class="shell">
-		<div class="card">
-			<h1><?php echo esc_html( $title ); ?></h1>
-			<p><?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller escapes ?></p>
-		</div>
+	<a class="wplite-mark" href="<?php echo esc_url( $home ); ?>" aria-label="<?php echo esc_attr( $site ); ?>">
+		<?php echo esc_html( $site ); ?>
+	</a>
+
+	<div class="panel" role="alert">
+		<h1><?php echo esc_html( $title ); ?></h1>
+		<p><?php echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- caller escapes ?></p>
 	</div>
+
+	<footer class="footer">
+		<a href="<?php echo esc_url( $home ); ?>"><?php echo esc_html( $site ); ?></a>
+		<span class="sep">&middot;</span>
+		<span>Model Context Protocol</span>
+	</footer>
 </body>
 </html>
