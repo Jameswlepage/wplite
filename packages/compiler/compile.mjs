@@ -465,6 +465,7 @@ function compilerSelfHash() {
     new URL('./lib/markdown-blocks.mjs', import.meta.url),
     new URL('./lib/models.mjs', import.meta.url),
     new URL('./lib/site-config.mjs', import.meta.url),
+    new URL('./lib/php/helpers.mjs', import.meta.url),
     new URL('./lib/php/icons.mjs', import.meta.url),
     new URL('./lib/php/plugin-main.mjs', import.meta.url),
     new URL('./lib/php/register-head.mjs', import.meta.url),

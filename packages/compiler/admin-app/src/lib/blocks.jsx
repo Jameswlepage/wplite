@@ -830,8 +830,6 @@ export function buildBlockEditorSettings(bundle, callbacks = {}) {
   // not free-form content). In the wplite admin we do want them available in
   // our custom inserter, so we strip the flag here.
   const rawPatterns = serverSettings.__experimentalBlockPatterns;
-  // eslint-disable-next-line no-console
-  console.log('[wplite] rawPatterns from PHP:', rawPatterns);
   const __experimentalBlockPatterns = Array.isArray(rawPatterns)
     ? rawPatterns.map((p) => (p.inserter === false ? { ...p, inserter: true } : p))
     : rawPatterns;

@@ -528,6 +528,40 @@ function portfolio_light_get_editor_bundle() {
 \t\t\t}
 \t\t}
 
+\t\t// WP 6.4+ removed __experimentalBlockPatterns from get_block_editor_settings()
+\t\t// in favour of loading patterns dynamically via the core/patterns REST store.
+\t\t// Populate it explicitly from the registry so our JS admin inserter can show
+\t\t// theme patterns without needing a live core data store.
+\t\tif ( empty( $editor_settings['__experimentalBlockPatterns'] ) && class_exists( 'WP_Block_Patterns_Registry' ) ) {
+\t\t\t$pattern_categories = [];
+\t\t\tif ( class_exists( 'WP_Block_Pattern_Categories_Registry' ) ) {
+\t\t\t\tforeach ( WP_Block_Pattern_Categories_Registry::get_instance()->get_all_registered() as $cat ) {
+\t\t\t\t\t$pattern_categories[] = [
+\t\t\t\t\t\t'name'  => $cat['name'],
+\t\t\t\t\t\t'label' => $cat['label'],
+\t\t\t\t\t];
+\t\t\t\t}
+\t\t\t}
+
+\t\t\t$patterns = [];
+\t\t\tforeach ( WP_Block_Patterns_Registry::get_instance()->get_all_registered() as $pattern ) {
+\t\t\t\t$patterns[] = [
+\t\t\t\t\t'name'        => $pattern['name'],
+\t\t\t\t\t'title'       => $pattern['title'],
+\t\t\t\t\t'description' => $pattern['description'] ?? '',
+\t\t\t\t\t'categories'  => $pattern['categories'] ?? [],
+\t\t\t\t\t'keywords'    => $pattern['keywords'] ?? [],
+\t\t\t\t\t'content'     => $pattern['content'],
+\t\t\t\t\t'inserter'    => true,
+\t\t\t\t\t'blockTypes'  => $pattern['blockTypes'] ?? [],
+\t\t\t\t\t'source'      => $pattern['source'] ?? 'theme',
+\t\t\t\t];
+\t\t\t}
+
+\t\t\t$editor_settings['__experimentalBlockPatterns']          = $patterns;
+\t\t\t$editor_settings['__experimentalBlockPatternCategories'] = $pattern_categories;
+\t\t}
+
 \t\treturn [
 \t\t\t'globalStylesheet'       => $global_stylesheet,
 \t\t\t'themeStylesheetUrl'     => $theme_stylesheet_uri,
