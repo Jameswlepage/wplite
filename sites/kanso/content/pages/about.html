@@ -1,0 +1,15 @@
+---
+title: About
+slug: about
+---
+<!-- wp:heading {"level":1} -->
+<h1 class="wp-block-heading">About this page</h1>
+<!-- /wp:heading -->
+
+<!-- wp:paragraph -->
+<p>This paragraph renders inside the <code>about.html</code> template via <code>core/post-content</code>. Edits to <code>sites/kanso/content/pages/about.html</code> stream into the live canvas through the file-bridge with no iframe remount and no full refetch.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>The surrounding template blocks (header, intro patterns, footer) are mounted at the top of the BlockEditorProvider. The post-content region is the only part that takes CRDT updates from the page entity — everything else flows through the same WS event bus on file change.</p>
+<!-- /wp:paragraph -->

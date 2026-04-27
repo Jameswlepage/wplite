@@ -154,7 +154,7 @@ function portfolio_light_find_page_content_entry( $route ) {
 \t\t\tif ( $source_file === '' ) {
 \t\t\t\tcontinue;
 \t\t\t}
-\t\t\t$stem = preg_replace( '/\\.md$/', '', basename( $source_file ) );
+\t\t\t$stem = preg_replace( '/\\.(md|html)$/', '', basename( $source_file ) );
 \t\t\tif ( $stem === $route_id ) {
 \t\t\t\treturn $entry;
 \t\t\t}
@@ -723,17 +723,21 @@ function portfolio_light_seed_partial( $payload ) {
 \t\t\t$wanted[ $model . '::' . $slug ] = true;
 \t\t}
 
-\t\tforeach ( $collections as $items ) {
+\t\tforeach ( $collections as $model_key => $items ) {
 \t\t\tforeach ( $items as $entry ) {
-\t\t\t\t$model = (string) ( $entry['model'] ?? '' );
+\t\t\t\t// Compiled entries carry their body + frontmatter but no model
+\t\t\t\t// field — the collection key IS the model id. Inject it so the
+\t\t\t\t// match below and seed_content_entry can route the entry to the
+\t\t\t\t// right post-type path.
+\t\t\t\t$entry['model'] = $model_key;
 \t\t\t\t$slug  = (string) ( $entry['slug'] ?? '' );
-\t\t\t\tif ( empty( $wanted[ $model . '::' . $slug ] ) ) {
+\t\t\t\tif ( empty( $wanted[ $model_key . '::' . $slug ] ) ) {
 \t\t\t\t\tcontinue;
 \t\t\t\t}
 
-\t\t\t\t$post_type = $model;
+\t\t\t\t$post_type = $model_key;
 \t\t\t\tif ( ! in_array( $post_type, [ 'page', 'post' ], true ) ) {
-\t\t\t\t\t$model_def = portfolio_light_get_model( $model );
+\t\t\t\t\t$model_def = portfolio_light_get_model( $model_key );
 \t\t\t\t\tif ( $model_def ) {
 \t\t\t\t\t\t$post_type = (string) ( $model_def['postType'] ?? $post_type );
 \t\t\t\t\t}

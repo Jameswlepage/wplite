@@ -1,4 +1,10 @@
 export const runtimeConfig = window.PORTFOLIO_LIGHT ?? {};
+
+export const syncUrl = (() => {
+  const raw = runtimeConfig?.syncUrl;
+  if (typeof raw !== 'string' || raw === '') return null;
+  return raw.replace(/\/$/, '');
+})();
 export const appBasePath = (() => {
   try {
     const url = new URL(runtimeConfig.appBase ?? '/app', window.location.origin);

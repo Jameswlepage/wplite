@@ -8,22 +8,20 @@ function portfolio_light_get_compiled_site_path() {
 }
 
 function portfolio_light_get_compiled_site() {
-\tstatic $compiled = null;
-
-\tif ( null !== $compiled ) {
-\t\treturn $compiled;
-\t}
-
+\t// No caching. Playground's persistent WASM worker carries static state
+\t// across REST requests, which silently turned the old static-var cache
+\t// stale after every file write. The file is tiny — read it every call
+\t// and let the OS page cache handle any perf concern. clearstatcache()
+\t// ensures filemtime and file_exists don't return stale results from
+\t// PHP's own per-process stat cache.
 \t$path = portfolio_light_get_compiled_site_path();
+\tclearstatcache( true, $path );
 \tif ( ! file_exists( $path ) ) {
-\t\t$compiled = [];
-\t\treturn $compiled;
+\t\treturn [];
 \t}
-
 \t$contents = file_get_contents( $path );
-\t$compiled = json_decode( $contents, true ) ?: [];
-
-\treturn $compiled;
+\t$decoded = json_decode( $contents, true );
+\treturn is_array( $decoded ) ? $decoded : [];
 }
 
 function portfolio_light_get_compiled_generated_at() {
