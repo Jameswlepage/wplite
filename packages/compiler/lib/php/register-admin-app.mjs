@@ -185,6 +185,7 @@ add_action(
 \t\t$dev_state   = function_exists( 'portfolio_light_get_dev_state' ) ? portfolio_light_get_dev_state() : [];
 \t\t$vite_url    = ! empty( $dev_state['enabled'] ) && ! empty( $dev_state['viteUrl'] ) ? rtrim( $dev_state['viteUrl'], '/' ) : '';
 \t\t$acp_bridge_url = ! empty( $dev_state['enabled'] ) && ! empty( $dev_state['acpBridgeUrl'] ) ? $dev_state['acpBridgeUrl'] : '';
+\t\t$sync_url = ! empty( $dev_state['enabled'] ) && ! empty( $dev_state['syncUrl'] ) ? rtrim( $dev_state['syncUrl'], '/' ) : '';
 \t\t$current_user = wp_get_current_user();
 \t\t$config      = [
 \t\t\t'restRoot'    => esc_url_raw( rest_url( 'portfolio/v1/' ) ),
@@ -194,6 +195,7 @@ add_action(
 \t\t\t'currentUser' => $current_user->user_login,
 \t\t\t'currentUserId' => (int) $current_user->ID,
 \t\t\t'acpBridgeUrl' => $acp_bridge_url,
+\t\t\t'syncUrl'     => $sync_url,
 \t\t];
 
 \t\tstatus_header( 200 );

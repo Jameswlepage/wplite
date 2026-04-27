@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { build, resolveRoot } from './compile.mjs';
 import { classifyChanges } from './lib/classify-changes.mjs';
 import { normalizeCoreCapabilities, normalizeSiteConfig } from './lib/site-config.mjs';
+import { startSyncServer } from './lib/sync-server.mjs';
+import { createFileSyncBridge } from './lib/file-sync-bridge.mjs';
 
 const COMPILER_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(COMPILER_DIR, '..', '..');
@@ -545,6 +547,7 @@ async function disableDevState() {
     heartbeatAt: null,
     viteUrl: null,
     acpBridgeUrl: null,
+    syncUrl: null,
     changeId: null,
     changes: null,
   });
@@ -622,6 +625,11 @@ async function setDevStateAcpBridgeUrl(acpBridgeUrl) {
   await writeDevState({ ...current, acpBridgeUrl });
 }
 
+async function setDevStateSyncUrl(syncUrl) {
+  const current = await readDevState();
+  await writeDevState({ ...current, syncUrl });
+}
+
 function disableDevStateSync() {
   const devStatePath = resolveDevStatePathFromSite(loadSiteConfigSync());
   mkdirSync(path.dirname(devStatePath), { recursive: true });
@@ -634,6 +642,7 @@ function disableDevStateSync() {
         heartbeatAt: null,
         viteUrl: null,
         acpBridgeUrl: null,
+        syncUrl: null,
         changeId: null,
         changes: null,
       },
@@ -1658,6 +1667,20 @@ async function devCommand() {
     await setDevStateAcpBridgeUrl(null);
   }
 
+  let syncServer = null;
+  if (process.env.WPLITE_DISABLE_SYNC !== '1') {
+    try {
+      syncServer = await startSyncServer({ port: 5274, log: (m) => note(m) });
+      await setDevStateSyncUrl(syncServer.url);
+      note(`CRDT sync server listening at ${syncServer.url}`);
+    } catch (error) {
+      errorOut(`CRDT sync server disabled: ${error.message}`);
+      await setDevStateSyncUrl(null);
+    }
+  } else {
+    await setDevStateSyncUrl(null);
+  }
+
   const watchTargets = viteDevServer
     ? WATCH_TARGETS.filter((entry) => entry.label !== 'admin-app')
     : WATCH_TARGETS;
@@ -1671,6 +1694,20 @@ async function devCommand() {
   let queued = false;
   const changedPaths = new Set();
   const watchers = watchTargets.map((target) => watchPath(target, ({ changedPath }) => {
+    // Ignore editor/atomic-write artifacts: .tmp sidecars, hidden dotfiles,
+    // VS Code's `.vscode` swap files, vim .swp, etc. These transient paths
+    // would otherwise be classified as `content-other` and force a full
+    // reload, which bypasses the partial-seed + file-sync-bridge flow.
+    const base = path.basename(changedPath);
+    if (
+      base.startsWith('.') ||
+      base.endsWith('~') ||
+      /\.tmp\.?/.test(base) ||
+      base.endsWith('.swp') ||
+      base.endsWith('.swx')
+    ) {
+      return;
+    }
     changedPaths.add(changedPath);
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -1679,6 +1716,24 @@ async function devCommand() {
   })).filter(Boolean);
 
   let cachedSiteUrl = initialSync.siteUrl ?? null;
+
+  const fileSyncBridge = syncServer
+    ? createFileSyncBridge({
+        siteRoot: ROOT,
+        getSiteUrl: () => cachedSiteUrl,
+        createAdminSession: (siteUrl) => createLocalAdminSession(siteUrl),
+        getDoc: (room) => syncServer.getDoc(room),
+        broadcastEvent: (event) => syncServer.broadcastEvent(event),
+        log: (m) => note(m),
+      })
+    : null;
+
+  if (fileSyncBridge) {
+    // Hydrate in the background — don't block dev startup.
+    void fileSyncBridge.hydrateAll().catch((err) => {
+      errorOut(`file-bridge: initial hydration failed: ${err.message}`);
+    });
+  }
 
   async function flushChanges() {
     if (syncing) {
@@ -1708,6 +1763,15 @@ async function devCommand() {
           : { posts: [], singletons: [], templates: [], routes: [] };
         await publishPartialChange({ reasons, manifest, targets });
         note(`Partial reseed: ${manifest.reason}`);
+
+        if (fileSyncBridge) {
+          for (const reason of reasons) {
+            const absPath = path.isAbsolute(reason) ? reason : path.join(ROOT, reason);
+            await fileSyncBridge.applyFile(absPath).catch((err) => {
+              errorOut(`file-bridge: ${reason} failed: ${err.message}`);
+            });
+          }
+        }
       } else if (manifest.strategy === 'none') {
         await buildGeneratedSite();
         await publishAssetsOnlyChange({ reasons, manifest });
@@ -1783,6 +1847,9 @@ async function devCommand() {
         } catch {
           // best-effort
         }
+      }
+      if (syncServer) {
+        void syncServer.stop().catch(() => {});
       }
       disableDevStateSync();
     };

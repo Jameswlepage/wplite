@@ -45,13 +45,20 @@ function classifyOne(rawPath) {
       return { kind: 'media', full: true };
     }
 
-    if (!fileName.endsWith('.md')) {
+    if (!fileName.endsWith('.md') && !fileName.endsWith('.html')) {
       return { kind: 'content-other', full: true };
     }
 
+    // Map directory names to model ids for the two built-in singular types.
+    // PHP's seed_partial expects the model id ('page', 'post'), not the
+    // plural directory ('pages', 'posts'). Custom collections are assumed to
+    // name their directory the same as their model id; if not, they'd need
+    // an explicit mapping here.
+    const modelId = dir === 'pages' ? 'page' : dir === 'posts' ? 'post' : dir;
+
     return {
       kind: 'collection-item',
-      model: dir,
+      model: modelId,
       slug: stripExtension(fileName),
     };
   }

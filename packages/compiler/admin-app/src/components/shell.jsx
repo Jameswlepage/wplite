@@ -15,6 +15,7 @@ import { AssistantChat } from './assistant-chat.jsx';
 import { AssistantProvider, useAssistant, AcpStatus } from './assistant-provider.jsx';
 import { NotificationBell, useNotificationArchive } from './notifications.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
+import { SyncTestPage } from './sync-test.jsx';
 import { CommentsPage, CommentEditorPage } from './comments.jsx';
 import { MediaEditorPage } from './media.jsx';
 import { UsersPage, UserEditorPage } from './users.jsx';
@@ -867,6 +868,7 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
                 <Route path="/automations" element={<PlaceholderPage eyebrow="Workspace" title="Automations" lede="Triggers, actions, and background workflows will attach to content once the service layer lands." summary="Site-wide configuration and preferences." />} />
                 <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
                 <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route path="/_sync-test/:pageId" element={<SyncTestPage />} />
                 <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/comments/:commentId" element={<CommentEditorPage key={`comment-editor:${location.pathname}`} bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/media/:mediaId" element={<MediaEditorPage key={`media-editor:${location.pathname}`} pushNotice={pushNotice} />} />

@@ -193,23 +193,30 @@ async function readMarkdownContentDirectory(dirPath, siteRoot = null) {
   const items = [];
 
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) {
-      continue;
-    }
+    if (!entry.isFile()) continue;
+    const isMarkdown = entry.name.endsWith('.md');
+    const isHtml = entry.name.endsWith('.html');
+    if (!isMarkdown && !isHtml) continue;
 
     const filePath = path.join(dirPath, entry.name);
     const source = await readFile(filePath, 'utf8');
     const parsed = matter(source);
-    // Path the agent should `Edit` to mutate this entity. Stays relative to
-    // the site root so it works regardless of cwd.
     const sourcePath = siteRoot
       ? path.relative(siteRoot, filePath)
       : entry.name;
 
+    // .md files have their body run through markdown→block conversion.
+    // .html files are already Gutenberg block markup and are used verbatim —
+    // this is the canonical format for content targeted by the CRDT sync
+    // bridge, where round-trippability matters.
+    const body = isHtml
+      ? parsed.content.trim()
+      : markdownToBlockMarkup(parsed.content);
+
     items.push({
       ...parsed.data,
-      markdown: parsed.content.trim(),
-      body: markdownToBlockMarkup(parsed.content),
+      markdown: isMarkdown ? parsed.content.trim() : undefined,
+      body,
       sourceFile: entry.name,
       sourcePath,
     });

@@ -14,7 +14,7 @@
       "team": { "sync": true },
       "testimonial": { "sync": true },
       "post": { "sync": true },
-      "page": { "sync": false }
+      "page": { "sync": true }
     }
   },
   "frontPage": "home",

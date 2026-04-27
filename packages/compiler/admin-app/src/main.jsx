@@ -21,8 +21,11 @@ import '@wordpress/format-library';
 import { Card, CardBody, SlotFillProvider } from '@wordpress/components';
 import wpApiFetch from '@wordpress/api-fetch';
 
-import { appBasePath, runtimeConfig, wpRestRoot } from './lib/config.js';
+import { appBasePath, runtimeConfig, syncUrl, wpRestRoot } from './lib/config.js';
 import { apiFetch } from './lib/helpers.js';
+import { addFilter } from '@wordpress/hooks';
+import { createWpliteSyncProvider } from './lib/wplite-sync-provider.js';
+import { initWpliteEventBus } from './lib/wplite-event-bus.js';
 
 if (wpRestRoot) {
   wpApiFetch.use(wpApiFetch.createRootURLMiddleware(wpRestRoot));
@@ -30,6 +33,18 @@ if (wpRestRoot) {
 if (runtimeConfig.nonce) {
   wpApiFetch.use(wpApiFetch.createNonceMiddleware(runtimeConfig.nonce));
 }
+
+// Opt into @wordpress/sync's CRDT pipeline when the dev sync server is
+// running. This must happen synchronously before any getEntityRecord() call
+// resolves — the sync manager caches providerCreators on first access and
+// late registration is silently ignored. See docs/hmr-crdt.md.
+if (syncUrl) {
+  window._wpCollaborationEnabled = true;
+  const wpliteProviderCreator = createWpliteSyncProvider(syncUrl);
+  addFilter('sync.providers', 'wplite/sync-provider', () => [wpliteProviderCreator]);
+  initWpliteEventBus(syncUrl);
+}
+
 import { registerRuntimeBlocks } from './lib/blocks.jsx';
 import { initDevHmr } from './lib/dev-hmr.js';
 import { AppLoadingSkeleton } from './components/skeletons.jsx';
