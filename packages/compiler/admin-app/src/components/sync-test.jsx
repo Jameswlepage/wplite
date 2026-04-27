@@ -1,47 +1,21 @@
-// Stage-1 CRDT proof-of-concept editor.
+// CRDT-backed editor at /app/_sync-test/:pageId.
 //
-// Lives at /app/_sync-test/:pageId. Mounts the page's *template* (a tree of
-// blocks) as the top-level value, with <EntityProvider> + block-context so
-// core/post-content inside the template auto-resolves to our page's content
-// — which is the one field driven by the CRDT pipeline. Same shape
-// Gutenberg's site editor uses for template editing.
-//
-// The template itself stays read-only here; the post-content block inside
-// is the only thing that accepts edits. On external file change to
-// content/pages/<slug>.html, Node pushes the new content via WS, core-data
-// sees the edit, and the post-content region in the canvas updates without
-// a remount. Selection may shift (naive Y.Text replace), which is the known
-// Stage-1 limitation noted in file-sync-bridge.mjs.
+// Reuses NativeBlockEditorFrame for full chrome parity with the production
+// editor (inserter, inspector, breadcrumb, save bar, keyboard shortcuts).
+// What's different: blocks are derived from the page's wp_template + the
+// page's post_content, with `core/pattern` and `core/post-content` blocks
+// pre-expanded inline so a fresh render always shows current data — and
+// the file-bridge / event-bus pipeline streams those updates in without
+// remounting the iframe (canvasRevision is pinned to 0).
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { dispatch as dataDispatch, select as dataSelect, useSelect } from '@wordpress/data';
-import {
-  EntityProvider,
-  store as coreStore,
-} from '@wordpress/core-data';
-import {
-  BlockEditorProvider,
-  BlockList,
-  BlockTools,
-  WritingFlow,
-  ObserveTyping,
-  BlockContextProvider,
-  __unstableIframe as GutenbergIframe,
-  __unstableEditorStyles as GutenbergEditorStyles,
-} from '@wordpress/block-editor';
+import { store as coreStore, EntityProvider } from '@wordpress/core-data';
 import { parse as parseBlocks } from '@wordpress/blocks';
 
 import { syncUrl } from '../lib/config.js';
-import {
-  buildBlockEditorSettings,
-  buildCanvasStyles,
-} from '../lib/blocks.jsx';
-import {
-  getCachedEditorBundle,
-  loadEditorBundle,
-} from '../lib/editor-bundle.js';
-import './sync-test.css';
+import { NativeBlockEditorFrame } from './block-editor.jsx';
 
 const NOOP = () => {};
 
@@ -55,10 +29,9 @@ function pickContent(maybe) {
 }
 
 // Walk a block tree and inline `postContentBlocks` wherever a
-// `core/post-content` block appears, producing a fully-expanded tree. This
-// lets a static BlockEditorProvider render both the template and the live
-// post content without relying on core/post-content's internal entity hook
-// (which doesn't re-sync when the entity's content is updated externally).
+// `core/post-content` block appears. Avoids relying on core/post-content's
+// internal entity hook which doesn't re-sync when the entity's content
+// changes externally — we make the merged tree the single source of truth.
 function injectPostContent(blocks, postContentBlocks) {
   if (!Array.isArray(blocks)) return [];
   const out = [];
@@ -81,9 +54,9 @@ function injectPostContent(blocks, postContentBlocks) {
 }
 
 // Pre-expand `core/pattern` references using the registered pattern markup.
-// Gutenberg's PatternEdit expands patterns on mount and never re-expands;
-// inlining them here means a bundle reload (which refreshes the pattern
-// registry) re-runs this expansion and the canvas reflects the new content.
+// Gutenberg's PatternEdit expands patterns once on mount and never again;
+// inlining them here means a bundle reload re-runs this expansion and the
+// canvas reflects the updated pattern markup.
 function buildPatternIndex(patterns) {
   const map = new Map();
   if (!Array.isArray(patterns)) return map;
@@ -120,8 +93,6 @@ function injectPatterns(blocks, patternIndex, parseBlocksFn, depth = 0) {
           continue;
         }
       }
-      // Pattern slug unknown → keep the original block; Gutenberg will
-      // render its empty/missing fallback.
       out.push(block);
       continue;
     }
@@ -138,21 +109,17 @@ function injectPatterns(blocks, patternIndex, parseBlocksFn, depth = 0) {
 }
 
 function SyncTestCanvas({ pageId, editorBundle }) {
-  // Use the TEMPLATE as the top-level block tree. core/post-content inside
-  // the template picks up our page via block context below.
+  const navigate = useNavigate();
+
   const page = useSelect(
     (select) => select(coreStore).getEntityRecord('postType', 'page', pageId),
     [pageId]
   );
 
-  // Subscribe to the edited record's content string. When a CRDT-sourced
-  // update lands, `content` changes. We immediately clear any cached
-  // `blocks` edit so useEntityBlockEditor falls back to re-parsing from the
-  // fresh content. Without this, the first render's internal onInput
-  // normalization sets `editedRecord.blocks`, which then short-circuits
-  // every subsequent content update because the hook prefers editedBlocks
-  // over `parse(content)`.
-  const { postContentString, entityLoaded } = useSelect(
+  // Subscribe to the page's edited content + title. The blocks-clear
+  // effect below makes sure file-driven content updates win over a stale
+  // local edit cached on `editedRecord.blocks`.
+  const { postContentString, pageTitle, entityLoaded } = useSelect(
     (select) => {
       const recordLoaded = Boolean(
         select(coreStore).getEntityRecord('postType', 'page', pageId)
@@ -160,11 +127,13 @@ function SyncTestCanvas({ pageId, editorBundle }) {
       const edited = recordLoaded
         ? select(coreStore).getEditedEntityRecord('postType', 'page', pageId)
         : null;
-      const raw = edited?.content;
+      const rawContent = edited?.content;
+      const rawTitle = edited?.title;
       return {
         entityLoaded: recordLoaded,
         postContentString:
-          typeof raw === 'string' ? raw : raw?.raw ?? raw?.rendered ?? '',
+          typeof rawContent === 'string' ? rawContent : rawContent?.raw ?? rawContent?.rendered ?? '',
+        pageTitle: typeof rawTitle === 'string' ? rawTitle : rawTitle?.raw ?? rawTitle?.rendered ?? '',
       };
     },
     [pageId]
@@ -173,22 +142,23 @@ function SyncTestCanvas({ pageId, editorBundle }) {
   useEffect(() => {
     if (!pageId || !entityLoaded) return;
     try {
-      dataDispatch('core').editEntityRecord('postType', 'page', pageId, {
-        blocks: undefined,
-      });
+      // We don't drive the page through the canvas here, so any cached
+      // edits would only mask CRDT updates. Clear them so getEditedEntityRecord
+      // falls through to the latest base record content.
+      const actions = dataDispatch('core');
+      if (typeof actions.clearEntityRecordEdits === 'function') {
+        actions.clearEntityRecordEdits('postType', 'page', pageId);
+      }
     } catch {
-      // Entity config may race the first render; retry will happen when
-      // the selector re-fires after the record resolves.
+      // Race during initial mount; the next selector tick handles it.
     }
   }, [pageId, postContentString, entityLoaded]);
 
-  // First: load all templates to find the one matching this page's template
-  // slug. We use getEntityRecords here purely as an index lookup.
+  // Resolve the wp_template that matches the page's template slug.
   const allTemplates = useSelect(
     (select) => select(coreStore).getEntityRecords('postType', 'wp_template', { per_page: -1 }),
     []
   );
-
   const templateId = useMemo(() => {
     if (!Array.isArray(allTemplates) || allTemplates.length === 0) return null;
     const desiredSlug =
@@ -201,21 +171,16 @@ function SyncTestCanvas({ pageId, editorBundle }) {
     return found?.id ?? null;
   }, [allTemplates, page?.template]);
 
-  // Subscribe to the specific template record's EDITED state. When the
-  // file-bridge pushes new markup over CRDT, core-data's editedRecord updates
-  // and this selector re-fires, feeding fresh blocks into the canvas.
   const templateRecord = useSelect(
     (select) => {
       if (!templateId) return null;
       const store = select(coreStore);
-      store.getEntityRecord('postType', 'wp_template', templateId); // resolve
+      store.getEntityRecord('postType', 'wp_template', templateId);
       return store.getEditedEntityRecord('postType', 'wp_template', templateId);
     },
     [templateId]
   );
 
-  // Index the editor bundle's pattern registry so we can inline pattern
-  // markup ourselves below.
   const patternIndex = useMemo(
     () => buildPatternIndex(editorBundle?.editorSettings?.__experimentalBlockPatterns),
     [editorBundle]
@@ -226,8 +191,6 @@ function SyncTestCanvas({ pageId, editorBundle }) {
     if (!raw) return [];
     try {
       const parsed = parseBlocks(raw);
-      // Expand patterns up front so a future bundle reload re-runs this
-      // memo and pulls in the latest pattern markup.
       return injectPatterns(parsed, patternIndex, parseBlocks);
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -236,64 +199,53 @@ function SyncTestCanvas({ pageId, editorBundle }) {
     }
   }, [templateRecord?.content, patternIndex]);
 
-  // Pre-expand any core/post-content block in the template tree by inlining
-  // the current page's parsed blocks. This sidesteps the fact that
-  // core/post-content internally owns its inner blocks once mounted and
-  // doesn't re-sync when the entity's content changes externally — we make
-  // the template tree the single source of truth that React reconciles.
   const mergedBlocks = useMemo(() => {
     const postContentBlocks = postContentString ? parseBlocks(postContentString) : [];
     return injectPostContent(templateBlocks, postContentBlocks);
   }, [templateBlocks, postContentString]);
 
-  const blockContext = useMemo(
+  const recordContext = useMemo(
     () => ({ postId: pageId, postType: 'page' }),
     [pageId]
   );
 
-  const canvasStyles = useMemo(
-    () => buildCanvasStyles(editorBundle),
-    [editorBundle]
-  );
-
-  const editorSettings = useMemo(
-    () => buildBlockEditorSettings(editorBundle),
-    [editorBundle]
-  );
+  const handleChangeTitle = (value) => {
+    try {
+      dataDispatch('core').editEntityRecord('postType', 'page', pageId, { title: value });
+    } catch {
+      // noop
+    }
+  };
 
   if (!page || !templateRecord) {
     return (
-      <div className="sync-test-loading">
+      <div className="screen sync-test-loading">
         Loading {!page ? 'page' : 'template'}…
       </div>
     );
   }
 
   return (
-    <BlockEditorProvider
-      value={mergedBlocks}
-      onInput={NOOP}
-      onChange={NOOP}
-      settings={editorSettings}
-    >
-      <BlockContextProvider value={blockContext}>
-        <div className="sync-test__frame-wrap">
-          <GutenbergIframe
-            className="sync-test__frame"
-            style={{ height: '100%', width: '100%' }}
-          >
-            <GutenbergEditorStyles styles={canvasStyles} />
-            <BlockTools>
-              <WritingFlow>
-                <ObserveTyping>
-                  <BlockList />
-                </ObserveTyping>
-              </WritingFlow>
-            </BlockTools>
-          </GutenbergIframe>
-        </div>
-      </BlockContextProvider>
-    </BlockEditorProvider>
+    <NativeBlockEditorFrame
+      label="Sync test"
+      title={pageTitle ?? ''}
+      titlePlaceholder="Add page title"
+      onChangeTitle={handleChangeTitle}
+      showTitleInput={false}
+      showBackButton={false}
+      showPrimaryAction={false}
+      showMoreActions={true}
+      blocks={mergedBlocks}
+      onChangeBlocks={NOOP}
+      backLabel="Back to Pages"
+      onBack={() => navigate('/pages')}
+      viewUrl={page?.link}
+      documentLabel="Page"
+      canvasLayout="template"
+      canvasRevision={0}
+      recordContext={recordContext}
+      showEmptyPatternPicker={false}
+    />
   );
 }
 
@@ -302,28 +254,27 @@ export function SyncTestPage() {
   const rawId = params.pageId ?? '';
   const pageId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
 
-  const [editorBundle, setEditorBundle] = useState(() => getCachedEditorBundle());
-  const [bundleError, setBundleError] = useState(null);
   const [bundleEpoch, setBundleEpoch] = useState(0);
+  const [editorBundle, setEditorBundle] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
-    loadEditorBundle()
+    import('../lib/editor-bundle.js')
+      .then(({ loadEditorBundle, getCachedEditorBundle }) => {
+        const cached = getCachedEditorBundle();
+        if (cached && !cancelled) setEditorBundle(cached);
+        return loadEditorBundle();
+      })
       .then((bundle) => {
         if (!cancelled) setEditorBundle(bundle);
       })
-      .catch((err) => {
-        if (!cancelled) setBundleError(err);
+      .catch(() => {
+        // Errors surface through the inner frame's bundle handling.
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [bundleEpoch]);
 
   useEffect(() => {
-    // When a pattern file changes, the event-bus refreshes the editor
-    // bundle. Bumping an epoch forces us to re-load the bundle and
-    // therefore pick up the new __experimentalBlockPatterns registry.
     function onBundleUpdated() {
       setBundleEpoch((n) => n + 1);
     }
@@ -332,10 +283,10 @@ export function SyncTestPage() {
       window.removeEventListener('wplite-event:editor-bundle-updated', onBundleUpdated);
   }, []);
 
+  // DevTools helpers — keep these around; they're cheap and useful.
   useEffect(() => {
     if (!pageId) return undefined;
     window.__wpliteSyncTestRoom = `postType/page:${pageId}`;
-    // Debug inspector — makes core-data + sync state pokeable from DevTools.
     window.__wpliteRefetchPage = () => {
       dataDispatch('core').invalidateResolution('getEntityRecord', ['postType', 'page', pageId]);
     };
@@ -368,7 +319,7 @@ export function SyncTestPage() {
 
   if (!pageId) {
     return (
-      <div className="sync-test-empty">
+      <div className="screen sync-test-empty">
         Provide a numeric page ID: <code>/app/_sync-test/&lt;id&gt;</code>
       </div>
     );
@@ -376,34 +327,16 @@ export function SyncTestPage() {
 
   if (!syncUrl) {
     return (
-      <div className="sync-test-empty">
+      <div className="screen sync-test-empty">
         CRDT sync server is not running. Start <code>wp-lite dev</code> to enable
         this editor.
       </div>
     );
   }
 
-  if (bundleError) {
-    return (
-      <div className="sync-test-empty">
-        Failed to load editor bundle: {bundleError.message}
-      </div>
-    );
-  }
-
   return (
-    <div className="sync-test-shell">
-      <div className="sync-test-banner">
-        CRDT sync-test · room <code>postType/page:{pageId}</code>
-        {' · '}server <code>{syncUrl}</code>
-        {' · '}theme <code>{editorBundle?.themeName ?? '—'}</code>
-      </div>
-      <EntityProvider kind="postType" type="page" id={pageId}>
-        <SyncTestCanvas
-          pageId={pageId}
-          editorBundle={editorBundle}
-        />
-      </EntityProvider>
-    </div>
+    <EntityProvider kind="postType" type="page" id={pageId}>
+      <SyncTestCanvas pageId={pageId} editorBundle={editorBundle} />
+    </EntityProvider>
   );
 }

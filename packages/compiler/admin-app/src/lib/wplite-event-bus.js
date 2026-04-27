@@ -42,18 +42,17 @@ export function initWpliteEventBus(wsUrl) {
       case 'invalidate-entity': {
         const { kind, name, id } = event;
         if (!kind || !name || id == null) return;
-        // Drop any local edits on the fields the file is authoritative for.
-        // Without this, a prior CRDT push or canvas keystroke leaves an
-        // edit on `content` or `blocks` that getEditedEntityRecord merges
-        // over the freshly-refetched base, pinning the canvas to the old
-        // state even though the DB has the new one.
+        // Drop ALL local edits on this entity. The file is authoritative
+        // for content/title/etc., so any cached edits are stale and would
+        // mask the freshly-refetched base record. We have to use
+        // clearEntityRecordEdits rather than editEntityRecord({...:
+        // undefined}) — the latter actually persists `undefined` as an
+        // edit value, which makes getEditedEntityRecord return empty
+        // strings instead of the underlying record.
         try {
-          coreActions.editEntityRecord(kind, name, id, {
-            content: undefined,
-            blocks: undefined,
-            title: undefined,
-            excerpt: undefined,
-          });
+          if (typeof coreActions.clearEntityRecordEdits === 'function') {
+            coreActions.clearEntityRecordEdits(kind, name, id);
+          }
         } catch {
           // noop
         }
