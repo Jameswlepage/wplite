@@ -8,14 +8,18 @@
 // the file-bridge / event-bus pipeline streams those updates in without
 // remounting the iframe (canvasRevision is pinned to 0).
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { dispatch as dataDispatch, select as dataSelect, useSelect } from '@wordpress/data';
 import { store as coreStore, EntityProvider } from '@wordpress/core-data';
-import { parse as parseBlocks } from '@wordpress/blocks';
+import { parse as parseBlocks, serialize as serializeBlocks } from '@wordpress/blocks';
 
 import { syncUrl } from '../lib/config.js';
 import { NativeBlockEditorFrame } from './block-editor.jsx';
+import {
+  composeTemplateEditorBlocks_,
+  splitTemplateEditorBlocks_,
+} from './pages.jsx';
 
 const NOOP = () => {};
 
@@ -26,31 +30,6 @@ function pickContent(maybe) {
     if (typeof maybe.rendered === 'string') return maybe.rendered;
   }
   return '';
-}
-
-// Walk a block tree and inline `postContentBlocks` wherever a
-// `core/post-content` block appears. Avoids relying on core/post-content's
-// internal entity hook which doesn't re-sync when the entity's content
-// changes externally — we make the merged tree the single source of truth.
-function injectPostContent(blocks, postContentBlocks) {
-  if (!Array.isArray(blocks)) return [];
-  const out = [];
-  for (const block of blocks) {
-    if (!block || typeof block !== 'object') continue;
-    if (block.name === 'core/post-content') {
-      for (const inner of postContentBlocks) out.push(inner);
-      continue;
-    }
-    if (Array.isArray(block.innerBlocks) && block.innerBlocks.length > 0) {
-      out.push({
-        ...block,
-        innerBlocks: injectPostContent(block.innerBlocks, postContentBlocks),
-      });
-    } else {
-      out.push(block);
-    }
-  }
-  return out;
 }
 
 // Pre-expand `core/pattern` references using the registered pattern markup.
@@ -201,13 +180,17 @@ function SyncTestCanvas({ pageId, editorBundle }) {
 
   const mergedBlocks = useMemo(() => {
     const postContentBlocks = postContentString ? parseBlocks(postContentString) : [];
-    return injectPostContent(templateBlocks, postContentBlocks);
+    return composeTemplateEditorBlocks_(templateBlocks, postContentBlocks).blocks;
   }, [templateBlocks, postContentString]);
 
   const recordContext = useMemo(
     () => ({ postId: pageId, postType: 'page' }),
     [pageId]
   );
+
+  // Track the most recent serialized post-content we wrote, so we can skip
+  // redundant edit dispatches that would feed back into the merged tree.
+  const lastSerializedRef = useRef(postContentString);
 
   const handleChangeTitle = (value) => {
     try {
@@ -216,6 +199,46 @@ function SyncTestCanvas({ pageId, editorBundle }) {
       // noop
     }
   };
+
+  // onInput / onChange come from BlockEditorProvider via the inner frame
+  // with the FULL merged tree (template + sentinel slot wrapping the page
+  // content). Extract the page-content portion via splitTemplateEditorBlocks
+  // and persist it as a content edit on the page entity.
+  const handleBlocksChange = (nextBlocks) => {
+    if (!Array.isArray(nextBlocks)) return;
+    try {
+      const split = splitTemplateEditorBlocks_(nextBlocks);
+      const nextContent = serializeBlocks(split.pageContentBlocks);
+      if (nextContent === lastSerializedRef.current) return;
+      lastSerializedRef.current = nextContent;
+      dataDispatch('core').editEntityRecord('postType', 'page', pageId, {
+        content: nextContent,
+        blocks: undefined,
+      });
+    } catch {
+      // noop — split or serialize can fail mid-edit; next change will retry
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      await dataDispatch('core').saveEditedEntityRecord('postType', 'page', pageId);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('sync-test save failed:', err);
+    }
+  };
+
+  const isDirty = useSelect(
+    (select) =>
+      Boolean(select(coreStore).hasEditsForEntityRecord?.('postType', 'page', pageId)),
+    [pageId]
+  );
+  const isSaving = useSelect(
+    (select) =>
+      Boolean(select(coreStore).isSavingEntityRecord?.('postType', 'page', pageId)),
+    [pageId]
+  );
 
   if (!page || !templateRecord) {
     return (
@@ -233,12 +256,15 @@ function SyncTestCanvas({ pageId, editorBundle }) {
       onChangeTitle={handleChangeTitle}
       showTitleInput={false}
       showBackButton={false}
-      showPrimaryAction={false}
+      showPrimaryAction={isDirty}
       showMoreActions={true}
       blocks={mergedBlocks}
-      onChangeBlocks={NOOP}
+      onChangeBlocks={handleBlocksChange}
       backLabel="Back to Pages"
       onBack={() => navigate('/pages')}
+      primaryActionLabel={isSaving ? 'Saving…' : 'Save'}
+      onPrimaryAction={handleSave}
+      isPrimaryBusy={isSaving}
       viewUrl={page?.link}
       documentLabel="Page"
       canvasLayout="template"
