@@ -13,11 +13,52 @@
 //
 // See packages/compiler/lib/sync-server.mjs for the server half.
 
-import { dispatch as dataDispatch, resolveSelect as dataResolveSelect } from '@wordpress/data';
+import {
+  dispatch as dataDispatch,
+  resolveSelect as dataResolveSelect,
+  select as dataSelect,
+} from '@wordpress/data';
 import { store as coreStore } from '@wordpress/core-data';
 import { clearCachedEditorBundle, loadEditorBundle } from './editor-bundle.js';
 
+// Window event names. Editors subscribe to these to react to source-file
+// changes without coupling to the event-bus internals.
+export const WPLITE_INVALIDATE_EVENT = 'wplite-event:entity-invalidate';
+export const WPLITE_STALE_EVENT = 'wplite-event:entity-stale';
+
 const TAG_EVENT = 0x10;
+
+/**
+ * Accept a "source changed" banner for an entity. Drops local edits and
+ * forces a refetch from REST so the canvas swaps to the file-sourced
+ * content. Editors call this when the user clicks "Reload from source".
+ */
+export function reloadEntityFromSource(kind, name, id) {
+  if (!kind || !name || id == null) return;
+  const coreActions = dataDispatch(coreStore);
+  try {
+    if (typeof coreActions.clearEntityRecordEdits === 'function') {
+      coreActions.clearEntityRecordEdits(kind, name, id);
+    }
+  } catch {
+    // noop
+  }
+  try {
+    coreActions.invalidateResolution('getEntityRecord', [kind, name, id]);
+    coreActions.invalidateResolution('getEntityRecords', [kind, name]);
+    coreActions.invalidateResolution(
+      'getEntityRecords',
+      [kind, name, { per_page: -1 }]
+    );
+  } catch {
+    // noop
+  }
+  try {
+    void dataResolveSelect(coreStore).getEntityRecord(kind, name, id);
+  } catch {
+    // noop
+  }
+}
 
 function decodeFrame(buffer) {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
@@ -42,13 +83,36 @@ export function initWpliteEventBus(wsUrl) {
       case 'invalidate-entity': {
         const { kind, name, id } = event;
         if (!kind || !name || id == null) return;
-        // Drop ALL local edits on this entity. The file is authoritative
-        // for content/title/etc., so any cached edits are stale and would
-        // mask the freshly-refetched base record. We have to use
-        // clearEntityRecordEdits rather than editEntityRecord({...:
-        // undefined}) — the latter actually persists `undefined` as an
-        // edit value, which makes getEditedEntityRecord return empty
-        // strings instead of the underlying record.
+        // Decide between transparent reload and "source changed" banner.
+        // If the user has pending edits, we DON'T want to clobber them
+        // silently — emit a stale event for editors to handle (same
+        // contract as production's dev-hmr stale banner). If clean,
+        // do the full clear + refetch transparently.
+        let isDirty = false;
+        try {
+          isDirty = Boolean(
+            dataSelect(coreStore).hasEditsForEntityRecord?.(kind, name, id)
+          );
+        } catch {
+          isDirty = false;
+        }
+
+        if (isDirty) {
+          window.dispatchEvent(
+            new CustomEvent(WPLITE_STALE_EVENT, {
+              detail: { kind, name, id },
+            })
+          );
+          // Invalidate so a future explicit refetch (e.g. user accepts the
+          // banner) hits the network rather than the stale cache.
+          try {
+            coreActions.invalidateResolution('getEntityRecord', [kind, name, id]);
+          } catch {
+            // noop
+          }
+          break;
+        }
+
         try {
           if (typeof coreActions.clearEntityRecordEdits === 'function') {
             coreActions.clearEntityRecordEdits(kind, name, id);
@@ -56,7 +120,6 @@ export function initWpliteEventBus(wsUrl) {
         } catch {
           // noop
         }
-        // Invalidate so the next resolver call bypasses cache.
         try {
           coreActions.invalidateResolution('getEntityRecord', [kind, name, id]);
           coreActions.invalidateResolution('getEntityRecords', [kind, name]);
@@ -67,13 +130,17 @@ export function initWpliteEventBus(wsUrl) {
         } catch {
           // noop
         }
-        // Trigger the refetch so subscribers re-render when new data lands.
         try {
           void dataResolveSelect(coreStore).getEntityRecord(kind, name, id);
           void dataResolveSelect(coreStore).getEntityRecords(kind, name, { per_page: -1 });
         } catch {
           // noop
         }
+        window.dispatchEvent(
+          new CustomEvent(WPLITE_INVALIDATE_EVENT, {
+            detail: { kind, name, id },
+          })
+        );
         break;
       }
       case 'invalidate-patterns': {

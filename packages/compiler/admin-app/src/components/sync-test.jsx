@@ -20,6 +20,19 @@ import {
   composeTemplateEditorBlocks_,
   splitTemplateEditorBlocks_,
 } from './pages.jsx';
+import {
+  reloadEntityFromSource,
+  WPLITE_STALE_EVENT,
+} from '../lib/wplite-event-bus.js';
+import {
+  NativeField,
+  NativeFieldGrid,
+  NativeInput,
+  NativeMetaList,
+  NativeSection,
+  NativeSelect,
+} from './native-controls.jsx';
+import './sync-test.css';
 
 const NOOP = () => {};
 
@@ -87,11 +100,22 @@ function injectPatterns(blocks, patternIndex, parseBlocksFn, depth = 0) {
   return out;
 }
 
-function SyncTestCanvas({ pageId, editorBundle }) {
+function SyncEntityCanvas({
+  postType = 'page',
+  entityId,
+  editorBundle,
+  documentLabel = 'Page',
+  backLabel = 'Back to Pages',
+  backHref = '/pages',
+  fallbackTemplateSlug = 'page',
+  templateSlugFromRecord = (rec) =>
+    typeof rec?.template === 'string' && rec.template ? rec.template : null,
+}) {
+  const pageId = entityId; // local alias to keep existing identifiers stable
   const navigate = useNavigate();
 
   const page = useSelect(
-    (select) => select(coreStore).getEntityRecord('postType', 'page', pageId),
+    (select) => select(coreStore).getEntityRecord('postType', postType, pageId),
     [pageId]
   );
 
@@ -101,10 +125,10 @@ function SyncTestCanvas({ pageId, editorBundle }) {
   const { postContentString, pageTitle, entityLoaded } = useSelect(
     (select) => {
       const recordLoaded = Boolean(
-        select(coreStore).getEntityRecord('postType', 'page', pageId)
+        select(coreStore).getEntityRecord('postType', postType, pageId)
       );
       const edited = recordLoaded
-        ? select(coreStore).getEditedEntityRecord('postType', 'page', pageId)
+        ? select(coreStore).getEditedEntityRecord('postType', postType, pageId)
         : null;
       const rawContent = edited?.content;
       const rawTitle = edited?.title;
@@ -126,7 +150,7 @@ function SyncTestCanvas({ pageId, editorBundle }) {
       // falls through to the latest base record content.
       const actions = dataDispatch('core');
       if (typeof actions.clearEntityRecordEdits === 'function') {
-        actions.clearEntityRecordEdits('postType', 'page', pageId);
+        actions.clearEntityRecordEdits('postType', postType, pageId);
       }
     } catch {
       // Race during initial mount; the next selector tick handles it.
@@ -140,15 +164,15 @@ function SyncTestCanvas({ pageId, editorBundle }) {
   );
   const templateId = useMemo(() => {
     if (!Array.isArray(allTemplates) || allTemplates.length === 0) return null;
-    const desiredSlug =
-      typeof page?.template === 'string' && page.template ? page.template : 'page';
+    const desiredSlug = templateSlugFromRecord(page) ?? fallbackTemplateSlug;
     const found =
       allTemplates.find((t) => t.slug === desiredSlug) ??
+      allTemplates.find((t) => t.slug === fallbackTemplateSlug) ??
       allTemplates.find((t) => t.slug === 'page') ??
       allTemplates.find((t) => t.slug === 'single') ??
       allTemplates[0];
     return found?.id ?? null;
-  }, [allTemplates, page?.template]);
+  }, [allTemplates, page, fallbackTemplateSlug, templateSlugFromRecord]);
 
   const templateRecord = useSelect(
     (select) => {
@@ -184,8 +208,8 @@ function SyncTestCanvas({ pageId, editorBundle }) {
   }, [templateBlocks, postContentString]);
 
   const recordContext = useMemo(
-    () => ({ postId: pageId, postType: 'page' }),
-    [pageId]
+    () => ({ postId: pageId, postType }),
+    [pageId, postType]
   );
 
   // Track the most recent serialized post-content we wrote, so we can skip
@@ -194,7 +218,7 @@ function SyncTestCanvas({ pageId, editorBundle }) {
 
   const handleChangeTitle = (value) => {
     try {
-      dataDispatch('core').editEntityRecord('postType', 'page', pageId, { title: value });
+      dataDispatch('core').editEntityRecord('postType', postType, pageId, { title: value });
     } catch {
       // noop
     }
@@ -211,7 +235,7 @@ function SyncTestCanvas({ pageId, editorBundle }) {
       const nextContent = serializeBlocks(split.pageContentBlocks);
       if (nextContent === lastSerializedRef.current) return;
       lastSerializedRef.current = nextContent;
-      dataDispatch('core').editEntityRecord('postType', 'page', pageId, {
+      dataDispatch('core').editEntityRecord('postType', postType, pageId, {
         content: nextContent,
         blocks: undefined,
       });
@@ -222,7 +246,7 @@ function SyncTestCanvas({ pageId, editorBundle }) {
 
   const handleSave = async () => {
     try {
-      await dataDispatch('core').saveEditedEntityRecord('postType', 'page', pageId);
+      await dataDispatch('core').saveEditedEntityRecord('postType', postType, pageId);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('sync-test save failed:', err);
@@ -231,13 +255,130 @@ function SyncTestCanvas({ pageId, editorBundle }) {
 
   const isDirty = useSelect(
     (select) =>
-      Boolean(select(coreStore).hasEditsForEntityRecord?.('postType', 'page', pageId)),
+      Boolean(select(coreStore).hasEditsForEntityRecord?.('postType', postType, pageId)),
     [pageId]
   );
   const isSaving = useSelect(
     (select) =>
-      Boolean(select(coreStore).isSavingEntityRecord?.('postType', 'page', pageId)),
+      Boolean(select(coreStore).isSavingEntityRecord?.('postType', postType, pageId)),
     [pageId]
+  );
+
+  // Source-stale banner: when the file changes while we have unsaved
+  // edits, the event-bus emits WPLITE_STALE_EVENT instead of clobbering
+  // them. We track it here so the user can choose between keeping their
+  // changes or reloading from the new file content.
+  const [staleSource, setStaleSource] = useState(null);
+
+  useEffect(() => {
+    function onStale(event) {
+      const { kind, name, id } = event.detail ?? {};
+      if (kind !== 'postType' || name !== postType || String(id) !== String(pageId)) {
+        return;
+      }
+      setStaleSource({ kind, name, id });
+    }
+    window.addEventListener(WPLITE_STALE_EVENT, onStale);
+    return () => window.removeEventListener(WPLITE_STALE_EVENT, onStale);
+  }, [pageId]);
+
+  // Once the user saves OR explicitly reloads from source, dismiss the banner.
+  useEffect(() => {
+    if (!isDirty && staleSource) setStaleSource(null);
+  }, [isDirty, staleSource]);
+
+  const acceptStale = () => {
+    if (!staleSource) return;
+    reloadEntityFromSource(staleSource.kind, staleSource.name, staleSource.id);
+    setStaleSource(null);
+  };
+
+  // Sidebar fields — wire through core-data edits so changes save with
+  // the rest of the page record. Read raw values from page so the UI
+  // shows whatever's persisted.
+  const editPage = (patch) => {
+    try {
+      dataDispatch('core').editEntityRecord('postType', postType, pageId, patch);
+    } catch {
+      // noop
+    }
+  };
+
+  const slugValue = useSelect(
+    (select) => {
+      const edited = select(coreStore).getEditedEntityRecord('postType', postType, pageId);
+      return edited?.slug ?? '';
+    },
+    [pageId]
+  );
+  const statusValue = useSelect(
+    (select) => {
+      const edited = select(coreStore).getEditedEntityRecord('postType', postType, pageId);
+      return edited?.status ?? 'draft';
+    },
+    [pageId]
+  );
+  const templateValue = useSelect(
+    (select) => {
+      const edited = select(coreStore).getEditedEntityRecord('postType', postType, pageId);
+      return edited?.template ?? '';
+    },
+    [pageId]
+  );
+  const templateOptions = useMemo(() => {
+    const opts = [{ value: '', label: 'Default' }];
+    if (Array.isArray(allTemplates)) {
+      for (const t of allTemplates) {
+        if (typeof t?.slug === 'string' && t.slug) {
+          opts.push({ value: t.slug, label: t.slug });
+        }
+      }
+    }
+    return opts;
+  }, [allTemplates]);
+
+  const documentSidebar = (
+    <>
+      <NativeSection title="Summary" initialOpen={true}>
+        <NativeFieldGrid cols={2}>
+          <NativeField label="Slug">
+            <NativeInput
+              value={slugValue}
+              onChange={(value) => editPage({ slug: value })}
+            />
+          </NativeField>
+          <NativeField label="Status">
+            <NativeSelect
+              value={statusValue}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'publish', label: 'Published' },
+                { value: 'pending', label: 'Pending Review' },
+                { value: 'private', label: 'Private' },
+              ]}
+              onChange={(value) => editPage({ status: value })}
+            />
+          </NativeField>
+        </NativeFieldGrid>
+        <NativeField label="Template">
+          <NativeSelect
+            value={templateValue}
+            options={templateOptions}
+            onChange={(value) => editPage({ template: value })}
+          />
+        </NativeField>
+      </NativeSection>
+
+      <NativeSection title="Details" initialOpen={true}>
+        <NativeMetaList
+          items={[
+            { id: 'id', label: 'ID', value: page?.id ?? '—' },
+            { id: 'modified', label: 'Updated', value: page?.modified ?? '—' },
+            { id: 'link', label: 'URL', value: page?.link ?? '—' },
+          ]}
+        />
+      </NativeSection>
+    </>
   );
 
   if (!page || !templateRecord) {
@@ -249,29 +390,92 @@ function SyncTestCanvas({ pageId, editorBundle }) {
   }
 
   return (
-    <NativeBlockEditorFrame
-      label="Sync test"
-      title={pageTitle ?? ''}
-      titlePlaceholder="Add page title"
-      onChangeTitle={handleChangeTitle}
-      showTitleInput={false}
-      showBackButton={false}
-      showPrimaryAction={isDirty}
-      showMoreActions={true}
-      blocks={mergedBlocks}
-      onChangeBlocks={handleBlocksChange}
-      backLabel="Back to Pages"
-      onBack={() => navigate('/pages')}
-      primaryActionLabel={isSaving ? 'Saving…' : 'Save'}
-      onPrimaryAction={handleSave}
-      isPrimaryBusy={isSaving}
-      viewUrl={page?.link}
-      documentLabel="Page"
-      canvasLayout="template"
-      canvasRevision={0}
-      recordContext={recordContext}
-      showEmptyPatternPicker={false}
-    />
+    <>
+      {staleSource ? (
+        <div className="sync-test-stale-banner" role="alert">
+          <span>Source file changed. You have unsaved edits — keep typing or reload from source.</span>
+          <button type="button" onClick={acceptStale}>Reload from source</button>
+          <button type="button" onClick={() => setStaleSource(null)}>Keep my edits</button>
+        </div>
+      ) : null}
+      <NativeBlockEditorFrame
+        label={documentLabel}
+        title={pageTitle ?? ''}
+        titlePlaceholder="Add title"
+        onChangeTitle={handleChangeTitle}
+        showTitleInput={false}
+        showBackButton={false}
+        showPrimaryAction={isDirty}
+        showMoreActions={true}
+        blocks={mergedBlocks}
+        onChangeBlocks={handleBlocksChange}
+        backLabel={backLabel}
+        onBack={() => navigate(backHref)}
+        primaryActionLabel={isSaving ? 'Saving…' : 'Save'}
+        onPrimaryAction={handleSave}
+        isPrimaryBusy={isSaving}
+        viewUrl={page?.link}
+        documentLabel={documentLabel}
+        documentSidebar={documentSidebar}
+        canvasLayout="template"
+        canvasRevision={0}
+        recordContext={recordContext}
+        showEmptyPatternPicker={false}
+      />
+    </>
+  );
+}
+
+function CreatePageScaffold() {
+  const navigate = useNavigate();
+  const [title, setTitle] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async () => {
+    if (!title.trim()) {
+      setError('Give the page a title to create it.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const saved = await dataDispatch(coreStore).saveEntityRecord(
+        'postType',
+        'page',
+        { title, status: 'draft', content: '' },
+        { throwOnError: true }
+      );
+      if (saved?.id) navigate(`/pages/${saved.id}`);
+      else setError('Page saved but no ID returned.');
+    } catch (err) {
+      setError(err?.message || 'Failed to create page.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="screen sync-test-create">
+      <div className="sync-test-create__inner">
+        <h1>New page</h1>
+        <p>Create a draft, then edit its content with the live-streaming canvas.</p>
+        <input
+          autoFocus
+          type="text"
+          placeholder="Page title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+        />
+        {error ? <p className="sync-test-create__error">{error}</p> : null}
+        <div className="sync-test-create__actions">
+          <button type="button" onClick={() => navigate('/pages')}>Cancel</button>
+          <button type="button" onClick={submit} disabled={busy}>
+            {busy ? 'Creating…' : 'Create page'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -314,13 +518,13 @@ export function SyncTestPage() {
     if (!pageId) return undefined;
     window.__wpliteSyncTestRoom = `postType/page:${pageId}`;
     window.__wpliteRefetchPage = () => {
-      dataDispatch('core').invalidateResolution('getEntityRecord', ['postType', 'page', pageId]);
+      dataDispatch('core').invalidateResolution('getEntityRecord', ['postType', postType, pageId]);
     };
     window.__wpliteDataSelect = dataSelect;
     window.__wpliteSyncDebug = () => {
       const select = dataSelect('core');
-      const page = select.getEntityRecord('postType', 'page', pageId);
-      const edited = select.getEditedEntityRecord('postType', 'page', pageId);
+      const page = select.getEntityRecord('postType', postType, pageId);
+      const edited = select.getEditedEntityRecord('postType', postType, pageId);
       const getContent = (obj) =>
         typeof obj?.content === 'string'
           ? obj.content
@@ -343,6 +547,10 @@ export function SyncTestPage() {
     };
   }, [pageId]);
 
+  if (rawId === 'new') {
+    return <CreatePageScaffold />;
+  }
+
   if (!pageId) {
     return (
       <div className="screen sync-test-empty">
@@ -362,7 +570,113 @@ export function SyncTestPage() {
 
   return (
     <EntityProvider kind="postType" type="page" id={pageId}>
-      <SyncTestCanvas pageId={pageId} editorBundle={editorBundle} />
+      <SyncEntityCanvas
+        postType="page"
+        entityId={pageId}
+        editorBundle={editorBundle}
+        documentLabel="Page"
+        backLabel="Back to Pages"
+        backHref="/pages"
+        fallbackTemplateSlug="page"
+      />
+    </EntityProvider>
+  );
+}
+
+// Collection-item flavour. Resolves a model from the bootstrap
+// collectionPath and feeds its postType into SyncEntityCanvas.
+export function SyncCollectionItemPage({ bootstrap }) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const collectionPath = params.collectionPath ?? '';
+  const rawId = params.itemId ?? '';
+  const entityId = /^\d+$/.test(rawId) ? Number(rawId) : rawId;
+
+  const [bundleEpoch, setBundleEpoch] = useState(0);
+  const [editorBundle, setEditorBundle] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    import('../lib/editor-bundle.js')
+      .then(({ loadEditorBundle, getCachedEditorBundle }) => {
+        const cached = getCachedEditorBundle();
+        if (cached && !cancelled) setEditorBundle(cached);
+        return loadEditorBundle();
+      })
+      .then((bundle) => { if (!cancelled) setEditorBundle(bundle); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [bundleEpoch]);
+
+  useEffect(() => {
+    function onBundleUpdated() { setBundleEpoch((n) => n + 1); }
+    window.addEventListener('wplite-event:editor-bundle-updated', onBundleUpdated);
+    return () =>
+      window.removeEventListener('wplite-event:editor-bundle-updated', onBundleUpdated);
+  }, []);
+
+  const model = useMemo(() => {
+    const models = Array.isArray(bootstrap?.models) ? bootstrap.models : [];
+    return (
+      models.find(
+        (m) => m.adminPath === collectionPath || m.id === collectionPath
+      ) ?? null
+    );
+  }, [bootstrap, collectionPath]);
+
+  if (!syncUrl) {
+    return (
+      <div className="screen sync-test-empty">
+        CRDT sync server is not running. Start <code>wp-lite dev</code> to enable
+        this editor.
+      </div>
+    );
+  }
+
+  if (!model) {
+    return (
+      <div className="screen sync-test-empty">
+        Unknown collection: <code>{collectionPath}</code>
+      </div>
+    );
+  }
+
+  if (rawId === 'new') {
+    // Defer new-item creation to the legacy editor for now (custom model
+    // fields aren't exposed via standard REST yet — see Probe 3 notes).
+    return (
+      <div className="screen sync-test-empty">
+        New {model.label ?? model.id} creation is not in sync engine yet.
+        Use <code>?engine=legacy</code> on this URL to fall back, or open
+        an existing item.
+      </div>
+    );
+  }
+
+  if (!entityId) {
+    return (
+      <div className="screen sync-test-empty">
+        Provide a numeric item ID.
+      </div>
+    );
+  }
+
+  const postType = model.postType ?? model.id;
+  const fallbackTemplate = `single-${model.id}`;
+  const backHref = collectionPath ? `/${collectionPath}` : '/';
+  const label = model.label ?? model.id;
+
+  return (
+    <EntityProvider kind="postType" type={postType} id={entityId}>
+      <SyncEntityCanvas
+        postType={postType}
+        entityId={entityId}
+        editorBundle={editorBundle}
+        documentLabel={label}
+        backLabel={`Back to ${label}`}
+        backHref={backHref}
+        fallbackTemplateSlug={fallbackTemplate}
+      />
     </EntityProvider>
   );
 }

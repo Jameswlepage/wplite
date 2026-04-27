@@ -15,7 +15,7 @@ import { AssistantChat } from './assistant-chat.jsx';
 import { AssistantProvider, useAssistant, AcpStatus } from './assistant-provider.jsx';
 import { NotificationBell, useNotificationArchive } from './notifications.jsx';
 import { PagesPage, PageEditorPage } from './pages.jsx';
-import { SyncTestPage } from './sync-test.jsx';
+import { SyncCollectionItemPage, SyncTestPage } from './sync-test.jsx';
 import { CommentsPage, CommentEditorPage } from './comments.jsx';
 import { MediaEditorPage } from './media.jsx';
 import { UsersPage, UserEditorPage } from './users.jsx';
@@ -907,7 +907,16 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
                 <Route path="/users" element={<UsersPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/users/:userId" element={<UserEditorPage key={`user-editor:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
                 <Route path="/:collectionPath" element={<CollectionListPage bootstrap={bootstrap} recordsByModel={recordsByModel} />} />
-                <Route path="/:collectionPath/:itemId" element={<CollectionEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setRecordsByModel={setRecordsByModel} pushNotice={pushNotice} />} />
+                <Route
+                  path="/:collectionPath/:itemId"
+                  element={
+                    shouldUseSyncEngine() ? (
+                      <SyncCollectionItemPage bootstrap={bootstrap} />
+                    ) : (
+                      <CollectionEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setRecordsByModel={setRecordsByModel} pushNotice={pushNotice} />
+                    )
+                  }
+                />
                 <Route path="/settings/site" element={<SiteSettingsPage key={`site-settings:${location.pathname}`} bootstrap={bootstrap} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
                 <Route path="/settings/:singletonId" element={<SingletonEditorPage key={`singleton-settings:${location.pathname}`} bootstrap={bootstrap} singletonData={singletonData} setSingletonData={setSingletonData} pushNotice={pushNotice} />} />
                 <Route path="/settings/logs" element={<LogsPage />} />
