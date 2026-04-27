@@ -34,6 +34,29 @@ import {
 } from './workspace-popovers.jsx';
 import { WorkspaceSurfaceProvider, useWorkspaceSurface, useEditorChrome } from './workspace-context.jsx';
 
+// Opt-in toggle for the new CRDT-backed page editor. Flipping this in
+// localStorage (or visiting /app/pages/:id?engine=sync once) routes the
+// production /app/pages/:id path to SyncTestPage. Goes away once the new
+// engine is the only engine.
+const SYNC_ENGINE_KEY = 'wplite.engine';
+function shouldUseSyncEngine() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('engine')) {
+      const v = params.get('engine');
+      try {
+        if (v === 'sync') window.localStorage.setItem(SYNC_ENGINE_KEY, 'sync');
+        else if (v === 'legacy') window.localStorage.setItem(SYNC_ENGINE_KEY, 'legacy');
+      } catch { /* noop */ }
+      return v === 'sync';
+    }
+    return window.localStorage.getItem(SYNC_ENGINE_KEY) === 'sync';
+  } catch {
+    return false;
+  }
+}
+
 function NotFoundScreen() {
   return (
     <div className="screen">
@@ -867,7 +890,16 @@ function WorkspaceShellFrame({ bootstrap, setBootstrap, recordsByModel, setRecor
                 <Route path="/integrations" element={<IntegrationsPage pushNotice={pushNotice} />} />
                 <Route path="/automations" element={<PlaceholderPage eyebrow="Workspace" title="Automations" lede="Triggers, actions, and background workflows will attach to content once the service layer lands." summary="Site-wide configuration and preferences." />} />
                 <Route path="/pages" element={<PagesPage pushNotice={pushNotice} />} />
-                <Route path="/pages/:pageId" element={<PageEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setBootstrap={setBootstrap} pushNotice={pushNotice} />} />
+                <Route
+                  path="/pages/:pageId"
+                  element={
+                    shouldUseSyncEngine() ? (
+                      <SyncTestPage />
+                    ) : (
+                      <PageEditorPage bootstrap={bootstrap} recordsByModel={recordsByModel} setBootstrap={setBootstrap} pushNotice={pushNotice} />
+                    )
+                  }
+                />
                 <Route path="/_sync-test/:pageId" element={<SyncTestPage />} />
                 <Route path="/comments" element={<CommentsPage bootstrap={bootstrap} pushNotice={pushNotice} />} />
                 <Route path="/comments/:commentId" element={<CommentEditorPage key={`comment-editor:${location.pathname}`} bootstrap={bootstrap} pushNotice={pushNotice} />} />

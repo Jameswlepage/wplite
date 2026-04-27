@@ -10,9 +10,6 @@
 //   (needs jsdom + @wordpress/blocks). We push body as a single Y.Text on
 //   the `content` field; @wordpress/core-data re-derives blocks from that
 //   string. Granular block-level merge is a Stage-2 upgrade.
-// - Preserve caret position across file-sourced edits. We do a naive
-//   replace-all on the Y.Text, which shifts any concurrent local caret.
-//   A quill-delta diff is the follow-up.
 // - Write changes in the other direction (ydoc → file). That's a separate
 //   concern — canvas saves still go through the existing REST save flow.
 
@@ -20,6 +17,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
 import * as Y from 'yjs';
+import { diffChars } from 'diff';
 
 const CRDT_RECORD_MAP_KEY = 'records';
 const ORIGIN_FILE = Symbol('wplite-file-bridge');
@@ -308,11 +306,34 @@ function setYText(ymap, key, newValue) {
   const current = ymap.get(key);
   if (current instanceof Y.Text) {
     if (current.toString() === newValue) return;
-    current.delete(0, current.length);
-    current.insert(0, newValue);
+    applyMinimalDiff(current, newValue ?? '');
     return;
   }
   const text = new Y.Text();
   if (newValue) text.insert(0, newValue);
   ymap.set(key, text);
+}
+
+// Apply the smallest set of insert/delete ops needed to morph yText's
+// current contents into `next`. Walks a char-level diff and emits ops
+// at the matching offsets; everything outside the changed region is
+// untouched, so any concurrent caret in the unchanged section keeps its
+// position. (For blocks it's still a textual diff over serialized markup —
+// good enough for the common "tweak one heading" case.)
+function applyMinimalDiff(yText, next) {
+  const previous = yText.toString();
+  if (previous === next) return;
+  const parts = diffChars(previous, next);
+  let cursor = 0;
+  for (const part of parts) {
+    if (part.added) {
+      yText.insert(cursor, part.value);
+      cursor += part.value.length;
+    } else if (part.removed) {
+      yText.delete(cursor, part.value.length);
+      // cursor unchanged — deletion shrinks the doc at this offset.
+    } else {
+      cursor += part.value.length;
+    }
+  }
 }
